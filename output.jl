@@ -65,8 +65,7 @@ function write_output!(writer::Union{MarineOutputWriter, Nothing}, model::Marine
                 if filesize(writer.plankton_file) ≥ writer.max_filesize
                     start_next_plankton_file(writer)
                 end
-                write_individuals_to_jld2(model.individuals.animals, writer.plankton_file, model.t,
-                                          model.iteration, writer.plankton_include)
+                write_individuals_to_jld2(model.individuals.animals, writer.plankton_file, model.t, model.iteration, writer.plankton_include)
             end
         end
     end

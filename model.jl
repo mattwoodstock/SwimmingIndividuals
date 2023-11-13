@@ -7,11 +7,11 @@ using KernelAbstractions: @kernel, @index
 
 include("utilities.jl")
 include("create.jl")
-include("timestep.jl")
 include("diagnostics.jl")
-include("output.jl")
-include("update.jl")
 include("simulation.jl")
+include("update.jl")
+include("output.jl")
+include("timestep.jl")
 
 
 ## Load in necessary databases
@@ -54,6 +54,12 @@ sim.output_writer = MarineOutputWriter(save_plankton=true)
 # Run model. Currently this is very condensed, but I kept the code for when we work with environmental factors
 update!(sim)
 
+
+# Look at saved results
+file = jldopen(sim.output_writer.plankton_file, "r")
+
+println(keys(file["timeseries"]))
+iterations = parse.(Int, keys(file["timeseries/t"]))
 
 
 println("Works")

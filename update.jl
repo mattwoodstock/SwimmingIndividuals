@@ -1,4 +1,3 @@
-
 function update!(sim::MarineSimulation; time_offset = (vels = false, PARF = false, temp = false))
     #Will be used to change to environmental grids   
     #if sim.input.vels ≠ (;)
