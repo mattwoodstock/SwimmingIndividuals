@@ -45,157 +45,71 @@ function horizontal_movement(ind,trait,g)
     return (new_longitude,new_latitude)
 end
 
-function dive_initiate(z_t,target_z,trait,rate)
-    status = "descend"
-    target_z = (rand() * (trait.Dive_depth_max[1] - trait.Dive_depth_min[1]))+trait.Dive_depth_min[1]
-    z_t = z_t + rate
-    return z_t, target_z, status
-end
-
-function surface_initiate(z_t,target_z,trait,rate)
-    status = "ascend"
-    target_z = (rand() * (trait.Night_depth_max[1] - trait.Night_depth_min[1]))+trait.Night_depth_min[1]
-    z_t = z_t - rate
-    return z_t, target_z, status
-end
-
-function descend_dvm_start(z_t,target_z,trait,vm_rate)
-    status = "descend"
-    target_z = (rand() * (trait.Day_depth_max[1] - trait.Day_depth_min[1]))+trait.Day_depth_min[1]
-    z_t = z_t + vm_rate
-    return z_t, target_z, status
-end
-
-function ascend_dvm_start(z_t,target_z,trait,vm_rate)
-    status = "ascend"
-    target_z = (rand() * (trait.Night_depth_max[1] - trait.Night_depth_min[1]))+trait.Night_depth_min[1]
-    z_t = z_t - vm_rate
-    return z_t, target_z, status
-end
-
-function vertical_movement(ind,trait,g,t)
+function vertical_movement(ind,trait,t)
     mig = ind.move[1]
     vm_rate = trait.Mig_rate[1] #m per minute (Bianchi et al. (2016))
-    dvm_trigger = 0.1 #proportion of bodyweight energy necessary for asynchronous migrators to migrate
+    dvm_trigger = 0.3 #proportion of bodyweight energy necessary for asynchronous migrators to migrate
     z_t = ind.z[1]
     target_z = ind.target_z[1]
-    dive_interval = ind.dive_interval[1]
-    surface_interval = ind.surface_interval[1]
 
-    ## Movement modes: steady, ascend, descend, dive_int, surface_int, spent
-    if trait.Movement_type[1] == "Epipelagic diver"
-        if (mig == "steady") && (ind.dives_remain[1] > 0)
-            if rand() > 0.95 #5% chance of diving each minute
-                dive_rate = ind.length[1]/100 * trait.Swim_velo[1] * 60
-                z_t, target_z, mig = dive_initiate(z_t,target_z,trait,dive_rate)
-            end
-        elseif mig == "descend"
-            surface_interval = trait.surface_interval[1] #Reset surface interval
-            if z_t >=target_z #Reached target descend depth
-                mig = "dive_int"
-            else
-                z_t = z_t + dive_rate
-            end
-        elseif mig == "dive_int"
-            if dive_interval == 0
-                dive_rate = ind.length[1]/100 * trait.Swim_velo[1] * 60
-                z_t, target_z, mig = surface_initiate(z_t,target_z,trait,dive_rate)
-            else
-                dive_interval = dive_interval - 1
-            end
-        elseif mig == "ascend"
-            dive_interval = trait.dive_interval[1] #Reset dive interval
-            if z_t <= target_z
-                mig = "surface_int"
-            else
-                z_t = z_t - dive_rate
-            end
-        elseif mig == "surface_int"
-            if surface_interval == 0
-                mig = "steady"
-            else
-                surface_interval = surface_interval - 1
-            end
-        end
-    elseif trait.Movement_type[1] == "Surface associated diver"
-        #Same as epipelagic diver, but animal returns to the surface
-
-        if (mig == "steady") && (ind.dives_remain[1] > 0)
-            if rand() > 0.95 #5% chance of diving each minute
-                dive_rate = ind.length[1]/100 * trait.Swim_velo[1] * 60
-                z_t, target_z, mig = dive_initiate(z_t,target_z,trait,dive_rate)
-            end
-        elseif mig == "descend"
-            surface_interval = trait.surface_interval[1] #Reset surface interval
-            if z_t >=target_z #Reached target descend depth
-                mig = "dive_int"
-            else
-                z_t = z_t + dive_rate
-            end
-        elseif mig == "dive_int"
-            if dive_interval == 0
-                dive_rate = ind.length[1]/100 * trait.Swim_velo[1] * 60
-                z_t, target_z, mig = surface_initiate(z_t,target_z,trait,dive_rate)
-                target_z = 0 #All surface-associated animals go to surface
-            else
-                dive_interval = dive_interval - 1
-            end
-        elseif mig == "ascend"
-            dive_interval = trait.dive_interval[1] #Reset dive interval
-            if z_t <= target_z
-                mig = "surface_int"
-            else
-                z_t = z_t - dive_rate
-            end
-        elseif mig == "surface_int"
-            if surface_interval == 0
-                mig = "steady"
-            else
-                surface_interval = surface_interval - 1
-            end
-        end    
-    elseif trait.Movement_type[1] == "Synchronous vertical migrator"
+    if trait.Movement_type[1] == "Synchronous vertical migrator"
         if (t >= 6*60) && (mig == "steady") && (t < 18*60)
             mig = "descend"
             target_z = (rand() * (trait.Day_depth_max[1] - trait.Day_depth_min[1]))+trait.Day_depth_min[1]
-            z_t = z_t + vm_rate
+            z_t = ind.z[1] + vm_rate
         end
+
         if  (t >= 18*60) && (mig == "spent")
-            mig == "ascend"
+
+            mig = "ascend"
             target_z = (rand() * (trait.Night_depth_max[1] - trait.Night_depth_min[1]))+trait.Night_depth_min[1]
-            z_t = z_t - vm_rate
+            z_t = ind.z[1] - vm_rate
         end
+
         if (mig == "ascend") && (z_t <= target_z)
-            mig == "steady"
-        else
-            z_t = z_t - vm_rate
+
+            mig = "steady"
+        elseif (mig == "ascend")
+
+            z_t = ind.z[1] - vm_rate
         end
+
         if (mig == "descend") && (z_t >= target_z)
-            mig == "spent"
-        else
-            z_t = z_t + vm_rate
-        end     
-    elseif trait.Movement_type[1] == "Asynchronous vertical migrator"
+
+            mig = "spent"
+        elseif (mig == "descend")
+            z_t = ind.z[1] + vm_rate
+        end  
+    end
+
+    if trait.Movement_type[1] == "Asynchronous vertical migrator"
         if (t >= 6*60) && (mig == "steady") && (t < 18*60)
             mig = "descend"
             target_z = (rand() * (trait.Day_depth_max[1] - trait.Day_depth_min[1]))+trait.Day_depth_min[1]
-            z_t = z_t + vm_rate
+            z_t = ind.z[1] + vm_rate
         end
-        if  (t >= 18*60) && (mig == "spent") && (energy < weight*dvm_trigger)
-            mig == "ascend"
+
+        if  (t >= 18*60) && (mig == "spent") && (ind.energy[1] < ind.weight[1]*dvm_trigger)
+
+            mig = "ascend"
             target_z = (rand() * (trait.Night_depth_max[1] - trait.Night_depth_min[1]))+trait.Night_depth_min[1]
-            z_t = z_t - vm_rate
+            z_t = ind.z[1] - vm_rate
         end
+
         if (mig == "ascend") && (z_t <= target_z)
-            mig == "steady"
-        else
-            z_t = z_t - vm_rate
+
+            mig = "steady"
+        elseif (mig == "ascend")
+
+            z_t = ind.z[1] - vm_rate
         end
+
         if (mig == "descend") && (z_t >= target_z)
-            mig == "spent"
-        else
-            z_t = z_t + vm_rate
-        end     
+
+            mig = "spent"
+        elseif (mig == "descend")
+            z_t = ind.z[1] + vm_rate
+        end  
     end
-    return z_t, mig, target_z, dive_interval, surface_interval
+    return z_t, mig, target_z  
 end

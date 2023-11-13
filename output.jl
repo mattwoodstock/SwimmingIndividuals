@@ -1,40 +1,85 @@
-
-function species_density(inds,g_frame)
-
-    dens = DataFrame(Species = String[], Cell = Int[], Density = Float64[])
-    for i in 1:length(unique(inds.Species))
-        for j in 1:length(unique(inds.cell))
-
-            subs = inds[(inds.Species .== unique(inds.Species)[i]) .& (inds.cell .== unique(inds.cell)[j]), :]
-
-            sub_frame = g_frame[g_frame.cell .== unique(inds.cell)[j], :]
-
-            density = nrow(subs)/sub_frame.Volume[1]
-
-            new_row = Dict("Species" => unique(inds.Species)[i], "Cell" => unique(inds.cell)[j],"Density" => density)
-
-            push!(dens,new_row)
-        end
-    end
-    return dens
+mutable struct MarineOutputWriter
+    filepath::String
+    write_log::Bool
+    save_diags::Bool
+    save_plankton::Bool
+    diags_file::String
+    plankton_file::String
+    plankton_include::Tuple
+    plankton_iteration_interval::Int
+    max_filesize::Number # in Bytes
+    part_diags::Int
+    part_plankton::Int
 end
 
-function biomass_density(inds,g_frame)
+function MarineOutputWriter(;dir = "./results",
+    diags_prefix = "diags",
+    plankton_prefix = "plankton",
+    write_log = false,
+    save_diags = false,
+    save_plankton = false,
+    plankton_include = (:x, :y, :z, :length),
+    plankton_iteration_interval = 1,
+    max_filesize = Inf
+    )
 
-    dens = DataFrame(Species = String[], Cell = Int[], Density = Float64[])
-    for i in 1:length(unique(inds.Species))
-        for j in 1:length(unique(inds.cell))
+isdir(dir) && rm(dir, recursive=true)
+mkdir(dir)
 
-            subs = inds[(inds.Species .== unique(inds.Species)[i]) .& (inds.cell .== unique(inds.cell)[j]), :]
+diags_file = ""
+plankton_file = ""
 
-            sub_frame = g_frame[g_frame.cell .== unique(inds.cell)[j], :]
+if save_diags
+diags_file = joinpath(dir, diags_prefix*".jld2")
+end
+if save_plankton
+plankton_file = joinpath(dir, plankton_prefix*".jld2")
+end
 
-            density = sum(subs.weight)/sub_frame.Volume[1]
+return MarineOutputWriter(dir, write_log, save_diags, save_plankton, diags_file, plankton_file,
+     plankton_include, plankton_iteration_interval, max_filesize, 1, 1)
+end
 
-            new_row = Dict("Species" => unique(inds.Species)[i], "Cell" => unique(inds.cell)[j],"Density" => density)
 
-            push!(dens,new_row)
+function write_output!(writer::Union{MarineOutputWriter, Nothing}, model::MarineModel, ΔT)
+    if isa(writer, Nothing)
+        return nothing
+    else
+        if writer.write_log
+            write_species_dynamics(model.t, model.individuals.phytos,
+                                   writer.filepath, model.mode)
+        end
+
+        if writer.save_diags
+            if model.iteration % diags.iteration_interval == 0.0
+                if filesize(writer.diags_file) ≥ writer.max_filesize
+                    start_next_diags_file(writer)
+                end
+                write_diags_to_jld2(diags, writer.diags_file, model.t, model.iteration,
+                                    diags.iteration_interval, model.grid)
+            end
+        end
+
+        if writer.save_plankton
+            if model.iteration % writer.plankton_iteration_interval == 0.0
+                if filesize(writer.plankton_file) ≥ writer.max_filesize
+                    start_next_plankton_file(writer)
+                end
+                write_individuals_to_jld2(model.individuals.animals, writer.plankton_file, model.t,
+                                          model.iteration, writer.plankton_include)
+            end
         end
     end
-    return dens
+end
+
+function write_individuals_to_jld2(animals::NamedTuple, filepath, t, iter, atts)
+    jldopen(filepath, "a+") do file
+        file["timeseries/t/$iter"] = t
+        for sp in keys(animals)
+            spi = NamedTuple{atts}([getproperty(animals[sp].data, att) for att in atts])
+            for att in atts
+                file["timeseries/$sp/$att/$iter"] = Array(spi[att])
+            end
+        end
+    end
 end
