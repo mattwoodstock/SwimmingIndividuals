@@ -1,0 +1,5 @@
+Name,Value,Description
+architecture,CPU,Can either be CPU or GPU
+numspec,10,Number of Modeled Species
+maxindividuals,10,Maximum number of individuals
+nts,1440,Number of Time Steps (minutes)

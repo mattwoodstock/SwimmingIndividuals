@@ -1,0 +1,928 @@
+,SpeciesLong,SpeciesShort,Habitat,Taxon,Abundance,Assimilation_eff,LF_dist,LF_dist1,LF_dist2,LWR_a,LWR_b,VBG_K,VBG_LOO,VBG_t0,Mat_age,Tmax,M_type,M_const,Sex_rat,Swim_velo
+1,Aglaophamus_circinata,sp1,"Marine, BrackishWater, Estuaries, Benthic, SoftBottom, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+2,Ampharete_finmarchica,sp2,"Marine, Neritic, LittoralZone, SubLittoral, Epipelagic, mesopelagic, bathypelagic, Benthic, Demersal, SoftBottom, Sand",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+3,Ancistrosyllis_hartmanae,sp3,"Marine, Benthic, Mobile, SoftBottom, Sand, Mud, CoralReefs, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+4,Aphrodita_hastata,sp4,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+5,Apistobranchus_tullbergi,sp5,"Marine, Neritic, SubLittoral, Benthic, Mobile, Demersal, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+6,Apoprionospio_pygmaea,sp6,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+7,Arabella_iricolor,sp7,"Marine, Neritic, LittoralZone, Intertidal, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Mud, HardBottom, Rocky, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+8,Aricidea_catherinae,sp8,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, Oceanic, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Fine, Mud, HardBottom, Rocky, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+9,Aricidea_cerrutii,sp9,"Marine, Neritic, SubLittoral, Benthic, SoftBottom, Sand, Coarse, Fine, HardBottom, Rubble",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+10,Aricidea_finitima,sp10,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+11,Aricidea_taylori,sp11,"Marine, Benthic, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+12,Aricidea_wassi,sp12,"Marine, Benthic, SoftBottom, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+13,Aricidea_suecica,sp13,"Marine, Neritic, LittoralZone, SubLittoral, Benthic, Demersal, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+14,Armandia_maculata,sp14,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+15,Bradabyssa_villosa,sp15,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+16,Chaetozone_setosa,sp16,"Marine, Neritic, LittoralZone, SubLittoral, Epipelagic, mesopelagic, bathypelagic, BrackishWater, Estuaries, Benthic, Endofauna, Macrobenthos, SoftBottom, Sand, Fine, Silt, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+17,Clymenella_mucosa,sp17,"Marine, Neritic, LittoralZone, Intertidal, Benthic, Macrobenthos, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+18,Clymenella_torquata,sp18,"Marine, Neritic, LittoralZone, SubLittoral, Benthic, SoftBottom, HardBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+19,Dipolydora_socialis,sp19,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+20,Drilonereis_longa,sp20,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+21,Eteone_longa,sp21,"Marine, Neritic, SubLittoral, BrackishWater, Estuaries, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Mud, Ooze, Detritus",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+22,Euchone_incolor,sp22,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+23,Eunice_pennata,sp23,"Marine, Benthic, Mobile, Macrobenthos, SoftBottom, HardBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+24,Eunice_websteri,sp24,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+25,Exogone_rolani,sp25,"Marine, Benthic, Mobile, Pelagic, SoftBottom, HardBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+26,Exogone_verugera,sp26,"Marine, Neritic, SubLittoral, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Fine",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+27,Galathowenia_oculata,sp27,"Marine, Neritic, SubLittoral, Benthic, Endofauna, Macrobenthos, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+28,Goniada_maculata,sp28,"Marine, Neritic, SupraLittoralZone, LittoralZone, SubLittoral, BrackishWater, Estuaries, Benthic, SoftBottom, Sand, Mud, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+29,Goniadella_gracilis,sp29,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+30,Harmothoe_imbricata,sp30,"Marine, Neritic, LittoralZone, Intertidal, SoftBottom, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+31,Hartmania_moorei,sp31,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+32,Hydroides_dianthus,sp32,"Marine, Benthic, Sessile, SoftBottom, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+33,Kirkegaardia_baptisteae,sp33,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+34,Kirkegaardia_dorsobranchialis,sp34,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+35,Leitoscoloplos_acutus,sp35,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+36,Levinsenia_gracilis,sp36,"Marine, Neritic, SubLittoral, bathypelagic, Benthic, Macrobenthos, SoftBottom, Sand, Fine, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+37,Lumbrinerides_acuta,sp37,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+38,Lumbrineris_bidens,sp38,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+39,Lumbrineris_latreilli,sp39,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, Benthic, Mobile, SoftBottom, Sand, Coarse, Fine, Mud, HardBottom, Rubble, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+40,Lysidice_hebes,sp40,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+41,Mediomastus_ambiseta,sp41,"Marine, Neritic, SubLittoral, Oceanic, Benthic, SoftBottom, Sand, Silt, Vents, Verterbrates",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+42,Mooreonuphis_pallidula,sp42,"Marine, Benthic, SoftBottom, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+43,Nephtys_incisa,sp43,"Marine, Neritic, SubLittoral, Benthic, Macrobenthos, Pelagic, SoftBottom, Sand, Mud, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+44,Nereis_grayi,sp44,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+45,Nereis_pelagica,sp45,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, Benthic, SoftBottom, HardBottom, Rocky, Macrophyte, BedsRock, CoralReefs, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+46,Ninoe_nigripes,sp46,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+47,Notocirrus_spiniferus,sp47,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+48,Notomastus_latericeus,sp48,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, Epipelagic, mesopelagic, bathypelagic, abyssopelagic, hadopelagic, BrackishWater, Estuaries, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Fine, Silt, Mud, SeaGrassBeds, CoralReefs, Burrows, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+49,Ophelina_acuminata,sp49,"Marine, Neritic, SubLittoral, Benthic, Mobile, SoftBottom, Sand, Coarse, Fine, Mud, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+50,Ophelina_cylindricaudata,sp50,"Marine, Benthic, Endofauna, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+51,Owenia_fusiformis,sp51,"Marine, Neritic, SubLittoral, BrackishWater, Estuaries, Benthic, Endofauna, Macrobenthos, SoftBottom, Sand, Coarse, Fine, Mud, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+52,Paraonis_fulgens,sp52,"Marine, Benthic, SoftBottom, Sand, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+53,Paraonis_pygoenigmatica,sp53,"Marine, Benthic, SoftBottom, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+54,Parapionosyllis_longicirrata,sp54,"Marine, Benthic, Mobile, SoftBottom, Sand, HardBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+55,Parasabella_microphthalma,sp55,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+56,Parexogone_hebes,sp56,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+57,Parougia_caeca,sp57,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+58,Paucibranchia_bellii,sp58,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+59,Pholoe_minuta,sp59,"Marine, Neritic, SupraLittoralZone, LittoralZone, Intertidal, SubLittoral, Oceanic, BrackishWater, Estuaries, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Fine, Mud, BedsRock, OInverterbrates",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+60,Polycirrus_eximius,sp60,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+61,Potamilla_neglecta,sp61,"Marine, Neritic, LittoralZone",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+62,Saphobranchia_octobranchus,sp62,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+63,Scalibregma_inflatum,sp63,"Marine, Neritic, SubLittoral, Oceanic, Epipelagic, mesopelagic, bathypelagic, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Mud, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+64,Scoletoma_acicularum,sp64,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+65,Scoletoma_fragilis,sp65,"Marine, Neritic, SubLittoral, Epipelagic, mesopelagic, Benthic, Demersal, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+66,Scoletoma_tenuis,sp66,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+67,Scoletoma_verrilli,sp67,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+68,Scoloplos_armiger,sp68,"Marine, Neritic, LittoralZone, SubLittoral, BrackishWater, Estuaries, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Fine, Mud, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+69,Sigambra_tentaculata,sp69,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, abyssopelagic, Benthic, Mobile, SoftBottom, Sand, Coarse, Fine, Mud, Ooze, Detritus, CoralReefs, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+70,Spiochaetopterus_oculatus,sp70,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+71,Spiophanes_bombyx,sp71,"Marine, Neritic, SubLittoral, BrackishWater, Estuaries, Benthic, Endofauna, Macrobenthos, Pelagic, SoftBottom, Sand, Coarse, Fine, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+72,Sthenelais_boa,sp72,"Marine, Neritic, SubLittoral, BrackishWater, Estuaries, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Coarse, Fine, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+73,Streptosyllis_arenae,sp73,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+74,Syllides_longocirratus,sp74,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+75,Syllis_beneliahuae,sp75,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+76,Terebellides_parvus,sp76,"Marine, Benthic, Endofauna, SoftBottom, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+77,Terebellides_stroemii,sp77,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, BrackishWater, Benthic, Sessile, Macrobenthos, SoftBottom, Sand, Coarse, Fine, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+78,Tharyx_acutus,sp78,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+79,Tharyx_killariensis,sp79,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+80,Therochaeta_collarifera,sp80,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+81,Tomopteris_helgolandica,sp81,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+82,Tomopteris_septentrionalis,sp82,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+83,Travisia_carnea,sp83,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+84,Acanthephyra_pelagica,sp84,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+85,Acanthephyra_purpurea,sp85,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+86,Acanthocarpus_alexandri,sp86,"Marine, Benthic, Mobile, SoftBottom, HardBottom, Rubble",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+87,Acartia_danae,sp87,"Marine, Neritic, LittoralZone, Oceanic, Epipelagic, mesopelagic, Pelagic, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+88,Acartia_hudsonica,sp88,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+89,Acartia_longiremis,sp89,"Marine, Neritic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+90,Aega_psora,sp90,"Marine, BrackishWater, Estuaries, Parasitism, InsideHost, Pelagic, Verterbrates",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+91,Aeginina_longicornis,sp91,"Marine, Neritic, LittoralZone, Intertidal, Benthic, SoftBottom, Silt, HardBottom, Rocky, Macrophyte",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+92,Aegisthus_mucronatus,sp92,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Benthic, Mobile, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+93,Aetideopsis_armata,sp93,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+94,Aetideus_armatus,sp94,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, BrackishWater, Estuaries, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+95,Amalopenaeus_elegans,sp95,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+96,Ampelisca_abdita,sp96,"Marine, Neritic, LittoralZone, Intertidal, Benthic, Mobile, Endofauna, SoftBottom, Sand, Mud, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+97,Ampelisca_agassizi,sp97,"Marine, Benthic, Endofauna, SoftBottom, Sand, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+98,Ampelisca_verrilli,sp98,"Marine, Benthic, Mobile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+99,Atlantopandalus_propinqvus,sp99,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+100,Bathynectes_longispina,sp100,"Marine, Benthic, Mobile, Pelagic, SoftBottom, HardBottom, Rubble",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+101,Belzebub_faxoni,sp101,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+102,Byblis_serrata,sp102,"Marine, Benthic, Mobile, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+103,Calanus_finmarchicus,sp103,"Marine, Neritic, Oceanic, Epipelagic, mesopelagic, bathypelagic, BrackishWater, Estuaries, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+104,Calanus_glacialis,sp104,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+105,Calanus_hyperboreus,sp105,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+106,Callinectes_sapidus,sp106,"Marine, Neritic, BrackishWater, Estuaries, FreshWater, Symbiosis, Benthic, Mobile, Pelagic, SoftBottom, Sand, Mud, Burrows",,10,0.8,constant,0,10,NA,NA,0.875263158,19.48578947,-0.065,NA,NA,constant,0,0.5,NA
+107,Calocalanus_pavo,sp107,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+108,Calocalanus_tenuis,sp108,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+109,Campylaspis_affinis,sp109,"Marine, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+110,Campylaspis_rubicunda,sp110,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+111,Cancer_borealis,sp111,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, Benthic, Mobile, SoftBottom, HardBottom, Rocky, Rubble",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+112,Cancer_irroratus,sp112,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, Benthic, Mobile, SoftBottom, HardBottom, Rubble",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+113,Candacia_armata,sp113,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+114,Casco_bigelowi,sp114,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+115,Centropages_bradyi,sp115,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+116,Centropages_hamatus,sp116,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+117,Centropages_typicus,sp117,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+118,Chaceon_quinquedens,sp118,"Marine, Benthic, Mobile, SoftBottom, Silt",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+119,Chionoecetes_opilio,sp119,"Marine, Neritic, Oceanic, Parasitism, InsideHost, Benthic, Mobile, SoftBottom, Sand, Mud, HardBottom, Gravel",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+120,Clausocalanus_furcatus,sp120,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+121,Clausocalanus_pergens,sp121,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+122,Clytemnestra_scutellata,sp122,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+123,Crangon_septemspinosa,sp123,"Marine, Neritic, SubLittoral, Benthic, Macrobenthos, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+124,Crassicorophium_crassicorne,sp124,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+125,Cyathura_polita,sp125,"Marine, Neritic, LittoralZone, Intertidal, BrackishWater, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+126,Diastylis_abbreviata,sp126,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+127,Diastylis_quadrispinosa,sp127,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+128,Dichelopandalus_leptocerus,sp128,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+129,Dyopedos_monacanthus,sp129,"Marine, Benthic, SoftBottom, Sand, Silt",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+130,Dyopedos_porrectus,sp130,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+131,Ericthonius_brasiliensis,sp131,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+132,Eriopisa_elongata,sp132,"Marine, Benthic, HardBottom, Rubble",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+133,Euchirella_rostrata,sp133,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+134,Eudorella_monodon,sp134,"Marine, Neritic, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+135,Eudorella_pusilla,sp135,"Marine, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+136,Eurycope_cornuta,sp136,"Marine, Neritic, Oceanic, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+137,Eusergestes_arcticus,sp137,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,1.855,0.75,1.675,NA,NA,NA,constant,0,0.5,NA
+138,Gaetanus_brevispinus,sp138,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+139,Gaetanus_curvicornis,sp139,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+140,Gaetanus_tenuispinus,sp140,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+141,Galacantha_rostrata,sp141,"Marine, Benthic, Mobile, Demersal, SoftBottom, Sand, Mud, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+142,Gennadas_valens,sp142,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+143,Haloptilus_longicornis,sp143,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+144,Hansarsia_megalops,sp144,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+145,Harbansus_bowenae,sp145,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+146,Harpinia_propinqva,sp146,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+147,Heteralepas_cantelli,sp147,"Marine, Oceanic, Benthic, Sessile, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+148,Heterorhabdus_norvegicus,sp148,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+149,Hippomedon_serratus,sp149,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+150,Homarus_americanus,sp150,"Marine, Neritic, SubLittoral, Benthic, Mobile, SoftBottom, Mud, HardBottom, Rocky, Macrophyte, BedsRock",,10,0.8,constant,0,10,NA,NA,0.077,24.8,NA,NA,NA,constant,0,0.5,NA
+151,Lebbeus_groenlandicus,sp151,"Marine, Oceanic, mesopelagic, Benthic, Mobile",,10,0.8,constant,0,10,NA,NA,0.445,4.122,NA,NA,NA,constant,0,0.5,NA
+152,Lebbeus_microceros,sp152,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+153,Lebbeus_polaris,sp153,"Marine, Benthic, SoftBottom, HardBottom, Macrophyte",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+154,Leptocheirus_pinguis,sp154,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+155,Leptostylis_longimana,sp155,"Marine, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+156,Leucothoe_spinicarpa,sp156,"Marine, Neritic, SubLittoral, Parasitism, Commensalism, Benthic, Mobile, SoftBottom, Sand, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+157,Libinia_dubia,sp157,"Marine, Benthic, Mobile, SoftBottom, HardBottom, Rubble, SeaGrassBeds, Vegetation",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+158,Libinia_emarginata,sp158,"Marine, Benthic, SoftBottom, HardBottom, Rubble, Vegetation",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+159,Limulus_polyphemus,sp159,"Marine, Neritic, LittoralZone, Intertidal, Benthic, Mobile, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+160,Lithodes_maja,sp160,"Marine, Neritic, Oceanic, Benthic, Mobile, SoftBottom, Sand",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+161,Lucicutia_flavicornis,sp161,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+162,Lucicutia_ovalis,sp162,"Marine, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+163,Mecynocera_clausi,sp163,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+164,Megamoera_dentata,sp164,"Marine, Benthic, SoftBottom, Macrophyte",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+165,Meganyctiphanes_norvegica,sp165,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+166,Mesocalanus_tenuicornis,sp166,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+167,Metridia_longa,sp167,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+168,Microsetella_norvegica,sp168,"Marine, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+169,Miracia_efferata,sp169,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+170,Mormonilla_phasma,sp170,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+171,Nannocalanus_minor,sp171,"Marine, Neritic, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+172,Nematobrachion_boopis,sp172,"Marine, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+173,Neolithodes_grimaldii,sp173,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+174,Oithona_atlantica,sp174,"Marine, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+175,Oithona_similis,sp175,"Marine, Oceanic, Epipelagic, BrackishWater, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+176,Oncaea_venusta,sp176,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+177,Ovalipes_ocellatus,sp177,"Marine, Neritic, LittoralZone, SubLittoral, Benthic, Mobile, SoftBottom, Sand",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+178,Oxyurostylis_smithi,sp178,"Marine, Benthic, Pelagic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+179,Pandalus_borealis,sp179,"Marine, Benthic, Demersal, SoftBottom, Sand, Silt, Mud, Rocky",,10,0.8,constant,0,10,NA,NA,0.293666667,2.744166667,-0.885,NA,8,constant,0,0.5,NA
+180,Pandalus_montagui,sp180,"Marine, Neritic, SubLittoral, Benthic, Mobile, SoftBottom, Ooze, Detritus, Organic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+181,Paraeuchaeta_norvegica,sp181,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+182,Parapagurus_pilosimanus,sp182,"Marine, Benthic, Mobile, OInverterbrates",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+183,Parasterope_pollex,sp183,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+184,Pasiphaea_multidentata,sp184,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Cave, Pelagic, Seamounts",,10,0.8,constant,0,10,NA,2.7,0.806666667,4.763333333,NA,NA,NA,constant,0,0.5,NA
+185,Peratocytheridea_setipunctata,sp185,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+186,Photis_pollex,sp186,"Marine, Neritic, SubLittoral, Benthic, Mobile, Macrobenthos, SoftBottom, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+187,Phoxocephalus_holbolli,sp187,"Marine, Neritic, SubLittoral, Oceanic, Benthic, Mobile, Macrobenthos, SoftBottom, Sand, Coarse",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+188,Pleoticus_robustus,sp188,"Marine, Neritic, BrackishWater, Estuaries, Benthic, Mobile, SoftBottom, Sand, Silt, Mud",,10,0.8,constant,0,10,NA,NA,0.39,24.25,NA,NA,NA,constant,0,0.5,NA
+189,Pleuromamma_borealis,sp189,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+190,Podon_leuckartii,sp190,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+191,Politolana_concharum,sp191,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+192,Pontophilus_norvegicus,sp192,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+193,Pseudoamallothrix_ovata,sp193,"Marine, Oceanic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+194,Ptilanthura_tenuis,sp194,"Marine, Neritic, LittoralZone, Intertidal, Benthic, Endofauna, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+195,Rhepoxynius_hudsoni,sp195,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+196,Rhincalanus_nasutus,sp196,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+197,Robustosergia_robusta,sp197,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+198,Scyllarides_nodifer,sp198,"Marine, Benthic, Mobile, SoftBottom, Sand, Mud, HardBottom, Rubble",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+199,Siphonoecetes_smithianus,sp199,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+200,Skaptopus_brychius,sp200,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+201,Spinocalanus_abyssalis,sp201,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+202,Spirontocaris_liljeborgii,sp202,"Marine, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+203,Spirontocaris_phippsii,sp203,"Marine, Benthic, HardBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+204,Squilla_empusa,sp204,"Marine, Neritic, SubLittoral, Benthic, SoftBottom, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+205,Syscenus_atlanticus,sp205,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+206,Tanaissus_psammophilus,sp206,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+207,Temora_longicornis,sp207,"Marine, Oceanic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+208,Themisto_abyssorum,sp208,"Marine, Neritic, Oceanic, Benthic, Mobile, Demersal, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+209,Themisto_compressa,sp209,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+210,Themisto_libellula,sp210,"Marine, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+211,Thysanoessa_gregaria,sp211,"Marine, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+212,Thysanoessa_longicaudata,sp212,"Marine, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,7.8,1.68,NA,NA,NA,constant,0,0.5,NA
+213,Thysanoessa_raschii,sp213,"Marine, Neritic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+214,Triconia_borealis,sp214,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+215,Triconia_conifera,sp215,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+216,Triconia_minuta,sp216,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+217,Unciola_irrorata,sp217,"Marine, Benthic, Endofauna, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+218,Caecosagitta_macrocephala,sp218,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+219,Eukrohnia_fowleri,sp219,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+220,Eukrohnia_hamata,sp220,"Marine, Neritic, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+221,Parasagitta_elegans,sp221,"Marine, Neritic, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+222,Pseudosagitta_maxima,sp222,"Marine, Neritic, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+223,Serratosagitta_serratodentata,sp223,"Marine, Neritic, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+224,Acanthochaenus_luetkenii,sp224,Oceanic,,10,0.8,constant,0,10,NA,NA,0.414,11.04,-0.27,NA,NA,constant,0,0.5,NA
+225,Acanthocybium_solandri,sp225,"Oceanic, Epipelagic, Solitary, HardBottom, Rocky",,10,0.8,constant,0,10,NA,3.91,0.31316375,173.355,-2.281666667,2,8.4,constant,0,0.5,11.33
+226,Acipenser_oxyrinchus,sp226,"Oceanic, Estuaries, Stream",,10,0.8,constant,0,10,NA,NA,0.1015,227.725,-1.86,NA,60,constant,0,0.5,NA
+227,Acipenser_oxyrinchus,sp227,Estuaries,,10,0.8,constant,0,10,NA,NA,0.1015,227.725,-1.86,NA,60,constant,0,0.5,NA
+228,Ahliesaurus_berryi,sp228,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+229,Aldrovandia_affinis,sp229,"Oceanic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+230,Aldrovandia_oleosa,sp230,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+231,Aldrovandia_phalacra,sp231,"Oceanic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+232,Alepisaurus_brevirostris,sp232,"Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+233,Alepisaurus_ferox,sp233,"Oceanic, Epipelagic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+234,Alepocephalus_agassizii,sp234,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+235,Alepocephalus_australis,sp235,Benthic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+236,Alepocephalus_bairdii,sp236,,,10,0.8,constant,0,10,NA,NA,0.07792,91.475,1.45,NA,38,constant,0,0.5,NA
+237,Alopias_superciliosus,sp237,"Neritic, Oceanic, Epipelagic, Lakes",,10,0.8,constant,0,10,NA,2.727,0.085111111,298.6666667,-4.225,NA,21,constant,0,0.5,NA
+238,Alopias_vulpinus,sp238,"Oceanic, Epipelagic",,10,0.8,constant,0,10,NA,NA,0.130666667,381.0833333,-3.32,NA,23.66666667,constant,0,0.5,NA
+239,Alosa_aestivalis,sp239,"Neritic, Oceanic, Estuaries, Stream, Lakes",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+240,Alosa_mediocris,sp240,"Neritic, Oceanic, Estuaries, Stream",,10,0.8,constant,0,10,NA,NA,0.3,61,NA,NA,NA,constant,0,0.5,NA
+241,Alosa_pseudoharengus,sp241,"Neritic, Oceanic, Estuaries, Stream, Lakes",,10,0.8,constant,0,10,NA,2.96,0.534666667,19.2,NA,NA,NA,constant,0,0.5,16.9
+242,Alosa_sapidissima,sp242,"Neritic, Oceanic, Estuaries, Stream, Lakes",,10,0.8,constant,0,10,NA,NA,0.383333333,56.06666667,NA,NA,NA,constant,0,0.5,NA
+243,Aluterus_schoepfii,sp243,"Oceanic, SoftBottom, Sand, Mud, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+244,Amblyraja_jenseni,sp244,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+245,Amblyraja_radiata,sp245,"Oceanic, Shoaling, OutsideHost, InsideHost",,10,0.8,constant,0,10,NA,NA,0.12,94.51666667,-1.3925,NA,19,constant,0,0.5,NA
+246,Ammodytes_americanus,sp246,"Oceanic, Estuaries, SoftBottom, Sand, Burrows",,10,0.8,constant,0,10,NA,NA,0.24,18.8,-1.14,1,12,constant,0,0.5,NA
+247,Ammodytes_dubius,sp247,"Neritic, Oceanic, Schooling",,10,0.8,constant,0,10,NA,NA,0.35,25.6,-0.233333333,NA,9,constant,0,0.5,NA
+248,Anarhichas_denticulatus,sp248,"Oceanic, Shoaling",,10,0.8,constant,0,10,NA,3,0.0895,156,-2.94,NA,NA,constant,0,0.5,NA
+249,Anarhichas_lupus,sp249,"Neritic, Oceanic, Solitary, Schooling, SoftBottom, HardBottom, Rocky",,10,0.8,constant,0,10,NA,3.1456,0.095696667,135.4166667,-1.17,NA,22,constant,0,0.5,NA
+250,Anarhichas_minor,sp250,"Oceanic, Shoaling, SoftBottom, HardBottom",,10,0.8,constant,0,10,NA,3,0.10225,153,NA,NA,NA,constant,0,0.5,NA
+251,Anchoa_hepsetus,sp251,"Neritic, Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+252,Anchoa_mitchilli,sp252,"Intertidal, Oceanic, Estuaries, Mangroves, SoftBottom, SeaGrassBeds",,10,0.8,constant,0,10,NA,3.18,0.523333333,11,-0.81,NA,NA,constant,0,0.5,NA
+253,Anguilla_rostrata,sp253,"Neritic, Intertidal, Oceanic, Estuaries, Stream, Lakes",,10,0.8,constant,0,10,NA,NA,0.076223333,96.72,-1.75,NA,43,constant,0,0.5,NA
+254,Anoplogaster_cornuta,sp254,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,0.86,15,NA,NA,NA,constant,0,0.5,NA
+255,Anotopterus_pharao,sp255,"Oceanic, Mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+256,Anthias_nicholsi,sp256,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+257,Antigonia_capros,sp257,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+258,Antimora_rostrata,sp258,"Oceanic, Shoaling, Benthic",,10,0.8,constant,0,10,NA,NA,0.114977143,95.54285857,-1.225,NA,36.33333333,constant,0,0.5,NA
+259,Apristurus_indicus,sp259,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+260,Apristurus_manis,sp260,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+261,Apristurus_profundorum,sp261,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+262,Arctozenus_risso,sp262,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+263,Argentina_silus,sp263,Oceanic,,10,0.8,constant,0,10,NA,3.203,0.213359259,44.3062963,-2.0275,5.525,35,constant,0,0.5,NA
+264,Argentina_striata,sp264,Demersal,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+265,Argyropelecus_aculeatus,sp265,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+266,Argyropelecus_affinis,sp266,Oceanic,,10,0.8,constant,0,10,NA,NA,0.67,10,NA,NA,NA,constant,0,0.5,NA
+267,Argyropelecus_gigas,sp267,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+268,Argyropelecus_hemigymnus,sp268,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+269,Argyropelecus_sladeni,sp269,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+270,Ariomma_bondi,sp270,"Oceanic, Bathypelagic, Schooling, Demersal, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+271,Ariomma_melana,sp271,"Oceanic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+272,Aristostomias_lunifer,sp272,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+273,Aristostomias_tittmanni,sp273,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+274,Aspidophoroides_monopterygius,sp274,Oceanic,,10,0.8,constant,0,10,NA,NA,0.298333333,15.85833333,-0.4905,NA,7,constant,0,0.5,NA
+275,Astronesthes_niger,sp275,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+276,Astroscopus_guttatus,sp276,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+277,Atractodenchelys_phrix,sp277,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+278,Auxis_rochei,sp278,"Neritic, Oceanic, Epipelagic",,10,0.8,constant,0,10,NA,3.1085,0.476654545,47.88681818,-1.04075,NA,5,constant,0,0.5,2.19
+279,Avocettina_infans,sp279,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+280,Bajacalifornia_megalops,sp280,"Oceanic, Bathypelagic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+281,Baldwinella_aureorubens,sp281,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+282,Balistes_capriscus,sp282,"Neritic, Oceanic, Estuaries, CoralReefs",,10,0.8,constant,0,10,NA,2.77,0.337884167,45.70145833,-0.557,NA,11.72727273,constant,0,0.5,NA
+283,Barathrites_parri,sp283,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+284,Bathophilus_vaillanti,sp284,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+285,Bathygadus_favosus,sp285,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+286,Bathylagichthys_greyae,sp286,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+287,Bathylagus_euryops,sp287,"Oceanic, Shoaling",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+288,Bathypterois_dubius,sp288,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+289,Bathypterois_grallator,sp289,Benthic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+290,Bathypterois_phenax,sp290,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+291,Bathypterois_quadrifilis,sp291,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+292,Bathypterois_viridensis,sp292,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+293,Bathysaurus_ferox,sp293,"Oceanic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+294,Bathysaurus_mollis,sp294,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+295,Bathytoshia_centroura,sp295,"Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+296,Bathytroctes_microlepis,sp296,Bathypelagic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+297,Bembrops_anatirostris,sp297,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+298,Bembrops_gobioides,sp298,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+299,Benthocometes_robustus,sp299,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+300,Benthodesmus_simonyi,sp300,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+301,Benthodesmus_tenuis,sp301,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+302,Benthosema_glaciale,sp302,"Oceanic, Shoaling",,10,0.8,constant,0,10,NA,3,0.3389,8.743,-0.23,NA,8,constant,0,0.5,NA
+303,Bolinichthys_supralateralis,sp303,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+304,Borostomias_antarcticus,sp304,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+305,Brama_brama,sp305,Oceanic,,10,0.8,constant,0,10,NA,NA,0.084,70.5,-3.854,NA,NA,constant,0,0.5,NA
+306,Bregmaceros_atlanticus,sp306,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+307,Brevoortia_tyrannus,sp307,"Neritic, Oceanic, Estuaries",,10,0.8,constant,0,10,NA,3,0.424790698,35.5744186,NA,NA,NA,constant,0,0.5,0.51
+308,Brosme_brosme,sp308,"Oceanic, HardBottom, Rocky",,10,0.8,constant,0,10,NA,NA,0.133412308,83.37692308,NA,7.366666667,18,constant,0,0.5,NA
+309,Brotulotaenia_crassa,sp309,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+310,Brotulotaenia_nigra,sp310,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+311,Bythites_gerdae,sp311,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+312,Caranx_crysos,sp312,"Intertidal, Oceanic, Estuaries, Schooling, Macrophyte",,10,0.8,constant,0,10,NA,NA,0.4225,45.44,-0.21,NA,NA,constant,0,0.5,NA
+313,Caranx_hippos,sp313,"Estuaries, Mangroves, Stream",,10,0.8,constant,0,10,NA,2.855,0.5,76.2,NA,NA,NA,constant,0,0.5,NA
+314,Carcharhinus_altimus,sp314,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+315,Carcharhinus_falciformis,sp315,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,NA,0.117407143,309.1249993,-2.627888889,7.166666667,19.28571429,constant,0,0.5,NA
+316,Carcharhinus_longimanus,sp316,Oceanic,,10,0.8,constant,0,10,NA,2.891,0.08663,298.8500017,-1.446,NA,19.75,constant,0,0.5,NA
+317,Carcharhinus_obscurus,sp317,Oceanic,,10,0.8,constant,0,10,NA,3.021,0.044442857,375.5357143,-5.65225,29.6,42.5,constant,0,0.5,NA
+318,Carcharhinus_plumbeus,sp318,"Neritic, Oceanic, Estuaries, SoftBottom, CoralReefs",,10,0.8,constant,0,10,NA,NA,0.069401818,204.4636373,-4.724,15.63333333,28.83333333,constant,0,0.5,NA
+319,Carcharhinus_signatus,sp319,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,NA,0.13146,263.9000025,-2.646,NA,17,constant,0,0.5,NA
+320,Carcharias_taurus,sp320,"LittoralZone, Caves, Oceanic, Sand, Rocky, CoralReefs",,10,0.8,constant,0,10,NA,NA,0.1626,284,-2.93,8,16,constant,0,0.5,NA
+321,Caretta_caretta,sp321,"Marine, Neritic, Oceanic, Epipelagic, BrackishWater, Estuaries, Benthic, Pelagic, SoftBottom, Sand, HardBottom, Rocky, CoralReefs, OInverterbrates",,10,0.8,constant,0,10,NA,2.95,0.058416667,104.4283333,NA,NA,NA,constant,0,0.5,NA
+322,Centrobranchus_nigroocellatus,sp322,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+323,Centropristis_ocyurus,sp323,"Benthic, Demersal, SoftBottom, Sand, HardBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+324,Centropristis_striata,sp324,Oceanic,,10,0.8,constant,0,10,NA,2.626,0.2987,30.72857143,-1.3782,NA,8.5,constant,0,0.5,NA
+325,Centroscyllium_fabricii,sp325,"Oceanic, Schooling, Shoaling",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+326,Centroscymnus_coelolepis,sp326,Oceanic,,10,0.8,constant,0,10,NA,NA,0.007,128,NA,NA,NA,constant,0,0.5,NA
+327,Ceratias_holboelli,sp327,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+328,Ceratoscopelus_maderensis,sp328,,,10,0.8,constant,0,10,NA,NA,2.149333333,7.646333333,-0.0385,NA,2,constant,0,0.5,NA
+329,Ceratoscopelus_warmingii,sp329,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+330,Cetostoma_regani,sp330,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,0.67,24,NA,NA,NA,constant,0,0.5,NA
+331,Chauliodus_danae,sp331,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+332,Chauliodus_sloani,sp332,"Oceanic, Mesopelagic, Bathypelagic, Shoaling",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+333,Chaunacops_roseus,sp333,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+334,Chaunax_stigmaeus,sp334,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+335,Chaunax_suttkusi,sp335,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+336,Chiasmodon_niger,sp336,"Neritic, Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+337,Chirostomias_pliopterus,sp337,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+338,Chlorophthalmus_agassizi,sp338,"Oceanic, Benthic",,10,0.8,constant,0,10,NA,NA,0.24,18.9,-1.2,NA,NA,constant,0,0.5,NA
+339,Citharichthys_arctifrons,sp339,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+340,Citharichthys_spilopterus,sp340,"Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,0.42,21.8,NA,NA,NA,constant,0,0.5,NA
+341,Clupea_harengus,sp341,"Neritic, Intertidal, Oceanic, Estuaries, Stream, Schooling",,10,0.8,constant,0,10,NA,3.029982051,0.35540872,30.736,-1.270308642,4.731666667,12.83793103,constant,0,0.5,6.97
+342,Clupea_harengus,sp342,Oceanic,,10,0.8,constant,0,10,NA,3.029982051,0.35540872,30.736,-1.270308642,4.731666667,12.83793103,constant,0,0.5,6.97
+343,Coccorella_atlantica,sp343,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+344,Coelorinchus_caelorhincus,sp344,Oceanic,,10,0.8,constant,0,10,NA,3.01,0.1273,13.8005,-1.6266,NA,NA,constant,0,0.5,NA
+345,Conger_oceanicus,sp345,"Intertidal, Oceanic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+346,Cookeolus_japonicus,sp346,"Oceanic, HardBottom, Rocky",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+347,Coryphaena_hippurus,sp347,"Neritic, Oceanic, Epipelagic, Macrophyte, CoralReefs",,10,0.8,constant,0,10,NA,2.7651,1.5274375,144.5062819,-0.027527273,NA,3.8,constant,0,0.5,0.84
+348,Coryphaenoides_armatus,sp348,"Oceanic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+349,Coryphaenoides_brevibarbis,sp349,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+350,Coryphaenoides_carapinus,sp350,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+351,Coryphaenoides_mediterraneus,sp351,,,10,0.8,constant,0,10,NA,NA,0.201,23.7,-1.84,NA,NA,constant,0,0.5,NA
+352,Coryphaenoides_rupestris,sp352,"Oceanic, Bathypelagic, Schooling",,10,0.8,constant,0,10,NA,2.587,0.084285,78.365,-0.745,NA,54.66666667,constant,0,0.5,NA
+353,Cottunculus_thomsonii,sp353,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+354,Cruriraja_rugosa,sp354,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+355,Cryptacanthodes_maculatus,sp355,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+356,Cryptopsaras_couesii,sp356,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+357,Cubiceps_gracilis,sp357,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+358,Cubiceps_pauciradiatus,sp358,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,1.0195,13.95,NA,NA,4,constant,0,0.5,NA
+359,Cyclopsetta_fimbriata,sp359,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+360,Cyclopterus_lumpus,sp360,"Neritic, Oceanic, Solitary, Schooling, Shoaling",,10,0.8,constant,0,10,NA,NA,0.55425,45.1875,0.325666667,NA,NA,constant,0,0.5,NA
+361,Cyclothone_braueri,sp361,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,2.3968,3.99,NA,NA,1.25,constant,0,0.5,NA
+362,Cyclothone_microdon,sp362,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+363,Cyclothone_pseudopallida,sp363,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+364,Cyema_atrum,sp364,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,1,15,NA,NA,NA,constant,0,0.5,NA
+365,Cynoscion_regalis,sp365,"Oceanic, Demersal, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,2.984,0.23625,68.425,-0.097,NA,NA,constant,0,0.5,NA
+366,Cyttopsis_rosea,sp366,"Oceanic, Bathypelagic, Schooling",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+367,Dasyscopelus_asper,sp367,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+368,Dasyscopelus_selenops,sp368,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+369,Decapterus_macarellus,sp369,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,3.15,0.97,29.175,NA,NA,4,constant,0,0.5,NA
+370,Decapterus_punctatus,sp370,"Oceanic, CoralReefs",,10,0.8,constant,0,10,NA,NA,2.349,24.2,0.066,NA,NA,constant,0,0.5,NA
+371,Delphinus_delphis,sp371,"Marine, Oceanic, Pelagic",,10,0.8,constant,0,10,NA,3,0.308333333,205.933335,-6.99,NA,NA,constant,0,0.5,NA
+372,Derichthys_serpentinus,sp372,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+373,Dermochelys_coriacea,sp373,"Marine, Oceanic, Epipelagic, Parasitism, InsideHost, Pelagic, SoftBottom, Sand",,10,0.8,constant,0,10,NA,3.23,0.1416,146.0071443,-0.153333333,NA,NA,constant,0,0.5,NA
+374,Desmodema_polystictum,sp374,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+375,Diaphus_dumerilii,sp375,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,2.710556667,6.9,-0.01,NA,1.1,constant,0,0.5,NA
+376,Diaphus_effulgens,sp376,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+377,Diaphus_lucidus,sp377,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+378,Diastobranchus_capensis,sp378,"Oceanic, Epipelagic, Mesopelagic, Bathypelagic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+379,Dibranchus_atlanticus,sp379,"Neritic, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+380,Dicrolene_introniger,sp380,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+381,Diodon_hystrix,sp381,"Caves, Oceanic, Solitary, SeaGrassBeds, CoralReefs, Lagoons, Crevices",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+382,Diplacanthopoma_brachysoma,sp382,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+383,Diplophos_taenia,sp383,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+384,Diplospinus_multistriatus,sp384,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+385,Dipturus_laevis,sp385,"Neritic, Oceanic, SoftBottom, HardBottom",,10,0.8,constant,0,10,NA,NA,0.12,160.5,-1.29,6,NA,constant,0,0.5,NA
+386,Diretmus_argenteus,sp386,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+387,Dolicholagus_longirostris,sp387,Mesopelagic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+388,Echiostoma_barbatum,sp388,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+389,Einara_macrolepis,sp389,Bathypelagic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+390,Enchelyopus_cimbrius,sp390,"Neritic, Oceanic, Cave, Solitary, Schooling, SoftBottom",,10,0.8,constant,0,10,NA,NA,0.2569725,36.11,NA,NA,9,constant,0,0.5,NA
+391,Engraulis_eurystole,sp391,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+392,Epigonus_denticulatus,sp392,"Neritic, Oceanic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+393,Epigonus_pandionis,sp393,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+394,Etmopterus_gracilispinis,sp394,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+395,Etmopterus_princeps,sp395,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+396,Etropus_microstomus,sp396,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+397,Etrumeus_sadina,sp397,"Oceanic, Estuaries, Stream",,10,0.8,constant,0,10,NA,3.038,1.149166667,25.63333333,0.033833333,3.8,NA,constant,0,0.5,NA
+398,Eurypharynx_pelecanoides,sp398,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+399,Eustomias_filifer,sp399,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+400,Eustomias_furcifer,sp400,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+401,Eustomias_obscurus,sp401,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+402,Eustomias_schiffi,sp402,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+403,Eustomias_schmidti,sp403,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+404,Evermannella_balbo,sp404,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+405,Evoxymetopon_taeniatus,sp405,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+406,Fenestraja_plutonia,sp406,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+407,Fistularia_petimba,sp407,"SubLittoral, Estuaries, Benthic, SoftBottom, HardBottom, Rocky, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+408,Fistularia_tabacaria,sp408,"Neritic, Oceanic, HardBottom, SeaGrassBeds, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+409,Flagellostomias_boureei,sp409,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+410,Foetorepus_agassizii,sp410,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+411,Fowlerichthys_ocellatus,sp411,"Oceanic, HardBottom, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+412,Fowlerichthys_radiosus,sp412,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+413,Fritillaria_borealis,sp413,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+414,Gadella_imberbis,sp414,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+415,Gadus_morhua,sp415,"Neritic, Intertidal, Oceanic, Estuaries, Schooling, SoftBottom, HardBottom, Rocky, SeaGrassBeds",,10,0.8,constant,0,10,NA,3.076567901,0.184736111,110.2664352,0.067680851,2.6,19.5,constant,0,0.5,1.695
+416,Gaidropsarus_ensis,sp416,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+417,Galeocerdo_cuvier,sp417,"Neritic, Oceanic, Estuaries, Stream, CoralReefs",,10,0.8,constant,0,10,NA,NA,0.2486,367,-1.305,NA,NA,constant,0,0.5,NA
+418,Gigantactis_ios,sp418,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+419,Gigantura_chuni,sp419,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+420,Gigantura_indica,sp420,NA,,10,0.8,constant,0,10,NA,NA,0.86,21,NA,NA,NA,constant,0,0.5,NA
+421,Glyptocephalus_cynoglossus,sp421,"Oceanic, Schooling, Shoaling, SoftBottom",,10,0.8,constant,0,10,NA,3.39,0.2173125,43.83125,-0.02,5.75,25,constant,0,0.5,NA
+422,Gonichthys_cocco,sp422,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+423,Gonostoma_atlanticum,sp423,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+424,Grammatostomias_flagellibarba,sp424,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+425,Grampus_griseus,sp425,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,3,0.528,271.69,-1.854,NA,NA,constant,0,0.5,NA
+426,Gyrinomimus_bruuni,sp426,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+427,Halargyreus_johnsonii,sp427,"Oceanic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+428,Halosauropsis_macrochir,sp428,"Oceanic, Benthic",,10,0.8,constant,0,10,NA,3.304,0.28774,67.06666667,-0.71,NA,34,constant,0,0.5,NA
+429,Halosaurus_guentheri,sp429,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+430,Harriotta_raleighana,sp430,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+431,Helicolenus_dactylopterus,sp431,"Oceanic, SoftBottom",,10,0.8,constant,0,10,NA,3.038,0.1252388,37.785,-1.52465,15.5,19.36363636,constant,0,0.5,NA
+432,Hemitripterus_americanus,sp432,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+433,Heterophotus_ophistoma,sp433,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+434,Heteropriacanthus_cruentatus,sp434,"Neritic, Oceanic, Estuaries, Mangroves, Benthic, Rocky, SeaGrassBeds, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+435,Himantolophus_albinares,sp435,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+436,Hippocampus_erectus,sp436,"Neritic, Oceanic, SoftBottom, Macrophyte, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,1.42,17.7,0.056,NA,NA,constant,0,0.5,NA
+437,Hippocampus_reidi,sp437,"Oceanic, Mangroves, Macrophyte, SeaGrassBeds, CoralReefs",,10,0.8,constant,0,10,NA,NA,1.1425,20,NA,0.81,NA,constant,0,0.5,NA
+438,Hippoglossina_oblonga,sp438,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+439,Hippoglossoides_platessoides,sp439,"Oceanic, Schooling, Shoaling, SoftBottom",,10,0.8,constant,0,10,NA,3.204,0.119615385,66.01538462,-1.33,NA,30,constant,0,0.5,NA
+440,Hippoglossus_hippoglossus,sp440,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,3,0.0803375,218.125,0.21,NA,30,constant,0,0.5,NA
+441,Hoplostethus_mediterraneus,sp441,Oceanic,,10,0.8,constant,0,10,NA,3.105,0.1154,27.48,-1.3822,NA,11,constant,0,0.5,NA
+442,Hoplostethus_occidentalis,sp442,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+443,Howella_brodiei,sp443,NA,,10,0.8,constant,0,10,NA,NA,0.85,10,NA,NA,NA,constant,0,0.5,NA
+444,Hydrolagus_affinis,sp444,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+445,Hydrolagus_pallidus,sp445,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+446,Hygophum_benoiti,sp446,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+447,Hygophum_hygomii,sp447,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+448,Hygophum_reinhardtii,sp448,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+449,Hypanus_say,sp449,"Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+450,Hyperoglyphe_perciformis,sp450,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+451,Ichthyococcus_ovatus,sp451,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+452,Idiacanthus_fasciola,sp452,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+453,Ijimaia_antillarum,sp453,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+454,Ilyophis_brunneus,sp454,"Oceanic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+455,Istiophorus_albicans,sp455,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,3,0.542271667,219.566665,-2.54,3.5,NA,constant,0,0.5,NA
+456,Isurus_oxyrinchus,sp456,"LittoralZone, Oceanic, Epipelagic",,10,0.8,constant,0,10,NA,3,0.10203,330.7,-4.172222222,11,26.5,constant,0,0.5,NA
+457,Isurus_paucus,sp457,"Oceanic, Epipelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+458,Kajikia_albida,sp458,Oceanic,,10,0.8,constant,0,10,NA,3,0.58,261,NA,NA,NA,constant,0,0.5,NA
+459,Kali_indica,sp459,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+460,Kali_macrodon,sp460,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+461,Kali_macrura,sp461,"Oceanic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+462,Katsuwonus_pelamis,sp462,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,3.315521739,0.580387097,85.42932258,-1.594666667,NA,7.75,constant,0,0.5,7.858333333
+463,Laemonema_barbatulum,sp463,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+464,Laemonema_goodebeanorum,sp464,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+465,Lagodon_rhomboides,sp465,"Estuaries, Mangroves, Cave2, Rocky",,10,0.8,constant,0,10,NA,NA,0.553,21.16666667,-0.966666667,NA,NA,constant,0,0.5,NA
+466,Lamna_nasus,sp466,"LittoralZone, Oceanic, Epipelagic",,10,0.8,constant,0,10,NA,3,0.085666667,282.6666667,-5.845,NA,30,constant,0,0.5,NA
+467,Lampadena_luminosa,sp467,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+468,Lampadena_speculigera,sp468,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+469,Lampadena_urophaos,sp469,Mesopelagic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+470,Lampanyctus_alatus,sp470,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+471,Lampanyctus_lineatus,sp471,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+472,Lampanyctus_macdonaldi,sp472,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,0.49933,14.175,NA,NA,6,constant,0,0.5,NA
+473,Lampris_guttatus,sp473,Oceanic,,10,0.8,constant,0,10,NA,NA,0.218,119,-0.78,4.5,14,constant,0,0.5,NA
+474,Lamprogrammus_brunswigi,sp474,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+475,Leiostomus_xanthurus,sp475,"Oceanic, Estuaries, SoftBottom",,10,0.8,constant,0,10,NA,3.072,0.681666667,27.33333333,-0.585,NA,4,constant,0,0.5,14
+476,Lepidochelys_kempii,sp476,"Marine, Neritic, LittoralZone, Intertidal, Oceanic, Epipelagic, BrackishWater, Estuaries, Parasitism, InsideHost, Demersal, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,3,0.425146667,65.43133333,-0.315,NA,NA,constant,0,0.5,NA
+477,Lepidocybium_flavobrunneum,sp477,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+478,Lepidophanes_guentheri,sp478,Oceanic,,10,0.8,constant,0,10,NA,NA,2.4105,6.8,0.014,NA,1.1,constant,0,0.5,NA
+479,Lepidopus_altifrons,sp479,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+480,Lepophidium_profundorum,sp480,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+481,Leptoclinus_maculatus,sp481,"Oceanic, SoftBottom",,10,0.8,constant,0,10,NA,3.44,0.1505,16.815,-2.629,NA,NA,constant,0,0.5,NA
+482,Leptostomias_gladiator,sp482,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+483,Lestrolepis_intermedia,sp483,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+484,Leucoraja_erinaceus,sp484,Oceanic,,10,0.8,constant,0,10,NA,3.229,0.2525,56.575,-0.8575,NA,12,constant,0,0.5,NA
+485,Leucoraja_garmani,sp485,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+486,Leucoraja_ocellata,sp486,Oceanic,,10,0.8,constant,0,10,NA,NA,0.145874286,105.68,-0.75877,NA,17.5,constant,0,0.5,NA
+487,Liparis_atlanticus,sp487,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+488,Lobianchia_dofleini,sp488,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,1.386,4.6,NA,NA,NA,constant,0,0.5,NA
+489,Lobianchia_gemellarii,sp489,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+490,Lophius_americanus,sp490,Oceanic,,10,0.8,constant,0,10,NA,2.944666667,0.084,167,0.032333333,NA,NA,constant,0,0.5,NA
+491,Lophius_gastrophysus,sp491,"Oceanic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+492,Lopholatilus_chamaeleonticeps,sp492,"Oceanic, Mesopelagic, Cave, Cave2",,10,0.8,constant,0,10,NA,3,0.113333,97.6425,-1.3464,5,33.5,constant,0,0.5,NA
+493,Luciobrotula_corethromycter,sp493,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+494,Lumpenus_lampretaeformis,sp494,"Oceanic, Shoaling, SoftBottom",,10,0.8,constant,0,10,NA,NA,0.205,47.6,NA,NA,NA,constant,0,0.5,NA
+495,Lycenchelys_paxillus,sp495,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+496,Lycenchelys_verrillii,sp496,"Oceanic, Mesopelagic, Shoaling",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+497,Lycodes_esmarkii,sp497,"Neritic, Oceanic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+498,Lycodes_terraenovae,sp498,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+499,Lycodonus_mirabilis,sp499,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+500,Macroramphosus_scolopax,sp500,"Oceanic, Mesopelagic, Benthic",,10,0.8,constant,0,10,NA,3,0.440443333,19.98,NA,NA,6,constant,0,0.5,NA
+501,Macrourus_berglax,sp501,Shoaling,,10,0.8,constant,0,10,NA,NA,0.067,46.15,NA,NA,NA,constant,0,0.5,NA
+502,Magnisudis_atlantica,sp502,"Intertidal, Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+503,Makaira_nigricans,sp503,"Oceanic, Epipelagic",,10,0.8,constant,0,10,NA,NA,0.9285,286.5,-0.15,NA,NA,constant,0,0.5,NA
+504,Malacocephalus_occidentalis,sp504,"Oceanic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+505,Malacoraja_senta,sp505,"Shoaling, SoftBottom",,10,0.8,constant,0,10,NA,NA,0.1225,66.7,-1.7,13.85,15,constant,0,0.5,NA
+506,Malacosteus_niger,sp506,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+507,Mallotus_villosus,sp507,"Neritic, Oceanic, Schooling, Shoaling",,10,0.8,constant,0,10,NA,3.125,0.4606,20.7,-0.333333333,NA,5,constant,0,0.5,NA
+508,Maulisia_microlepis,sp508,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+509,Maurolicus_weitzmani,sp509,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+510,Melamphaes_microps,sp510,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+511,Melamphaes_suborbitalis,sp511,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+512,Melanocetus_johnsonii,sp512,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+513,Melanogrammus_aeglefinus,sp513,"Oceanic, Rocky",,10,0.8,constant,0,10,NA,2.9513125,0.260627451,69.21705882,-0.542307692,2.8,14.25,constant,0,0.5,15.83
+514,Melanolagus_bericoides,sp514,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+515,Melanonus_zugmayeri,sp515,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+516,Melanostigma_atlanticum,sp516,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+517,Melanostomias_bartonbeani,sp517,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+518,Menidia_menidia,sp518,"Neritic, Oceanic, Estuaries, SeaGrassBeds",,10,0.8,constant,0,10,NA,3.023,1.1675,12.975,-0.3265,NA,2,constant,0,0.5,NA
+519,Menticirrhus_saxatilis,sp519,"Oceanic, Estuaries, Benthic, Demersal, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,0.63,41.75,NA,NA,NA,constant,0,0.5,NA
+520,Merluccius_albidus,sp520,Oceanic,,10,0.8,constant,0,10,NA,NA,0.5245,45.8,NA,NA,5,constant,0,0.5,NA
+521,Merluccius_bilinearis,sp521,Oceanic,,10,0.8,constant,0,10,NA,3.1675,0.421375,46.05625,0.093692308,NA,12,constant,0,0.5,NA
+522,Micropogonias_undulatus,sp522,"Oceanic, Epipelagic, Estuaries, Benthic, Demersal, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,0.5264,38.92,-1.54,NA,6.5,constant,0,0.5,NA
+523,Mola_mola,sp523,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,0.2295,327,0.031,NA,NA,constant,0,0.5,NA
+524,Monacanthus_ciliatus,sp524,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+525,Monognathus_jesperseni,sp525,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+526,Monolene_sessilicauda,sp526,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+527,Monomitopus_agassizii,sp527,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+528,Morone_saxatilis,sp528,"Estuaries, Stream, Lakes",,10,0.8,constant,0,10,NA,3.1322,0.1888,103.27,-2.96,NA,30,constant,0,0.5,1.88
+529,Morus_bassanus,sp529,"Marine, Neritic, Oceanic, Symphorism",,10,0.8,constant,0,10,NA,NA,16.1067,16.568138,-0.008,NA,NA,constant,0,0.5,NA
+530,Mugil_cephalus,sp530,"Neritic, Intertidal, Estuaries, Mangroves, Stream, Lakes, SoftBottom, Sand, Mud, HardBottom, Rocky, CoralReefs, RicePaddies",,10,0.8,constant,0,10,NA,2.95775,0.303108696,62.46956522,-0.874185185,NA,10,constant,0,0.5,20.5
+531,Mullus_auratus,sp531,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+532,Mustelus_canis,sp532,"Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,0.2742,139.875,-3.41575,2.7375,NA,constant,0,0.5,NA
+533,Myctophum_affine,sp533,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+534,Myctophum_nitidulum,sp534,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,3,0.42,10,-0.23,NA,NA,constant,0,0.5,NA
+535,Myctophum_punctatum,sp535,Oceanic,,10,0.8,constant,0,10,NA,3,0.243,9.75,-1.275,NA,NA,constant,0,0.5,NA
+536,Myoxocephalus_aenaeus,sp536,"Oceanic, Estuaries, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+537,Myoxocephalus_octodecemspinosus,sp537,"Oceanic, Schooling, Shoaling",,10,0.8,constant,0,10,NA,NA,0.72,30,NA,NA,NA,constant,0,0.5,NA
+538,Myoxocephalus_scorpius,sp538,"Oceanic, Schooling, Shoaling, SoftBottom, HardBottom",,10,0.8,constant,0,10,NA,NA,0.466944444,24.14666667,-1.546714286,NA,NA,constant,0,0.5,NA
+539,Myxine_glutinosa,sp539,"Oceanic, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+540,Myzopsetta_ferruginea,sp540,"Oceanic, Schooling, SoftBottom",,10,0.8,constant,0,10,NA,3,0.184266667,60.55666667,NA,5,12,constant,0,0.5,NA
+541,Nansenia_longicauda,sp541,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+542,Narcetes_stomias,sp542,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+543,Nealotus_tripes,sp543,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+544,Nemichthys_scolopaceus,sp544,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,0.3,100,NA,NA,NA,constant,0,0.5,NA
+545,Neobathyclupea_argentea,sp545,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+546,Neocyttus_helgae,sp546,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+547,Nesiarchus_nasutus,sp547,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+548,Nessorhamphus_ingolfianus,sp548,Mesopelagic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+549,Nezumia_aequalis,sp549,Oceanic,,10,0.8,constant,0,10,NA,NA,0.1635,8.2,-1.1845,NA,NA,constant,0,0.5,NA
+550,Nezumia_bairdii,sp550,Oceanic,,10,0.8,constant,0,10,NA,NA,0.276,6.6,-0.16,NA,NA,constant,0,0.5,NA
+551,Nezumia_longebarbata,sp551,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+552,Nezumia_sclerorhynchus,sp552,"Oceanic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,0.1175,10.89833333,-1.355666667,NA,NA,constant,0,0.5,NA
+553,Nezumia_suilla,sp553,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+554,Normichthys_operosus,sp554,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+555,Notacanthus_bonaparte,sp555,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+556,Notacanthus_chemnitzii,sp556,"Oceanic, Solitary, Benthic",,10,0.8,constant,0,10,NA,NA,0.06,105,-1.685,NA,NA,constant,0,0.5,NA
+557,Notoscopelus_caudispinosus,sp557,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+558,Notoscopelus_resplendens,sp558,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+559,Oikopleura_labradoriensis,sp559,"Marine, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+560,Omosudis_lowii,sp560,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+561,Oneirodes_macrosteus,sp561,Bathypelagic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+562,Ophichthus_cruentifer,sp562,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+563,Ophidion_marginatum,sp563,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+564,Opsanus_tau,sp564,"Neritic, Oceanic, Estuaries, HardBottom, Rocky, BedsRock, CoralReefs",,10,0.8,constant,0,10,NA,NA,0.2314175,35,-0.44,NA,12,constant,0,0.5,NA
+565,Pachystomias_microdon,sp565,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+566,Paralepis_coregonoides,sp566,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+567,Paralichthys_dentatus,sp567,"Neritic, SupraLittoralZone, Saltmarshes, Estuaries, Mangroves, MarshesSwamps, Benthic, Mobile, Demersal, SoftBottom, Sand, Silt, Mud, SeaGrassBeds, Lagoons",,10,0.8,constant,0,10,NA,NA,0.608333333,121.6333333,NA,NA,NA,constant,0,0.5,NA
+568,Paraliparis_bathybius,sp568,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+569,Parascombrops_spinosus,sp569,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+570,Parasudis_truculenta,sp570,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+571,Peprilus_triacanthus,sp571,"Neritic, Oceanic, Estuaries",,10,0.8,constant,0,10,NA,3,0.8,18.3,0.12,NA,NA,constant,0,0.5,NA
+572,Peristedion_miniatum,sp572,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+573,Petromyzon_marinus,sp573,"Oceanic, Estuaries, Stream, Lakes, Parasitism, OutsideHost",,10,0.8,constant,0,10,NA,NA,0.159,54.1,NA,NA,NA,constant,0,0.5,1.553333333
+574,Pholis_fasciata,sp574,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+575,Pholis_gunnellus,sp575,"LittoralZone, Intertidal, Oceanic",,10,0.8,constant,0,10,NA,NA,0.299666667,23.5,-0.579,NA,NA,constant,0,0.5,NA
+576,Photonectes_margarita,sp576,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+577,Photostomias_guernei,sp577,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+578,Photostylus_pycnopterus,sp578,"Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+579,Phycis_chesteri,sp579,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+580,Phycis_phycis,sp580,Caves,,10,0.8,constant,0,10,NA,NA,0.193333333,66.53333333,-0.515,NA,5,constant,0,0.5,NA
+581,Physiculus_fulvus,sp581,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+582,Plectrypops_retrospinis,sp582,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+583,Poecilopsetta_beanii,sp583,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+584,Pollachius_virens,sp584,Oceanic,,10,0.8,constant,0,10,NA,3,0.143598571,120.9785714,-0.7825,6.65,25,constant,0,0.5,6.643333333
+585,Pollichthys_mauli,sp585,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+586,Polyacanthonotus_challengeri,sp586,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+587,Polyacanthonotus_rissoanus,sp587,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+588,Polyipnus_clarus,sp588,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+589,Polymetme_thaeocoryla,sp589,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+590,Polymixia_lowei,sp590,"Oceanic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+591,Pomatomus_saltatrix,sp591,"Neritic, Oceanic, Estuaries",,10,0.8,constant,0,10,NA,2.924166667,0.164,102.9125,-1.1412,NA,9.333333333,constant,0,0.5,1.83
+592,Pontinus_longispinis,sp592,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+593,Porogadus_miles,sp593,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+594,Poromitra_capito,sp594,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+595,Poromitra_crassiceps,sp595,Mesopelagic,,10,0.8,constant,0,10,NA,NA,0.11,18,-0.27,NA,NA,constant,0,0.5,NA
+596,Poromitra_megalops,sp596,Mesopelagic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+597,Priacanthus_arenatus,sp597,"Oceanic, HardBottom, Rocky, CoralReefs, DeepWaterCorals",,10,0.8,constant,0,10,NA,NA,0.69,47.5,NA,NA,NA,constant,0,0.5,NA
+598,Prionace_glauca,sp598,"Oceanic, Mesopelagic, Estuaries, CoralReefs",,10,0.8,constant,0,10,NA,3.131,0.159659259,325.0318511,-1.054225,5,18.2,constant,0,0.5,999
+599,Prionotus_alatus,sp599,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+600,Prionotus_carolinus,sp600,,,10,0.8,constant,0,10,NA,NA,0.3,30.9,NA,NA,NA,constant,0,0.5,NA
+601,Prionotus_evolans,sp601,"Intertidal, Oceanic, Estuaries, SoftBottom, CoralReefs",,10,0.8,constant,0,10,NA,NA,0.29,34.5,-0.06,NA,NA,constant,0,0.5,NA
+602,Pristigenys_alta,sp602,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+603,Promethichthys_prometheus,sp603,"Neritic, Oceanic, Epipelagic",,10,0.8,constant,0,10,NA,2.9575,0.185626667,89.96666667,-1.62,4,NA,constant,0,0.5,NA
+604,Psenes_maculatus,sp604,"Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+605,Psenes_pellucidus,sp605,"Oceanic, Epipelagic, Mesopelagic, Benthic, Demersal, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+606,Pseudopleuronectes_americanus,sp606,Oceanic,,10,0.8,constant,0,10,NA,3,0.38425,47.2,-0.01,NA,10,constant,0,0.5,NA
+607,Pseudoscopelus_astronesthidens,sp607,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+608,Pseudoscopelus_scriptus,sp608,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+609,Pteroplatytrygon_violacea,sp609,"Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,0.243333333,102,NA,NA,19,constant,0,0.5,NA
+610,Pterycombus_brama,sp610,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+611,Puffinus_gravis,sp611,Marine,,10,0.8,constant,0,10,NA,NA,19.6018,14.819244,0.0182,NA,NA,constant,0,0.5,NA
+612,Rajella_bigelowi,sp612,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+613,Rajella_fyllae,sp613,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+614,Regalecus_glesne,sp614,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+615,Reinhardtius_hippoglossoides,sp615,"Oceanic, Schooling, Shoaling",,10,0.8,constant,0,10,NA,NA,0.07997,125.58846,-0.486285714,8.75,33,constant,0,0.5,NA
+616,Remora_remora,sp616,"Oceanic, Epipelagic, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+617,Rhadinesthes_decimus,sp617,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+618,Rhinochimaera_atlantica,sp618,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+619,Rhinoptera_bonasus,sp619,"Neritic, LittoralZone, Estuaries",,10,0.8,constant,0,10,NA,NA,0.146705,114.0083333,-4.314333333,4.5,16.25,constant,0,0.5,NA
+620,Rhynchoconger_gracilior,sp620,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+621,Rondeletia_bicolor,sp621,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+622,Rondeletia_loricata,sp622,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,0.4,15,NA,NA,NA,constant,0,0.5,NA
+623,Rostroraja_eglanteria,sp623,"Neritic, Intertidal, Estuaries",,10,0.8,constant,0,10,NA,NA,0.2,78.5,-1.78,NA,NA,constant,0,0.5,NA
+624,Rouleina_attrita,sp624,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+625,Ruvettus_pretiosus,sp625,"Neritic, Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+626,Saccopharynx_ampullaceus,sp626,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+627,Schedophilus_velaini,sp627,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+628,Scomber_japonicus,sp628,"Neritic, Oceanic, Epipelagic, Mesopelagic, Schooling",,10,0.8,constant,0,10,NA,3.171046667,0.307159032,42.47854839,-1.082005833,NA,7.428571429,constant,0,0.5,5.525
+629,Scomber_scombrus,sp629,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,3.05704,0.330206452,41.96370968,-2.0426,3.5,15.63636364,constant,0,0.5,6.947142857
+630,Scomberesox_saurus,sp630,Oceanic,,10,0.8,constant,0,10,NA,NA,0.71,34.5,-0.19,NA,NA,constant,0,0.5,NA
+631,Scombrolabrax_heterolepis,sp631,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+632,Scopelarchus_analis,sp632,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+633,Scopeloberyx_opisthopterus,sp633,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+634,Scopelogadus_beanii,sp634,"Mesopelagic, Lakes",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+635,Scophthalmus_aquosus,sp635,"Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,0.257,39.65,NA,NA,NA,constant,0,0.5,NA
+636,Scyliorhinus_retifer,sp636,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+637,Sebastes_fasciatus,sp637,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,NA,0.137333333,38.58333333,-1.013333333,NA,24,constant,0,0.5,NA
+638,Selar_crumenophthalmus,sp638,"Neritic, Oceanic, SeaGrassBeds",,10,0.8,constant,0,10,NA,3.021555556,1.274296296,28.60555556,-0.481,NA,3,constant,0,0.5,NA
+639,Selene_setapinnis,sp639,"Intertidal, Estuaries",,10,0.8,constant,0,10,NA,NA,0.583333333,28.01333333,-0.3,NA,NA,constant,0,0.5,NA
+640,Selene_vomer,sp640,"Neritic, Oceanic, Estuaries, Schooling, Sand, HardBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+641,Seriola_fasciata,sp641,"Neritic, Oceanic, Benthic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+642,Serrivomer_beanii,sp642,"Oceanic, Mesopelagic, Solitary, Schooling",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+643,Serrivomer_lanceolatoides,sp643,,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+644,Sigmops_bathyphilus,sp644,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+645,Sigmops_elongatus,sp645,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+646,Simenchelys_parasitica,sp646,"Oceanic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+647,Somniosus_microcephalus,sp647,"Neritic, LittoralZone, Intertidal, Estuaries, Parasitism, OutsideHost, InsideHost",,10,0.8,constant,0,10,NA,NA,0.00757,538.54999,-10.7,156,392,constant,0,0.5,NA
+648,Spectrunculus_grandis,sp648,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+649,Sphagemacrurus_grenadae,sp649,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+650,Sphoeroides_maculatus,sp650,"Intertidal, Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,0.74189,27.43666667,NA,NA,3,constant,0,0.5,NA
+651,Sphoeroides_pachygaster,sp651,"Oceanic, Benthic, SoftBottom, Sand, Mud, HardBottom, Rocky",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+652,Sphyraena_barracuda,sp652,"Oceanic, Epipelagic, Estuaries, Mangroves, Solitary, Pelagic, SeaGrassBeds, CoralReefs",,10,0.8,constant,0,10,NA,2.866666667,0.15775,147.91,-0.71,NA,18.4,constant,0,0.5,15.85
+653,Sphyraena_borealis,sp653,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+654,Sphyrna_lewini,sp654,"Oceanic, Estuaries, Solitary, Schooling, CoralReefs",,10,0.8,constant,0,10,NA,3.09525,0.09997625,324.7812519,-1.360333333,9.5,32.37142857,constant,0,0.5,NA
+655,Sphyrna_mokarran,sp655,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+656,Sphyrna_zygaena,sp656,"Oceanic, Epipelagic",,10,0.8,constant,0,10,NA,NA,0.12,306.405,NA,NA,NA,constant,0,0.5,NA
+657,Squalus_acanthias,sp657,"Intertidal, Oceanic, Estuaries",,10,0.8,constant,0,10,NA,2.9844,0.113677838,123.5878384,-4.421428571,14.6,24.18181818,constant,0,0.5,NA
+658,Stemonosudis_intermedia,sp658,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+659,Stenotomus_chrysops,sp659,"Intertidal, Oceanic",,10,0.8,constant,0,10,NA,NA,0.2174325,38.2375,NA,NA,15,constant,0,0.5,NA
+660,Stephanolepis_hispida,sp660,"Neritic, Oceanic, SoftBottom, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,0.39,26.43333333,-1.356666667,NA,NA,constant,0,0.5,NA
+661,Sternoptyx_diaphana,sp661,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+662,Sternoptyx_pseudobscura,sp662,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+663,Stomias_affinis,sp663,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+664,Stomias_boa,sp664,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+665,Stylephorus_chordatus,sp665,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+666,Symbolophorus_veranyi,sp666,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+667,Symphurus_civitatum,sp667,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+668,Symphurus_plagiusa,sp668,"Neritic, Estuaries, Mangroves, Benthic, Demersal, SoftBottom, Mud",,10,0.8,constant,0,10,NA,NA,0.401666667,19.97333333,-0.85185,NA,5,constant,0,0.5,NA
+669,Symphurus_pusillus,sp669,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+670,Synagrops_bellus,sp670,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+671,Synaphobranchus_affinis,sp671,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+672,Synaphobranchus_kaupii,sp672,"Oceanic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+673,Synchiropus_goodenbeani,sp673,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+674,Syngnathus_fuscus,sp674,Estuaries,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+675,Synodus_foetens,sp675,"Neritic, Oceanic, Estuaries, Stream, Solitary, SoftBottom, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+676,Taaningichthys_bathyphilus,sp676,"Oceanic, Mesopelagic, Bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+677,Taaningichthys_minimus,sp677,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+678,Tautoga_onitis,sp678,"Neritic, Oceanic, Estuaries, HardBottom",,10,0.8,constant,0,10,NA,NA,0.124768,66.82,-1.69,NA,29.5,constant,0,0.5,NA
+679,Tautogolabrus_adspersus,sp679,Oceanic,,10,0.8,constant,0,10,NA,NA,0.20275,29.85,NA,NA,6,constant,0,0.5,NA
+680,Tetrapturus_georgii,sp680,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+681,Tetrapturus_pfluegeri,sp681,Oceanic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+682,Tetronarce_nobiliana,sp682,"Oceanic, SoftBottom, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+683,Thalia_democratica,sp683,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+684,Thunnus_alalunga,sp684,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,3.008333333,0.19909,128.9712195,-1.442448,5,13,constant,0,0.5,NA
+685,Thunnus_albacares,sp685,"Oceanic, Epipelagic, Estuaries",,10,0.8,constant,0,10,NA,2.897818182,0.402150943,184.6683013,-0.586726667,NA,7.5,constant,0,0.5,10.14166667
+686,Thunnus_obesus,sp686,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,2.934666667,0.232928571,206.3928571,-1.235,NA,11,constant,0,0.5,1.195
+687,Thunnus_thynnus,sp687,Oceanic,,10,0.8,constant,0,10,NA,3.001,0.115001034,346.0517241,-1.019894737,4.25,25.71428571,constant,0,0.5,1.213333333
+688,Trachonurus_sulcatus,sp688,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+689,Trachurus_lathami,sp689,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,NA,0.235,29.95,0.06,NA,NA,constant,0,0.5,NA
+690,Trichiurus_lepturus,sp690,"Neritic, Estuaries, Mangroves, SoftBottom, Sand, Mud, CoralReefs",,10,0.8,constant,0,10,NA,2.971818182,0.378924528,93.69773585,-1.020588,3.7,5.7,constant,0,0.5,NA
+691,Triglops_murrayi,sp691,Oceanic,,10,0.8,constant,0,10,NA,NA,0.307,14.4225,-1.42575,NA,NA,constant,0,0.5,NA
+692,Trigonolampa_miriceps,sp692,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+693,Ulvaria_subbifurcata,sp693,Oceanic,,10,0.8,constant,0,10,NA,NA,0.233533333,15.98833333,-0.45,NA,10,constant,0,0.5,NA
+694,Urophycis_chuss,sp694,"Oceanic, SoftBottom, Rocky",,10,0.8,constant,0,10,NA,NA,0.19,60.2,NA,NA,NA,constant,0,0.5,NA
+695,Urophycis_regia,sp695,"Oceanic, Estuaries",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+696,Urophycis_tenuis,sp696,"Oceanic, Schooling, Shoaling, SoftBottom",,10,0.8,constant,0,10,NA,3.1595,0.162,110,-0.077,NA,NA,constant,0,0.5,NA
+697,Valenciennellus_tripunctulatus,sp697,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+698,Venefica_procera,sp698,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+699,Vinciguerria_attenuata,sp699,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+700,Vinciguerria_nimbaria,sp700,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,4.980256667,5.490666667,NA,0.26,0.575,constant,0,0.5,NA
+701,Vinciguerria_poweriae,sp701,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+702,Xenocephalus_egregius,sp702,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+703,Xenodermichthys_copei,sp703,"Neritic, Oceanic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+704,Xenolepidichthys_dalgleishi,sp704,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+705,Xiphias_gladius,sp705,"Oceanic, Epipelagic, Mesopelagic",,10,0.8,constant,0,10,NA,3.2,0.1605,266.7875004,-2.104117647,NA,15.6,constant,0,0.5,11.3
+706,Zaphotias_pedaliotus,sp706,Mesopelagic,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+707,Zenopsis_conchifer,sp707,"Oceanic, Benthic, Demersal, SoftBottom, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+708,Zoarces_americanus,sp708,"Intertidal, Oceanic",,10,0.8,constant,0,10,NA,NA,0.0915,106.5,-0.53,NA,NA,constant,0,0.5,NA
+709,Zu_cristatus,sp709,"Oceanic, Mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+710,Abylopsis_tetragona,sp710,"Marine, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+711,Acanella_arbuscula,sp711,"Marine, Benthic, Sessile, HardBottom, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+712,Acanthogorgia_armata,sp712,"Marine, Benthic, Sessile, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+713,Agalma_elegans,sp713,"Marine, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+714,Aglantha_digitale,sp714,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+715,Anthomastus_agassizii,sp715,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+716,Anthomastus_grandiflorus,sp716,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+717,Anthoptilum_grandiflorum,sp717,"Marine, Benthic, Sessile, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+718,Anthoptilum_murrayi,sp718,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+719,Anthothela_grandiflora,sp719,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+720,Balticina_finmarchica,sp720,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+721,Bassia_bassensis,sp721,"Marine, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+722,Callistephanus_pallida,sp722,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+723,Calyptrophora_antilla,sp723,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+724,Calyptrophora_microdentata,sp724,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+725,Candidella_imbricata,sp725,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+726,Chrysogorgia_agassizii,sp726,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+727,Chrysogorgia_artospira,sp727,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+728,Chrysogorgia_tricaulis,sp728,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+729,Clytia_hemisphaerica,sp729,"Marine, Neritic, SubLittoral, caves, Oceanic, BrackishWater, Estuaries, Mangroves, Symphorism, Benthic, Sessile, Pelagic, HardBottom, Rubble, Macrophyte, CoralReefs, DropOffs, Lagoons, Vegetation, Leaves, Stems",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+730,Cyanea_capillata,sp730,"Marine, Neritic, LittoralZone, Intertidal, Oceanic, Epipelagic, mesopelagic, BrackishWater, Parasitism, Commensalism, Pelagic, OInverterbrates",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+731,Dasmosmilia_lymani,sp731,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+732,Deepstaria_enigmatica,sp732,"Marine, Oceanic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+733,Desmophyllum_dianthus,sp733,"Marine, Neritic, SubLittoral, Benthic, Sessile, HardBottom, DeepWaterCorals, OInverterbrates",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+734,Desmophyllum_pertusum,sp734,"Marine, Oceanic, Benthic, Sessile, HardBottom, Rocky, DeepWaterCorals",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+735,Distichoptilum_gracile,sp735,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+736,Eknomisis_dalioi,sp736,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+737,Enallopsammia_rostrata,sp737,"Marine, Benthic, HardBottom, DeepWaterCorals",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+738,Flabellum_alabastrum,sp738,"Marine, Oceanic, bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+739,Galaxea_fascicularis,sp739,"Marine, Neritic, Symphorism, Benthic, Sessile, CoralReefs",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+740,Halicreas_minimum,sp740,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+741,Hemicorallium_bathyrubrum,sp741,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+742,Hemicorallium_niobe,sp742,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+743,Hormathia_nodosa,sp743,"Marine, Neritic, SubLittoral, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+744,Iridogorgia_magnispiralis,sp744,"Marine, bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+745,Iridogorgia_splendens,sp745,"Marine, bathypelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+746,Javania_cailleti,sp746,"Marine, Benthic, HardBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+747,Keratoisis_grayi,sp747,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+748,Lateothela_grandiflora,sp748,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+749,Leiopathes_glaberrima,sp749,"Marine, Neritic, Oceanic, Benthic, Sessile, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+750,Melicertum_octocostatum,sp750,"Marine, Neritic, LittoralZone, Oceanic, Epipelagic, BrackishWater, Estuaries, Benthic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+751,Metallogorgia_melanotrichos,sp751,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+752,Narella_alvinae,sp752,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+753,Narella_versluysi,sp753,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+754,Paragorgia_arborea,sp754,"Marine, Neritic, Oceanic, Benthic, Sessile, HardBottom, Rocky",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+755,Paragorgia_coralloides,sp755,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+756,Paragorgia_johnsoni,sp756,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+757,Paramuricea_biscaya,sp757,"Marine, Oceanic, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+758,Paramuricea_grandis,sp758,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+759,Paramuricea_placomus,sp759,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+760,Paranarella_watlingi,sp760,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+761,Parantipathes_hirondelle,sp761,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+762,Parantipathes_tetrasticha,sp762,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+763,Parastenella_atlantica,sp763,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+764,Pelagia_noctiluca,sp764,"Marine, Neritic, Oceanic, Epipelagic, BrackishWater, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+765,Periphylla_periphylla,sp765,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Parasitism, Symbiosis, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+766,Premocyathus_cornuformis,sp766,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+767,Primnoa_resedaeformis,sp767,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+768,Pseudoanthomastus_agaricus,sp768,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+769,Ptilella_grandis,sp769,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+770,Radicipes_gracilis,sp770,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+771,Radicipes_spiralis,sp771,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+772,Sibopathes_macrospina,sp772,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+773,Solenosmilia_variabilis,sp773,"Marine, Oceanic, Symphorism, Benthic, Sessile, HardBottom, Rocky, CoralReefs, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+774,Stauropathes_arctica,sp774,"Marine, Oceanic, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+775,Stylatula_elegans,sp775,"Marine, Neritic, Benthic, Sessile, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+776,Telopathes_magnus,sp776,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+777,Thouarella_grasshoffi,sp777,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+778,Thouarella_hilgendorfi,sp778,"Marine, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+779,Trachythela_rudis,sp779,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+780,Vaughanella_margaritata,sp780,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+781,Victorgorgia_alba,sp781,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+782,Beroe_cucumis,sp782,"Marine, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+783,Pleurobrachia_pileus,sp783,"Marine, Neritic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+784,Amphipholis_squamata,sp784,"Marine, Neritic, LittoralZone, TidePools, Intertidal, SubLittoral, BrackishWater, Estuaries, Benthic, Mobile, SoftBottom, Mud, HardBottom, Rocky, Macrophyte, SeaGrassBeds, Seamounts, Corals",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+785,Arbacia_punctulata,sp785,"Marine, BrackishWater, Estuaries, Benthic, SoftBottom, Sand, HardBottom, Rubble, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+786,Asteroschema_clavigerum,sp786,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+787,Astropecten_duplicatus,sp787,"Marine, Benthic, SoftBottom, Sand",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+788,Benthopecten_spinosus,sp788,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+789,Brisinga_costata,sp789,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+790,Cheiraster_sepitus,sp790,"Marine, Benthic, Mobile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+791,Chondraster_grandis,sp791,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+792,Echinarachnius_parma,sp792,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+793,Freyella_elegans,sp793,"Marine, Benthic, Demersal, SoftBottom, Mud, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+794,Gracilechinus_affinis,sp794,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+795,Hippasteria_phrygiana,sp795,"Marine, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+796,Hygrosoma_petersii,sp796,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+797,Leptosynapta_tenuis,sp797,"Marine, Benthic, Mobile, Endofauna, SoftBottom, Mud, SeaGrassBeds",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+798,Mediaster_bairdi,sp798,"Marine, Benthic, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+799,Myxaster_sol,sp799,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+800,Neomorphaster_forcipatus,sp800,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+801,Ophiacantha_abyssicola,sp801,"Marine, mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+802,Ophiacantha_bidentata,sp802,"Marine, Neritic, Oceanic, Benthic, Mobile, SoftBottom, Mud, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+803,Ophiocreas_oedipus,sp803,"Marine, Oceanic, Benthic, Mobile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+804,Ophiocten_centobi,sp804,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+805,Ophiomusa_lymani,sp805,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+806,Ophiopholis_aculeata,sp806,"Marine, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+807,Ophioplinthaca_abyssalis,sp807,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+808,Ophioplinthus_abyssorum,sp808,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+809,Ophioplinthus_tessellata,sp809,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+810,Ophiosemnotes_clavigera,sp810,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+811,Ophiura_ljungmani,sp811,"Marine, Benthic, Mobile, SoftBottom, Mud, Ooze, Organic, Seamounts",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+812,Ophiura_saurura,sp812,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+813,Paragonaster_subtilis,sp813,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+814,Phormosoma_placenta,sp814,"Marine, Benthic, Mobile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+815,Plutonaster_agassizi,sp815,"Marine, Benthic, Mobile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+816,Pontaster_tenuispinus,sp816,"Marine, Neritic, Oceanic, Benthic, Mobile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+817,Psychropotes_depressa,sp817,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+818,Salenocidaris_varispina,sp818,"Marine, Benthic, Mobile, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+819,Zygothuria_lactea,sp819,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+820,Abralia_redfieldi,sp820,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+821,Abralia_veranyi,sp821,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+822,Abraliopsis_atlantica,sp822,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+823,Abraliopsis_morisii,sp823,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+824,Agriopoma_morrhuanum,sp824,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+825,Ancistrocheirus_lesueurii,sp825,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+826,Argonauta_argo,sp826,"Marine, Oceanic, Epipelagic, Symbiosis, Pelagic, OInverterbrates",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+827,Astarte_borealis,sp827,"Marine, Neritic, Benthic, SoftBottom, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+828,Astarte_undata,sp828,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+829,Bathothauma_lyromma,sp829,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+830,Bathypolypus_arcticus,sp830,"Marine, Neritic, Oceanic, Benthic, Mobile, Demersal, SoftBottom, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+831,Bathyteuthis_abyssicola,sp831,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+832,Bathyteuthis_berryi,sp832,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+833,Bolitaena_pygmaea,sp833,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+834,Brachioteuthis_beanii,sp834,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+835,Busycotypus_canaliculatus,sp835,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, BrackishWater, Estuaries, Benthic, Mobile, Endofauna, SoftBottom, Sand, Mud, BedsBivalve",,10,0.8,constant,0,10,NA,NA,0.1825,16.0115,1.635,NA,NA,constant,0,0.5,NA
+836,Calliotropis_ottoi,sp836,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+837,Chiroteuthis_mega,sp837,"Marine, Oceanic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+838,Chiroteuthis_spoeli,sp838,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+839,Chiroteuthis_veranii,sp839,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+840,Chtenopteryx_sicula,sp840,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+841,Cirrothauma_murrayi,sp841,"Marine, Oceanic, Benthic, Mobile, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+842,Clione_limacina,sp842,"Marine, Oceanic, Epipelagic, mesopelagic, Benthic, Sessile, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+843,Colus_pygmaeus,sp843,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+844,Colus_stimpsoni,sp844,"Marine, Neritic, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+845,Cranchia_scabra,sp845,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+846,Crenella_decussata,sp846,"Marine, Benthic, Endofauna",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+847,Creseis_acicula,sp847,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+848,Cyclocardia_borealis,sp848,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+849,Cycloteuthis_sirventi,sp849,"Marine, Oceanic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+850,Discoteuthis_discus,sp850,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+851,Discoteuthis_laciniosa,sp851,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+852,Doryteuthis_pealeii,sp852,"Marine, Neritic, Oceanic, Epipelagic, Benthic, Mobile, Demersal, Pelagic",,10,0.8,constant,0,10,NA,NA,0.77,30.65,NA,NA,NA,constant,0,0.5,NA
+853,Ennucula_delphinodonta,sp853,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+854,Ennucula_tenuis,sp854,"Marine, Neritic, SubLittoral, Benthic, Endofauna, Macrobenthos, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+855,Enoploteuthis_anapsis,sp855,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+856,Enoploteuthis_leptura,sp856,"Marine, Oceanic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+857,Ensis_directus,sp857,"Marine, Neritic, LittoralZone, SubLittoral, BrackishWater, Estuaries, Benthic, SoftBottom, Sand, Mud, HardBottom, Burrows",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+858,Euspira_heros,sp858,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+859,Frigidoalvania_carinata,sp859,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+860,Galiteuthis_armata,sp860,"Marine, Oceanic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+861,Gonatus_fabricii,sp861,"Marine, Oceanic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+862,Graneledone_verrucosa,sp862,"Marine, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+863,Grimalditeuthis_bonplandii,sp863,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+864,Haliphron_atlanticus,sp864,"Marine, Neritic, Oceanic, mesopelagic, bathypelagic, Mobile, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+865,Helicocranchia_pfefferi,sp865,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+866,Heteranomia_squamula,sp866,"Marine, LittoralZone, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+867,Histioteuthis_atlantica,sp867,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+868,Histioteuthis_bonnellii,sp868,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+869,Histioteuthis_corona,sp869,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+870,Histioteuthis_meleagroteuthis,sp870,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+871,Histioteuthis_reversa,sp871,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, abyssopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+872,Illex_illecebrosus,sp872,"Marine, Neritic, Oceanic, Benthic, Mobile, Demersal, Pelagic",,10,0.8,constant,0,10,NA,NA,0.948666667,29.13333333,0.016693333,NA,NA,constant,0,0.5,NA
+873,Ilyanassa_trivittata,sp873,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+874,Leachia_atlantica,sp874,"Marine, Oceanic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+875,Limacina_helicina,sp875,"Marine, Oceanic, Epipelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,4.553333333,0.491666667,NA,NA,NA,constant,0,0.5,NA
+876,Limacina_retroversa,sp876,"Marine, Neritic, Oceanic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+877,Lucinoma_filosa,sp877,"Marine, Benthic, Endofauna",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+878,Magnoteuthis_magna,sp878,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+879,Mastigopsis_hjorti,sp879,"Marine, Oceanic, Epipelagic, mesopelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+880,Mastigoteuthis_agassizii,sp880,"Marine, Oceanic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+881,Mercenaria_mercenaria,sp881,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, BrackishWater, Estuaries, Benthic, Endofauna, Macrobenthos, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,0.328566667,8.008,-0.1807,NA,NA,constant,0,0.5,NA
+882,Mytilus_edulis,sp882,"Marine, Neritic, LittoralZone, Intertidal, BrackishWater, Estuaries, Symphorism, Commensalism, Benthic, Sessile, Endofauna, Macrobenthos, SoftBottom, Sand, Silt, HardBottom, Rocky, Gravel, BedsRock, SeaGrassBeds, Pilings",,10,0.8,constant,0,10,NA,NA,0.374176471,8.633117647,0.13,NA,NA,constant,0,0.5,NA
+883,Nucula_proxima,sp883,"Marine, Benthic, Endofauna",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+884,Octopoteuthis_danae,sp884,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+885,Octopoteuthis_megaptera,sp885,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+886,Octopoteuthis_sicula,sp886,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+887,Octopus_vulgaris,sp887,"Marine, Neritic, LittoralZone, Intertidal, SubLittoral, Benthic, Mobile, Demersal, SoftBottom, Sand, Mud, HardBottom, Rocky, Rubble, SeaGrassBeds, CoralReefs",,10,0.8,constant,0,10,NA,NA,0.596,32.35,-0.1370825,NA,NA,constant,0,0.5,NA
+888,Onychoteuthis_banksii,sp888,"Marine, Oceanic, Epipelagic, mesopelagic, Schooling, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+889,Onykia_robsoni,sp889,"Marine, Oceanic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+890,Opisthoteuthis_agassizii,sp890,"Marine, Benthic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+891,Ornithoteuthis_antillarum,sp891,"Marine, Neritic, Oceanic, Benthic, Mobile, Demersal, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+892,Parvicardium_pinnulatum,sp892,"Marine, Benthic, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+893,Periploma_margaritaceum,sp893,"Marine, BrackishWater, Benthic, Endofauna",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+894,Periploma_papyratium,sp894,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+895,Placopecten_magellanicus,sp895,"Marine, Neritic, SubLittoral, Benthic, Mobile, SoftBottom, Sand, Mud, HardBottom, Rubble",,10,0.8,constant,0,10,NA,NA,0.27375,15.0675,NA,NA,NA,constant,0,0.5,NA
+896,Pterygioteuthis_gemmata,sp896,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+897,Pyroteuthis_margaritifera,sp897,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+898,Selenoteuthis_scintillans,sp898,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+899,Solamen_glandula,sp899,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+900,Spisula_solidissima,sp900,"Marine, Neritic, SubLittoral, Benthic, Endofauna, SoftBottom, Sand, Coarse",,10,0.8,constant,0,10,NA,NA,0.267625,15.42525,NA,NA,NA,constant,0,0.5,NA
+901,Stauroteuthis_syrtensis,sp901,"Marine, Oceanic, mesopelagic, bathypelagic, Parasitism, InsideHost, Benthic, Demersal, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+902,Stigmatoteuthis_dofleini,sp902,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+903,Stoloteuthis_leucoptera,sp903,"Marine, Neritic, SubLittoral",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+904,Styliola_subula,sp904,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+905,Taonius_pavo,sp905,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+906,Teuthowenia_megalops,sp906,"Marine, Oceanic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+907,Thyasira_trisinuata,sp907,"Marine, Benthic, Endofauna, SoftBottom",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+908,Thysanoteuthis_rhombus,sp908,"Marine, Oceanic, Epipelagic, mesopelagic, Pelagic, Seamounts",,10,0.8,constant,0,10,NA,NA,0.83512,81.2,NA,NA,0.846,constant,0,0.5,NA
+909,Tremoctopus_gracilis,sp909,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+910,Vampyroteuthis_infernalis,sp910,"Marine, Oceanic, Epipelagic, mesopelagic, bathypelagic, Pelagic",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+911,Yoldia_limatula,sp911,"Marine, Neritic, SubLittoral, Benthic, Macrobenthos, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+912,Aphrocallistes_beatrix,sp912,"Marine, Benthic, Sessile, SoftBottom, Sand, Mud",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+913,Asbestopluma_furcata,sp913,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+914,Asbestopluma_ruetzleri,sp914,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+915,Asconema_foliatum,sp915,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+916,Atlantisella_incognita,sp916,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+917,Cladorhiza_gelida,sp917,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+918,Farrea_herdendorfi,sp918,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+919,Farrea_occa,sp919,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+920,Geodia_barretti,sp920,"Marine, Neritic, SubLittoral, Benthic, Sessile, Demersal, HardBottom, Rocky",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+921,Geodia_macandrewii,sp921,"Marine, Neritic, SubLittoral, Benthic, Sessile, Demersal",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+922,Geodia_megastrella,sp922,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+923,Hertwigia_falcifera,sp923,NA,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+924,Poecillastra_compressa,sp924,"Marine, Oceanic, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+925,Stylocordyla_borealis,sp925,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+926,Suberites_ficus,sp926,"Marine, Benthic, Sessile",,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA
+927,Vazella_pourtalesii,sp927,Marine,,10,0.8,constant,0,10,NA,NA,NA,NA,NA,NA,NA,constant,0,0.5,NA

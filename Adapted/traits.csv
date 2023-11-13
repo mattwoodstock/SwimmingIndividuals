@@ -1,0 +1,11 @@
+﻿SpeciesLong,SpeciesShort,Taxon,Abundance,Assimilation_eff,LF_dist,LF_dist1,LF_dist2,LWR_a,LWR_b,VBG_K,VBG_LOO,VBG_t0,Mat_age,Tmax,M_type,M_const,Sex_rat,Swim_velo,Movement_type,Night_depth_min,Night_depth_max,Day_depth_min,Day_depth_max,Dive_Frequency,Dive_depth_min,Dive_depth_max,Dive_Interval,Surface_Interval,Mig_rate,Daily_ration,Repro_season,Fecundity,N_conc,Constant_biomass,Target_biomass
+Species1,sp1,Highly Migratory Species,10,0.8,Constant,10,100,0.05,3,0.4,120,0,3,10,Constant,0.2,0.5,2,Epipelagic diver,50,150,50,150,20,300,400,10,10,4.2,3,Constant,100,10,TRUE,1000
+Species2,sp2,Highly Migratory Species,10,0.8,Constant,10,120,0.01,3,0.4,150,0,5,11,Constant,0.2,0.5,1,Epipelagic diver,50,150,50,150,20,300,400,10,10,4.2,3,Constant,100,10,TRUE,1000
+Species3,sp3,Marine Mammal,10,0.8,Constant,50,150,0.02,3,0.4,200,0,11,20,Constant,0.2,0.5,2.5,Surface associated diver,10,80,10,80,30,300,400,10,10,4.2,3,Constant,100,10,TRUE,1000
+Species4,sp4,Seabird,10,0.8,Constant,8,10,0.04,3,0.4,100,0,3,5,Constant,0.2,0.5,3,Surface associated diver,10,80,10,80,30,25,50,10,10,4.2,3,Constant,100,10,TRUE,100
+Species5,sp5,Mesopelagic Fish,10,0.8,Lognormal,2,1,0.03,3,0.4,5,0,1,3,Constant,0.2,0.5,1.5,Asynchronous vertical migrator,50,100,300,400,0,0,0,10,10,4.2,3,Constant,100,10,TRUE,10000
+Species6,sp6,Mesopelagic Fish,10,0.8,Lognormal,5,1,0.05,3,0.4,5,0,2,5,Constant,0.2,0.5,1.5,Synchronous vertical migrator,50,100,300,400,0,0,0,10,10,4.2,3,Constant,100,10,TRUE,10000
+Species7,sp7,Mesopelagic Fish,10,0.8,Lognormal,0.7,1,0.003,3,0.4,5,0,1,3,Constant,0.2,0.5,1,Non-migrator nekton,600,1000,600,1000,0,0,0,10,10,4.2,3,Constant,100,10,TRUE,10000
+Species8,sp8,Crustacean,10,0.8,Lognormal,0.27,1,0.009,3,0.4,5,0,1,2,Constant,0.2,0.5,1,Non-migrator nekton,200,1000,200,1000,0,0,0,10,10,4.2,3,Constant,100,10,TRUE,10000
+Species9,sp9,Crustacean,10,0.8,Lognormal,0.16,1,0.01,3,0.4,5,0,0.8,1,Constant,0.2,0.5,1,Non-migrator nekton,0,1000,0,1000,0,0,0,10,10,4.2,7,Constant,100,10,TRUE,100000
+Species10,sp10,Crustacean,10,0.8,Lognormal,0.1,1,0.002,3,0.4,5,0,0.8,1.5,Constant,0.2,0.5,0.1,Synchronous vertical migrator,0,1000,0,1000,0,0,0,10,10,4.2,7,Constant,100,10,TRUE,100000
