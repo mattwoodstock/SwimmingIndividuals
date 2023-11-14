@@ -11,6 +11,7 @@ include("diagnostics.jl")
 include("simulation.jl")
 include("update.jl")
 include("output.jl")
+include("movement.jl")
 include("timestep.jl")
 
 
@@ -23,11 +24,11 @@ grid = CSV.read("grid.csv",DataFrame)
 ## Convert values to match proper structure
 Nsp = parse(Int64,state[state.Name .== "numspec", :Value][1])
 N = trait[:Abundance]
-maxN = parse(Int64,state[state.Name .== "maxindividuals", :Value][1])
+maxN = maximum(N) # Placeholder where the maximum number of individuals created is simply the maximum abundance
 arch = CPU() #Architecure to use
-t = 1 #Time in seconds (Will need to adjust)
-n_iteration = 1 #Number of iterations I think
-dt = 60.0 #seconds per time step
+t = 0.0 #Time in seconds (Will need to adjust)
+n_iteration = parse(Int64,state[state.Name .== "nts", :Value][1]) #Number of iterations
+dt = 10.0 #minutes per time step
 
 
 
@@ -38,15 +39,13 @@ g = RectilinearGrid(size=(grid[grid.Name.=="latres",:Value][1],grid[grid.Name.==
 inds = generate_individuals(trait, arch, Nsp, N, maxN, g::AbstractGrid)
 
 ## Create model object
-model = MarineModel(arch, t, n_iteration, inds, g)
+model = MarineModel(arch, t, 1, inds, Nsp, N, g)
 
 ## Set up diagnostics (Rework once model runs)
-#diags = MarineDiagnostics(model; tracer=(:PAR, :NH4, :NO3, :DOC),
-#                                   plankton = (:num, :graz, :mort, :dvid, :PS, :BS, :Chl),
-#                                   iteration_interval = 1)
+#diags = MarineDiagnostics(model; tracer=(:PAR, :NH4, :NO3, :DOC), plankton = (:num, :graz, :mort, :dvid, :PS, :BS, :Chl), iteration_interval = 1)
 
 # Set up simulation parameters
-sim = simulation(model, ΔT = dt,iterations = n_iteration)
+sim = simulation(model, ΔT = dt, iterations = n_iteration)
 
 # Set up output writer
 sim.output_writer = MarineOutputWriter(save_plankton=true)
@@ -55,12 +54,9 @@ sim.output_writer = MarineOutputWriter(save_plankton=true)
 update!(sim)
 
 
-# Look at saved results
-file = jldopen(sim.output_writer.plankton_file, "r")
-
-println(keys(file["timeseries"]))
-iterations = parse.(Int, keys(file["timeseries/t"]))
-
-
 println("Works")
-println(inds.animals.sp1.data.z) #This is how you call specific values for each individual
+#println(inds.animals.sp1.data.z) #This is how you call specific values for each individual
+
+
+#println(fieldnames(typeof(model.individuals.animals))) #Vector of species names
+#println(test2.data.mig_status) #Gather vector of current values

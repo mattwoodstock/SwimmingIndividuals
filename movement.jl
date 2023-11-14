@@ -45,71 +45,46 @@ function horizontal_movement(ind,trait,g)
     return (new_longitude,new_latitude)
 end
 
-function vertical_movement(ind,trait,t)
-    mig = ind.move[1]
-    vm_rate = trait.Mig_rate[1] #m per minute (Bianchi et al. (2016))
-    dvm_trigger = 0.3 #proportion of bodyweight energy necessary for asynchronous migrators to migrate
-    z_t = ind.z[1]
-    target_z = ind.target_z[1]
 
-    if trait.Movement_type[1] == "Synchronous vertical migrator"
-        if (t >= 6*60) && (mig == "steady") && (t < 18*60)
-            mig = "descend"
-            target_z = (rand() * (trait.Day_depth_max[1] - trait.Day_depth_min[1]))+trait.Day_depth_min[1]
-            z_t = ind.z[1] + vm_rate
+function dvm_action(df,sp,t,ΔT)
+    #All animals will go through this at each time step.
+    #The DVM Trigger for synchronous migrators will be 1 (always migrate)
+    #The DVM Trigger for asynchronous migrators will be normal
+    #The DVM Rate for all non-migrators will be 0
+
+    #Steady == 0, Ascending == 1, Descending == 2, Spent == -1
+
+    dvm_trigger = df.p.DVM_trigger[2][sp] #proportion of bodyweight energy necessary for asynchronous migrators to migrate. Synchronous migrators will be 0 because they always migrate
+    for ind in 1:length(df.data.length) #Loop through each individual
+
+        if (t >= 6*60) && (df.data.mig_status[ind] == 0) && (t < 18*60)
+            df.data.mig_status[ind] = 2
+            df.data.target_z[ind] = (rand() * (df.p.Day_depth_max[2][sp] - df.p.Day_depth_min[2][sp])) + df.p.Day_depth_min[2][sp]
+            df.data.z[ind] = df.data.z[ind] + (df.p.Mig_rate[2][sp] * ΔT)
         end
 
-        if  (t >= 18*60) && (mig == "spent")
+        if  (t >= 18*60) && (df.data.mig_status[ind] == -1) && (df.data.energy[ind] < df.data.weight[ind]*dvm_trigger)
 
-            mig = "ascend"
-            target_z = (rand() * (trait.Night_depth_max[1] - trait.Night_depth_min[1]))+trait.Night_depth_min[1]
-            z_t = ind.z[1] - vm_rate
+            df.data.mig_status[ind] = 1
+            df.data.target_z[ind] = (rand() * (df.p.Night_depth_max[2][sp] - df.p.Night_depth_min[2][sp])) + df.p.Night_depth_min[2][sp]
+            df.data.z[ind] = df.data.z[ind] - (df.p.Mig_rate[2][sp] * ΔT)
         end
 
-        if (mig == "ascend") && (z_t <= target_z)
+        if (df.data.mig_status[ind] == 1) && (df.data.z[ind] <= df.data.target_z[ind])
 
-            mig = "steady"
-        elseif (mig == "ascend")
+            df.data.mig_status[ind] = 0
+        elseif (df.data.mig_status[ind] == 1)
 
-            z_t = ind.z[1] - vm_rate
+            df.data.z[ind] = df.data.z[ind] - (df.p.Mig_rate[2][sp] * ΔT)
         end
 
-        if (mig == "descend") && (z_t >= target_z)
+        if (df.data.mig_status[ind] == 2) && (df.data.z[ind] >= df.data.target_z[ind])
 
-            mig = "spent"
-        elseif (mig == "descend")
-            z_t = ind.z[1] + vm_rate
+            df.data.mig_status[ind] = -1
+        elseif (df.data.mig_status[ind] == 2)
+            df.data.z[ind] = df.data.z[ind] + (df.p.Mig_rate[2][sp] * ΔT)
         end  
     end
 
-    if trait.Movement_type[1] == "Asynchronous vertical migrator"
-        if (t >= 6*60) && (mig == "steady") && (t < 18*60)
-            mig = "descend"
-            target_z = (rand() * (trait.Day_depth_max[1] - trait.Day_depth_min[1]))+trait.Day_depth_min[1]
-            z_t = ind.z[1] + vm_rate
-        end
-
-        if  (t >= 18*60) && (mig == "spent") && (ind.energy[1] < ind.weight[1]*dvm_trigger)
-
-            mig = "ascend"
-            target_z = (rand() * (trait.Night_depth_max[1] - trait.Night_depth_min[1]))+trait.Night_depth_min[1]
-            z_t = ind.z[1] - vm_rate
-        end
-
-        if (mig == "ascend") && (z_t <= target_z)
-
-            mig = "steady"
-        elseif (mig == "ascend")
-
-            z_t = ind.z[1] - vm_rate
-        end
-
-        if (mig == "descend") && (z_t >= target_z)
-
-            mig = "spent"
-        elseif (mig == "descend")
-            z_t = ind.z[1] + vm_rate
-        end  
-    end
-    return z_t, mig, target_z  
+    return df
 end
