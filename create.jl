@@ -10,7 +10,7 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp, N, maxN, g:
         name = Symbol("sp"*string(i))
         plank = construct_plankton(arch, params, maxN)
         #println(plank.p.Daily_ration[2][1]) #Calling structs!!!!
-        generate_plankton!(plank, N[i], g, arch,i)
+        generate_plankton!(plank, N[i], g, arch,i, maxN)
         push!(plank_names, name)
         push!(plank_data, plank)
     end
@@ -29,7 +29,7 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
 end
 
 
-function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture,sp)
+function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture,sp, maxN)
     plank.data.generation[1:N] .= 1.0   # generation
 
     ## Optimize this? Want all individuals to be different
@@ -39,11 +39,16 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
         plank.data.z[i] = rand() * (plank.p.Night_depth_max[2][sp] - plank.p.Night_depth_min[2][sp]) + plank.p.Night_depth_min[2][sp]
     end
 
-    plank.data.x   .= 1
-    plank.data.y   .= 1
+    plank.data.x   .= -70
+    plank.data.y   .= 45
     plank.data.energy  .= plank.data.weight .* 0.2   # Initial reserve energy = Rmax
     plank.data.target_z .= copy(plank.data.z)
     plank.data.mig_status .= 0
+
+    if N != maxN #Remove the individuals that are not created out of the model domain
+        plank.data.x[N+1:maxN]   .= -1
+        plank.data.y[N+1:maxN]   .= -1
+    end
 
     mask_individuals!(plank.data, g, N, arch)
 end

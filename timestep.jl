@@ -14,26 +14,31 @@ function TimeStep!(model::MarineModel, ΔT)
         #https://discourse.julialang.org/t/how-to-write-a-fast-loop-through-structure-fields/22535
 
 
-
+        # Animal movement
         ##Check to see if species is a vertical migrator
         mig_rates = getfield(spec_array.p, :Mig_rate)
 
         if mig_rates[2][i] > 0 #Species is a vertical migrator
             spec_array = dvm_action(spec_array,i,model.t,ΔT)
         end
-
-        test1 = string(model.individuals.animals.sp8.data.z[1])
-        test2 = " | "
-
-        print(test1 * test2)
-        ##Check to see if species is a diver
-        #divers = getfield(spec_array.p, :Dive_Frequency)
-        #if divers[2][i] > 0 #Species is a vertical migrator
-        #    spec_array = dive_action(spec_array,i,model.t)
-        #end
-
-
     end
+
+    ##Check to see if species is a diver
+    #divers = getfield(spec_array.p, :Dive_Frequency)
+    #if divers[2][i] > 0 #Species is a vertical migrator
+    #    spec_array = dive_action(spec_array,i,model.t)
+    #end
+
+    # Predation Procedure
+    ## Calculate distance matrix between individuals
+    distance_matrix = calculate_distances(model)
+        
+    eat!(model,distance_matrix, ΔT)
+
+        
+    #Replace individuals
+    #Reset things
+    #Number of individuals in @model.inds. Currently, this will not change
 
     return nothing
 end

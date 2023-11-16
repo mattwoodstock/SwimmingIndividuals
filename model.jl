@@ -12,6 +12,8 @@ include("simulation.jl")
 include("update.jl")
 include("output.jl")
 include("movement.jl")
+include("predation.jl")
+include("mortality.jl")
 include("timestep.jl")
 
 
@@ -29,7 +31,6 @@ arch = CPU() #Architecure to use
 t = 0.0 #Time in seconds (Will need to adjust)
 n_iteration = parse(Int64,state[state.Name .== "nts", :Value][1]) #Number of iterations
 dt = 10.0 #minutes per time step
-
 
 
 ## Create Output grid
