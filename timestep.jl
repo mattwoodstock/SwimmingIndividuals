@@ -35,6 +35,20 @@ function TimeStep!(model::MarineModel, ΔT)
         
     eat!(model,distance_matrix, ΔT)
 
+    #Metabolism
+    for i in eachindex(fieldnames(typeof(model.individuals.animals))) #Loop each species
+        #Create array to call species-specific traits
+        name = Symbol("sp"*string(i))
+        spec_array = getfield(model.individuals.animals, name)
+        
+        for j in 1:model.ninds[i]
+            metabolism!(spec_array,j)
+            evacuate_gut!(spec_array.data,j,ΔT)
+        end
+    end
+
+    println(model.individuals.animals.sp1.data.gut_fullness[1])
+
         
     #Replace individuals
     #Reset things

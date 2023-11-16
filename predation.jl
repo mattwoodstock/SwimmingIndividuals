@@ -65,7 +65,7 @@ function available_prey(model::MarineModel,d_matrix,pred,pred_spec,pred_array,dt
     #Should this be restricted, or should it be assumed the fishes are constantly swimming?
     swim_velo = pred_array.p.Swim_velo[2][pred_spec] * pred_array.data.length[pred] /100 * 60 * dt
 
-    prey_list = DataFrame(Sp = Int[], Ind = Int[], x = Float64[], y = Float64[], z = Float64[], Distance = Float64[])
+    prey_list = DataFrame(Sp = Int[], Ind = Int[], x = Float64[], y = Float64[], z = Float64[], Weight = Float64[], Distance = Float64[])
 
     #Create dataframe for potential preys.
     prey_count = 1
@@ -81,7 +81,7 @@ function available_prey(model::MarineModel,d_matrix,pred,pred_spec,pred_array,dt
 
                 if (prey_distance <= swim_velo) & (prey_length >= pred_array.data.length[pred] * min_prey_limit) & (prey_length <= pred_array.data.length[pred] * max_prey_limit)
 
-                    new_row = Dict("Sp" => i, "Ind" => j, "x" => spec_array1.data.x[j], "y" => spec_array1.data.y[j], "z" => spec_array1.data.z[j], "Distance" => prey_distance)
+                    new_row = Dict("Sp" => i, "Ind" => j, "x" => spec_array1.data.x[j], "y" => spec_array1.data.y[j], "z" => spec_array1.data.z[j],"Weight" => spec_array1.data.weight[j], "Distance" => prey_distance)
                     #Add individual to prey list
                     push!(prey_list,new_row)
                 end
@@ -103,7 +103,13 @@ end
 
 function move_predator!(pred_df,pred_spec,pred_ind,prey_df,t)
 
-    handling_time = 2.0 #seconds of Handling time from Langbehn et al. 2019. Essentially a cool-off period after feeding.
+    #Handling time is a function of gut fullness with 2.0 seconds as the base. May want a better source.
+    #https://cdnsciencepub.com/doi/pdf/10.1139/f74-186
+    handling_time_0 = 2.0
+
+    handling_time = (1.19 - 1.24 * pred_df.data.gut_fullness[pred_ind] + 3.6 * pred_df.data.gut_fullness[pred_ind]^2 / handling_time_0) * handling_time_0
+
+    #seconds of Handling time from Langbehn et al. 2019. Essentially a cool-off period after feeding.
     #Identify x,y,z of prey
 
     pred_df.data.x[pred_ind] = prey_df.x[1]
@@ -117,9 +123,25 @@ function move_predator!(pred_df,pred_spec,pred_ind,prey_df,t)
 
     t = t - ((handling_time + time_to_prey) / 60)
 
+    #Add foraging time to activity time
+    pred_df.data.active_time[pred_ind] = pred_df.data.active_time[pred_ind] + time_to_prey
+
     return t
 end
 
+function fill_gut!(pred_df,pred_ind,prey_df)
+
+    prop_filled = prey_df.Weight[1]/pred_df.weight[pred_ind]
+
+    pred_df.gut_fullness[pred_ind] = pred_df.gut_fullness[pred_ind] + prop_filled
+
+
+    if pred_df.gut_fullness[pred_ind] > 1
+        pred_df.gut_fullness[pred_ind] = 1
+    end
+
+    return nothing
+end
 
 function eat!(model::MarineModel,d_matrix,dt)
 
@@ -134,17 +156,19 @@ function eat!(model::MarineModel,d_matrix,dt)
                 prey_list = available_prey(model,d_matrix,j,i,spec_array1,dt)
 
                 while ddt > 0 ## Can only eat if there is time left
-                    if nrow(prey_list) > 0 # There are preys within range. Need to choose one and "remove" it.
+                    if size(prey_list,1) > 0 # There are preys within range. Need to choose one and "remove" it.
                         chosen_prey = prey_choice(prey_list)
                         remove_animal!(model,chosen_prey)
-
                         ddt = move_predator!(spec_array1,i,j,chosen_prey,ddt)
+                        fill_gut!(spec_array1.data,j,chosen_prey)
                     else
                         chosen_prey = nothing
                         ddt = 0 ## No preys within range, therefore we do not need this.
                     end
                 end
+                throw(ErrorException("Stop Here."))
             end
         end
     end
 end
+

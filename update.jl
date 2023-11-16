@@ -34,10 +34,10 @@ function update!(sim::MarineSimulation; time_offset = (vels = false, PARF = fals
 #
             TimeStep!(sim.model, sim.ΔT)
 
-            test1 = string(model.individuals.animals.sp8.data.z[1])
-            test2 = " | "
-            test3 = test1*test2
-            print(test3)
+            #test1 = string(model.individuals.animals.sp8.data.z[1])
+            #test2 = " | "
+            #test3 = test1*test2
+            #print(test3)
 
             write_output!(sim.output_writer, sim.model, sim.ΔT)
         end

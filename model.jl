@@ -14,6 +14,7 @@ include("output.jl")
 include("movement.jl")
 include("predation.jl")
 include("mortality.jl")
+include("energy.jl")
 include("timestep.jl")
 
 
