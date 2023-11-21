@@ -8,6 +8,16 @@ struct individuals
     animals::NamedTuple
 end
 
+mutable struct MarineModel
+    arch::Architecture          # architecture on which models will run
+    t::Float64                  # time in minute
+    iteration::Int64            # model interation
+    individuals::individuals    # initial individuals generated
+    n_species::Int64            # Number of species
+    ninds::Vector{Int}          # Total number of individuals in the model
+    grid::AbstractGrid          # grid information
+    #timestepper::timestepper    # Add back in once environmental parameters get involved
+end
 
 @kernel function mask_individuals_kernel!(plank, g::AbstractGrid)
     i = @index(Global)

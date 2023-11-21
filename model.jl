@@ -31,7 +31,7 @@ maxN = maximum(N) # Placeholder where the maximum number of individuals created 
 arch = CPU() #Architecure to use
 t = 0.0 #Time in seconds (Will need to adjust)
 n_iteration = parse(Int64,state[state.Name .== "nts", :Value][1]) #Number of iterations
-dt = 10.0 #minutes per time step
+dt = 5.0 #minutes per time step
 
 
 ## Create Output grid
@@ -41,7 +41,7 @@ g = RectilinearGrid(size=(grid[grid.Name.=="latres",:Value][1],grid[grid.Name.==
 inds = generate_individuals(trait, arch, Nsp, N, maxN, g::AbstractGrid)
 
 ## Create model object
-model = MarineModel(arch, t, 1, inds, Nsp, N, g)
+model = MarineModel(arch, t, 0, inds, Nsp, N, g)
 
 ## Set up diagnostics (Rework once model runs)
 #diags = MarineDiagnostics(model; tracer=(:PAR, :NH4, :NO3, :DOC), plankton = (:num, :graz, :mort, :dvid, :PS, :BS, :Chl), iteration_interval = 1)
@@ -55,10 +55,8 @@ sim.output_writer = MarineOutputWriter(save_plankton=true)
 # Run model. Currently this is very condensed, but I kept the code for when we work with environmental factors
 update!(sim)
 
-
 println("Works")
 #println(inds.animals.sp1.data.z) #This is how you call specific values for each individual
-
 
 #println(fieldnames(typeof(model.individuals.animals))) #Vector of species names
 #println(test2.data.mig_status) #Gather vector of current values
