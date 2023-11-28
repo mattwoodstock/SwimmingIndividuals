@@ -80,12 +80,14 @@ function dvm_action(df,sp,t,ΔT)
             df.data.active_time[ind] = df.data.active_time[ind] + t_adjust
 
 
-            if df.data.z[ind] == df.data.target_z[ind]
+            if df.data.z[ind] >= df.data.target_z[ind]
                 df.data.mig_status[ind] = -1
-                df.data.feeding[ind] = 0 #Animal stops feeding
             end
 
-        elseif  (t >= 18*60) && (df.data.mig_status[ind] == -1) && (df.data.energy[ind] < df.data.weight[ind]*dvm_trigger) #Animal needs to start ascending
+            df.data.feeding[ind] = 0 #Animal stops feeding
+
+
+        elseif  (t >= 18*60) && (df.data.mig_status[ind] == -1) && (df.data.energy[ind] < df.data.weight[ind] * df.p.energy_density[2][sp] * dvm_trigger) #Animal needs to start ascending
 
             df.data.mig_status[ind] = 1
 
@@ -131,6 +133,7 @@ function dvm_action(df,sp,t,ΔT)
 
         end  
     end
+
     return nothing
 end
 

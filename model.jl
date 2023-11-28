@@ -31,7 +31,7 @@ maxN = maximum(N) # Placeholder where the maximum number of individuals created 
 arch = CPU() #Architecure to use
 t = 0.0 #Time in seconds (Will need to adjust)
 n_iteration = parse(Int64,state[state.Name .== "nts", :Value][1]) #Number of iterations
-dt = 5.0 #minutes per time step
+dt = 20.0 #minutes per time step
 
 
 ## Create Output grid

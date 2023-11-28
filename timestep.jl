@@ -2,8 +2,17 @@ function TimeStep!(model::MarineModel, ΔT)
 
     # model.t = model.t+ΔT
     model.iteration = model.iteration + 1
-    model.t = model.iteration * ΔT 
+    model.t = model.t + ΔT
 
+    #Reset the day at midnight
+    if model.t > 1440
+        model.t = model.t - 1440
+    end
+
+
+    text1 = string(model.t)
+    text2 = " : "
+    print(text1*text2)
     #Vertical movement of animals
     for i in eachindex(fieldnames(typeof(model.individuals.animals))) #Loop each species
         #Create array to call species-specific traits
@@ -46,10 +55,7 @@ function TimeStep!(model::MarineModel, ΔT)
             for j in 1:model.ninds[i] #Cycle through each individual predator
                 if spec_array1.data.x[j] != -1 #Skip over dead animals
                     ## Find potential preys for predator
-                    pred_success = rand()
-                    if pred_success >= 0.3 #70% chance of predator success in a time step https://esajournals.onlinelibrary.wiley.com/doi/pdf/10.1890/08-2019.1
-                        eat!(model,distance_matrix,i,j,spec_array1,ΔT)
-                    end
+                    eat!(model,distance_matrix,i,j,spec_array1,ΔT)
                 end
             end
         end
@@ -67,13 +73,25 @@ function TimeStep!(model::MarineModel, ΔT)
             if spec_array.data.energy[j] < 0 #Animal starves to death if its energy reserves fall below 0
                 starvation!(spec_array,j)
             end
+
+            ## Put individual at new lat,long for now to test processes
+            #spec_array.data.x[j] = rand(-71:70)
+            #spec_array.data.y[j] = rand(44:45)
+
         end
     end
 
-    println(model.individuals.animals.sp1.data.z[1])
+    println(model.individuals.animals.sp1.data.daily_ration[1])
 
     #Replace individuals
-    replace_individuals(model)
+    replace_individuals!(model)
+
+    #Reset necessary components at the end of the day
+    if (model.t >= 1440)
+        reset!(model)
+    end
+
+
 
     return nothing
 end

@@ -100,11 +100,13 @@ function detection_distance(prey_length,pred_df,pred_ind)
 end
 
 
+
+
 function available_prey(model::MarineModel,d_matrix,pred,pred_spec,pred_array,dt)
     
     #Prey limitation. Need to make species-specific
-    min_prey_limit = 0.05 #Animals cannot eat anything less than 5% of their body size
-    max_prey_limit = 0.5 #Animals cannot eat anything greater than 50% of their body size
+    min_prey_limit = 0.01 #Animals cannot eat anything less than 5% of their body length
+    max_prey_limit = 0.2 #Animals cannot eat anything greater than 20% of their body length
 
     #Prey Detection Distances
     #https://onlinelibrary.wiley.com/doi/pdf/10.1111/geb.13782
@@ -190,8 +192,8 @@ function fill_gut!(pred_df,pred_ind,prey_df)
     pred_df.gut_fullness[pred_ind] = pred_df.gut_fullness[pred_ind] + prop_filled        
 
 
-    if pred_df.gut_fullness[pred_ind] > 1
-        pred_df.gut_fullness[pred_ind] = 1
+    if pred_df.gut_fullness[pred_ind] > 0.03*pred_df.weight[pred_ind]
+        pred_df.gut_fullness[pred_ind] = 0.03*pred_df.weight[pred_ind]
     end
     return nothing
 end
@@ -205,14 +207,18 @@ function eat!(model::MarineModel,d_matrix,i,j,spec_array1,dt)
 
         if (nrow(prey_list) > 0) && (spec_array1.data.gut_fullness[j] < 1) # There are preys within range. Need to choose one and "remove" it.
 
-            chosen_prey = prey_choice(prey_list)
-            remove_animal!(model,chosen_prey)
-            ddt = move_predator!(spec_array1,i,j,chosen_prey,ddt)
-            
-            fill_gut!(spec_array1.data,j,chosen_prey)
-            allocate_energy(spec_array1,j,chosen_prey)
-
-            deleteat!(prey_list,findall(prey_list.Sp .== chosen_prey.Sp[1] .&& prey_list.Ind .== chosen_prey.Ind[1]))
+                chosen_prey = prey_choice(prey_list)
+                pred_success = rand()
+                
+                if pred_success >= 0.3 #70% chance of predator success in a feeding event https://onlinelibrary.wiley.com/doi/pdf/10.1111/jfb.14451
+                remove_animal!(model,chosen_prey)
+                ddt = move_predator!(spec_array1,i,j,chosen_prey,ddt)
+                
+                fill_gut!(spec_array1.data,j,chosen_prey)
+                allocate_energy(spec_array1,i,j,chosen_prey)
+            end
+                #Still remove animal from prey list as if it goes away
+                deleteat!(prey_list,findall(prey_list.Sp .== chosen_prey.Sp[1] .&& prey_list.Ind .== chosen_prey.Ind[1]))
         else
             chosen_prey = nothing
             ddt = 0 ## No preys within range, therefore we do not need this.

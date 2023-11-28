@@ -2,4 +2,4 @@ Name,Value,Description
 architecture,CPU,Can either be CPU or GPU
 numspec,232,Number of Modeled Species
 maxindividuals,10000,Maximum number of individuals
-nts,288,Number of Time Steps (minutes)
+nts,300,Number of Time Steps (minutes)

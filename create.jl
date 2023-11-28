@@ -19,7 +19,7 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp, N, maxN, g:
 end
 
 function construct_plankton(arch::Architecture, params::Dict, maxN)
-    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), weight = zeros(maxN), energy = zeros(maxN), generation = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), active_time = zeros(maxN),gut_fullness = zeros(maxN),feeding = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN)) 
+    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), weight = zeros(maxN), energy = zeros(maxN), generation = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), active_time = zeros(maxN),gut_fullness = zeros(maxN),feeding = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), daily_ration = zeros(maxN)) 
 
     data = replace_storage(array_type(arch), rawdata)
 
@@ -37,19 +37,23 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
     for i in 1:N
         plank.data.length[i] = rand(plank.p.Min_Size[2][sp]:plank.p.Max_Size[2][sp])
         plank.data.weight[i]  = plank.p.LWR_a[2][sp] * plank.data.length[i] * plank.p.LWR_b[2][sp]   # Bm
+        plank.data.gut_fullness[i] = rand() * 0.03 * plank.data.weight[i] #Proportion of gut that is full. Start with a random value between empty and 3% of predator diet.
+
+        plank.data.x[i] = rand(-71:70)
+        plank.data.y[i] = rand(44:75)
         plank.data.z[i] = rand(plank.p.Night_depth_min[2][sp]:plank.p.Night_depth_max[2][sp])
         plank.data.interval[i] = rand(0.0:plank.p.Surface_Interval[2][sp])
     end
 
-    plank.data.x   .= -70
-    plank.data.y   .= 45
+
     plank.data.energy  .= plank.data.weight * plank.p.energy_density[2][sp] .* 0.2   # Initial reserve energy = Rmax
     plank.data.target_z .= copy(plank.data.z)
     plank.data.mig_status .= 0
     plank.data.mig_rate .= 0
-    plank.data.gut_fullness .= rand() #Proportion of gut that is full. Start with a random value.
 
     plank.data.feeding .= 1 #Animal can feed. 0 if the animal is not in a feeding cycle
+
+    plank.data.daily_ration .= 0
 
     if N != maxN #Remove the individuals that are not created out of the model domain
         plank.data.x[N+1:maxN]   .= -1
@@ -63,7 +67,7 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
 end
 
 
-function replace_individuals(model::MarineModel)
+function replace_individuals!(model::MarineModel)
     for i in 1:model.n_species
         name = Symbol("sp"*string(i))
         spec_array1 = getfield(model.individuals.animals, name)
@@ -75,13 +79,27 @@ function replace_individuals(model::MarineModel)
                 spec_array1.data.weight[j]  = spec_array1.p.LWR_a[2][sp] * spec_array1.data.length[j] * spec_array1.p.LWR_b[2][sp]   # Bm
                 spec_array1.data.z[j] = rand(spec_array1.p.Night_depth_min[2][sp]:spec_array1.p.Night_depth_max[2][sp])
 
-                spec_array1.data.x[j]   = -70
-                spec_array1.data.y[j]   = 45
-                spec_array1.data.energy[j]  = plank.data.weight .* 0.2   # Initial reserve energy = Rmax
+                spec_array1.data.x[j]   = rand(-71:70)
+                spec_array1.data.y[j]   = rand(44:45)
+                spec_array1.data.energy[j]  = plank.data.weight * plank.p.energy_density[2][sp]* 0.2   # Initial reserve energy = Rmax
                 spec_array1.data.target_z[j] = copy(spec_array1.data.z[j])
                 spec_array1.data.mig_status[j] = 0
                 spec_array1.data.mig_rate[j] = 0
-                spec_array1.data.gut_fullness[j] = rand() #Proportion of gut that is full. Start with a random value.
+                spec_array1.data.gut_fullness[j] = rand() * 0.03*plank.data.weight[i] #Proportion of gut that is full. Start with a random value.
+                spec_array1.data.daily_ration[j] = 0
+            end
+        end
+    end
+end
+
+
+function reset!(model::MarineModel)
+    for i in 1:model.n_species
+        name = Symbol("sp"*string(i))
+        spec_array1 = getfield(model.individuals.animals, name)
+        for j in 1:model.ninds[i]
+            if spec_array1.data.x != -1 #Only reset values for living animals
+                spec_array1.data.daily_ration[j] = 0
             end
         end
     end
