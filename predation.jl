@@ -1,3 +1,16 @@
+function holling_2()
+    #Clearance rate of animal (cubic meters per second per predator)
+    clearance = 0.5* π * visual_range * swim_speed
+
+    #Enounter rate of animal
+    encounter = (clearance * prey_density)/(1+handling_t*prey_density)
+
+    #Consumption rate of animal
+    consumption = capture_success * encounter * prey_weight * prey_energy
+
+    return consumption
+end
+
 function distance_matrix(lat1, lon1, depth1, lat2, lon2, depth2)
     R = 6371000  # Earth radius in meters
     
@@ -74,7 +87,7 @@ function detection_distance(prey_length,pred_df,pred_ind)
     rmax = pred_df.data.length[pred_ind]*1000 # The maximum visual range. Currently this is 1 body length
     prey_contrast = 0.3 #Utne-Plam (1999)   
     eye_saturation = 1
-    tolerance = 1e-6 #Random value that determines convergence of Newton-Raphson equation. 
+    tolerance = 1e-6 #Value that determines convergence of Newton-Raphson equation. 
     
     #Light attentuation coefficient
     a_lat = 0.64 - 0.016 * salt #Aksnes et al. 2009; per meter
@@ -209,7 +222,7 @@ function eat!(model::MarineModel,d_matrix,i,j,spec_array1,dt)
 
                 chosen_prey = prey_choice(prey_list)
                 pred_success = rand()
-                
+
                 if pred_success >= 0.3 #70% chance of predator success in a feeding event https://onlinelibrary.wiley.com/doi/pdf/10.1111/jfb.14451
                 remove_animal!(model,chosen_prey)
                 ddt = move_predator!(spec_array1,i,j,chosen_prey,ddt)

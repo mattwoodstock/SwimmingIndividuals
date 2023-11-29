@@ -30,3 +30,11 @@ function mask_individuals!(plank, g::AbstractGrid, N, arch)
     kernel!(plank, g)
     return nothing
 end
+
+#Resample from a gaussian mixture model
+function gaussmix(n,m1, m2, m3, s1, s2, s3, l1, l2)
+    I = rand(n) .< l1
+    I2 = rand(n) .< l1 .+ l2
+    z = [rand(I[i] ? Normal(m1, s1) : (I2[i] ? Normal(m2, s2) : Normal(m3, s3))) for i in 1:n]
+    return z
+end

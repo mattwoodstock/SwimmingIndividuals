@@ -1,4 +1,4 @@
-function generate_individuals(params::Dict, arch::Architecture, Nsp, N, maxN, g::AbstractGrid)
+function generate_individuals(params::Dict, arch::Architecture, Nsp, N, maxN, g::AbstractGrid,z_night_file)
     plank_names = Symbol[]
     plank_data=[]
 
@@ -10,7 +10,7 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp, N, maxN, g:
         name = Symbol("sp"*string(i))
         plank = construct_plankton(arch, params, maxN)
         #println(plank.p.Daily_ration[2][1]) #Calling structs!!!!
-        generate_plankton!(plank, N[i], g, arch,i, maxN)
+        generate_plankton!(plank, N[i], g, arch,i, maxN,z_night_file)
         push!(plank_names, name)
         push!(plank_data, plank)
     end
@@ -30,7 +30,11 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
 end
 
 
-function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture,sp, maxN)
+
+function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture,sp, maxN,z_night_file)
+
+    z_night_dist = CSV.read(z_night_file,DataFrame)
+
     plank.data.generation[1:N] .= 1.0   # generation
 
     ## Optimize this? Want all individuals to be different
@@ -38,13 +42,17 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
         plank.data.length[i] = rand(plank.p.Min_Size[2][sp]:plank.p.Max_Size[2][sp])
         plank.data.weight[i]  = plank.p.LWR_a[2][sp] * plank.data.length[i] * plank.p.LWR_b[2][sp]   # Bm
         plank.data.gut_fullness[i] = rand() * 0.03 * plank.data.weight[i] #Proportion of gut that is full. Start with a random value between empty and 3% of predator diet.
-
-        plank.data.x[i] = rand(-71:70)
-        plank.data.y[i] = rand(44:75)
-        plank.data.z[i] = rand(plank.p.Night_depth_min[2][sp]:plank.p.Night_depth_max[2][sp])
         plank.data.interval[i] = rand(0.0:plank.p.Surface_Interval[2][sp])
     end
 
+    if z_night_dist[sp,"Type"] == "Distribution"
+        plank.data.z[1:N] .= gaussmix(N,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])
+    else #Sample between min and max
+        z_night_dist[1:N] .= rand(plank.p.Night_depth_min[2][sp]:plank.p.Night_depth_max[2][sp])
+    end
+
+    plank.data.x[1:N] .= [rand(-70:-70) for i in 1:N]
+    plank.data.y[1:N] .= [rand(44:44) for i in 1:N]
 
     plank.data.energy  .= plank.data.weight * plank.p.energy_density[2][sp] .* 0.2   # Initial reserve energy = Rmax
     plank.data.target_z .= copy(plank.data.z)

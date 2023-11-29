@@ -81,7 +81,7 @@ function TimeStep!(model::MarineModel, ΔT)
         end
     end
 
-    println(model.individuals.animals.sp1.data.daily_ration[1])
+    println(model.individuals.animals.sp1.data.z[1])
 
     #Replace individuals
     replace_individuals!(model)

@@ -1,4 +1,4 @@
-using PlanktonIndividuals, Random, CSV, DataFrames, StructArrays, JLD2
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2
 
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
@@ -38,7 +38,7 @@ dt = 20.0 #minutes per time step
 g = RectilinearGrid(size=(grid[grid.Name.=="latres",:Value][1],grid[grid.Name.=="lonres",:Value][1],grid[grid.Name.=="depthres",:Value][1]), landmask = nothing, x = (grid[grid.Name.=="latmin",:Value][1], grid[grid.Name.=="latmax",:Value][1]), y = (grid[grid.Name.=="lonmin",:Value][1],grid[grid.Name.=="lonmax",:Value][1]), z = (0,-1*grid[grid.Name.=="depthmax",:Value][1]))
 
 ## Create individuals
-inds = generate_individuals(trait, arch, Nsp, N, maxN, g::AbstractGrid)
+inds = generate_individuals(trait, arch, Nsp, N, maxN, g::AbstractGrid,"z_distributions_night.csv")
 
 ## Create model object
 model = MarineModel(arch, t, 0, inds, Nsp, N, g)
