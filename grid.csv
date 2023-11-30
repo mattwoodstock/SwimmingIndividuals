@@ -6,4 +6,4 @@ lonmax,-71,Maximum Longitude
 depthmax,1000,Maximum Depth (insert positive value)
 latres,1,Number of latitude grid cells
 lonres,1,Number of Longitude Grid Cells
-depthres,1,Number of depth Grid Cells
+depthres,10,Number of depth Grid Cells

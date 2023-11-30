@@ -1,5 +1,6 @@
 Name,Value,Description
 architecture,CPU,Can either be CPU or GPU
-numspec,232,Number of Modeled Species
+numspec,231,Number of Modeled Species
 maxindividuals,10000,Maximum number of individuals
 nts,300,Number of Time Steps (minutes)
+numpool,5,Number of Pooled Groups

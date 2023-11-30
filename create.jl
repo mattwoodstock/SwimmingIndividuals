@@ -9,13 +9,28 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp, N, maxN, g:
     for i in 1:Nsp
         name = Symbol("sp"*string(i))
         plank = construct_plankton(arch, params, maxN)
-        #println(plank.p.Daily_ration[2][1]) #Calling structs!!!!
         generate_plankton!(plank, N[i], g, arch,i, maxN,z_night_file)
         push!(plank_names, name)
         push!(plank_data, plank)
     end
     planks = NamedTuple{Tuple(plank_names)}(plank_data)
     return individuals(planks)
+end
+
+
+function generate_pools(arch::Architecture, params::Dict, Npool, g::AbstractGrid,z_pool_night_file,grid)
+    pool_names = Symbol[]
+    pool_data=[]
+
+    for i in 1:Npool
+        name = Symbol("pool"*string(i))
+        pool = construct_pool(arch,params,g)
+        generate_pool!(pool, g ,i, z_pool_night_file,grid)
+        push!(pool_names, name)
+        push!(pool_data, pool)
+    end
+    groups = NamedTuple{Tuple(pool_names)}(pool_data)
+    return pools(groups)
 end
 
 function construct_plankton(arch::Architecture, params::Dict, maxN)
@@ -29,7 +44,17 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
     return plankton(data, p)
 end
 
+function construct_pool(arch::Architecture, params::Dict, g)
+    rawdata = StructArray(density = zeros(Float64,g.Nx,g.Ny,g.Nz)) 
 
+    density = replace_storage(array_type(arch), rawdata)
+
+    param_names=(:LWR_a, :Group, :Max_Size, :LWR_b, :Total_density, :Min_Size)
+
+    characters = NamedTuple{param_names}(params)
+
+    return groups(density, characters)
+end
 
 function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture,sp, maxN,z_night_file)
 
@@ -72,6 +97,43 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
 
 
     mask_individuals!(plank.data, g, N, arch)
+end
+
+function generate_pool!(groups, g::AbstractGrid,sp, z_night_file,grid)
+
+    z_night_dist = CSV.read(z_night_file,DataFrame)
+
+    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
+
+    depthres = grid[grid.Name .== "depthres",:Value][1]
+
+    z_interval = maxdepth/depthres
+
+    for pool in 1:sp
+        for i in 1:g.Nx
+            for j in 1:g.Ny
+
+                # Example parameters for the multimodal distribution
+                means = [z_night_dist[pool,"mu1"],z_night_dist[pool,"mu2"],z_night_dist[pool,"mu3"]]
+                stds = [z_night_dist[pool,"sigma1"],z_night_dist[pool,"sigma2"],z_night_dist[pool,"sigma3"]]
+                weights = [z_night_dist[pool,"lambda1"],z_night_dist[pool,"lambda2"],z_night_dist[pool,"lambda3"]]
+
+                x_values = collect(0:maxdepth)
+                pdf_values = [multimodal_distribution(x, means, stds, weights) for x in x_values]
+
+                for k in 1:g.Nz
+                    min_z = z_interval * k - z_interval + 1
+                    max_z = z_interval * k
+
+                    println(min_z)
+
+                    density = sum(pdf_values[min_z:max_z]) .* groups.characters.total_density[2][sp]
+
+                    groups.density[i,j,k] = density
+                end
+            end
+        end
+    end
 end
 
 

@@ -90,8 +90,5 @@ function TimeStep!(model::MarineModel, ΔT)
     if (model.t >= 1440)
         reset!(model)
     end
-
-
-
     return nothing
 end

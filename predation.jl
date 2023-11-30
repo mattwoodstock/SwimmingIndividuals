@@ -1,12 +1,56 @@
-function holling_2()
+function detection_distance(prey_length,pred_df,pred_ind)
+
+    prey_length = prey_length * 1000
+    salt = 30 #Needs to be in PSU
+    surface_irradiance = 300 #Need real value. in W m-2
+    prey_width = prey_length/4
+    rmax = pred_df.data.length[pred_ind]*1000 # The maximum visual range. Currently this is 1 body length
+    prey_contrast = 0.3 #Utne-Plam (1999)   
+    eye_saturation = 1
+    
+    #Light attentuation coefficient
+    a_lat = 0.64 - 0.016 * salt #Aksnes et al. 2009; per meter
+
+    #Beam Attentuation coefficient
+    c_lat = 4.87*a_lat #Huse and Fiksen (2010); per meter
+
+    #Ambient irradiance at foraging depth
+    i_td = surface_irradiance*exp(-0.1 * pred_df.data.z[pred_ind]) #Currently only reflects surface; 
+
+    #Prey image area 
+    prey_image = 0.75*prey_length*prey_width
+
+    #Visual eye sensitivity
+    eye_sensitivity = (rmax^2)/(prey_image*prey_contrast)
+    
+    #Equations for Visual Field
+    f(x) = x^2 * exp(c_lat * x) - prey_contrast * prey_image * eye_sensitivity * i_td / (eye_saturation + i_td)
+    fp(x) = 2*x * exp(c_lat * x) + c_lat * x^2 * exp(c_lat * x)
+
+    x = NewtonRaphson(f,fp,pred_df.data.length[pred_ind])
+
+    #Visual range estimates may be much more complicated when considering bioluminescent organisms. Could incorporate this if we assigned each species a "luminous type"
+    ##https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3886326/
+    return x
+end
+
+function holling_2(prey_species,prey_length,pred_array,pred_spec,pred_ind)
+
+    visual_range = detection_distance(prey_length,pred_array,pred_spec)
+    capture_success = 0.7 #Likelihood a predator consumes individual targetted preys
+    ## Would be burst swim speed. May need to convert this to another unit
+    swim_speed = pred_array.p.Swim_velo[2][pred_spec]* pred_array.data.length[pred_ind] /100
+
     #Clearance rate of animal (cubic meters per second per predator)
-    clearance = 0.5* π * visual_range * swim_speed
+    clearance = 0.5 * π * visual_range^2 * swim_speed
 
-    #Enounter rate of animal
-    encounter = (clearance * prey_density)/(1+handling_t*prey_density)
+    for i in 1:nrow(prey_species) # Cycle through number of prey species
+        #Enounter rate of predator-prey
+        encounter[i] = (clearance * prey_density)/(1+handling_t*prey_density)
 
-    #Consumption rate of animal
-    consumption = capture_success * encounter * prey_weight * prey_energy
+        #Consumption rate of predator-prey
+        consumption[i] = capture_success * encounter * prey_weight * prey_energy
+    end
 
     return consumption
 end
@@ -28,10 +72,6 @@ function distance_matrix(lat1, lon1, depth1, lat2, lon2, depth2)
 
     distance = sqrt((y^2)+ (x^2))
     return distance
-end
-
-function deg2rad(deg)
-    return deg * π / 180
 end
 
 function calculate_distances(model::MarineModel)
@@ -65,53 +105,6 @@ function calculate_distances(model::MarineModel)
 
     return distances
 end
-
-function NewtonRaphson(f, fp, x0, tol=1e-5, maxIter = 1000)
-    x = x0
-    fx = f(x0)
-    iter = 0
-    while abs(fx) > tol && iter < maxIter
-        x = x  - fx/fp(x)   # Iteration
-        fx = f(x)           # Precompute f(x)
-        iter += 1
-    end
-    return x
-end
-
-function detection_distance(prey_length,pred_df,pred_ind)
-
-    prey_length = prey_length * 1000
-    salt = 30 #Needs to be in PSU
-    surface_irradiance = 300 #Need real value. in W m-2
-    prey_width = prey_length/4
-    rmax = pred_df.data.length[pred_ind]*1000 # The maximum visual range. Currently this is 1 body length
-    prey_contrast = 0.3 #Utne-Plam (1999)   
-    eye_saturation = 1
-    tolerance = 1e-6 #Value that determines convergence of Newton-Raphson equation. 
-    
-    #Light attentuation coefficient
-    a_lat = 0.64 - 0.016 * salt #Aksnes et al. 2009; per meter
-
-    #Beam Attentuation coefficient
-    c_lat = 4.87*a_lat #Huse and Fiksen (2010); per meter
-
-    #Ambient irradiance at foraging depth
-    i_td = surface_irradiance*exp(-0.1 * pred_df.data.z[pred_ind]) #Currently only reflects surface; 
-
-    #Prey image area 
-    prey_image = 0.75*prey_length*prey_width
-
-    #Visual eye sensitivity
-    eye_sensitivity = (rmax^2)/(prey_image*prey_contrast)
-    
-    #Equations for Visual Field
-    f(x) = x^2 * exp(c_lat * x) - prey_contrast * prey_image * eye_sensitivity * i_td / (eye_saturation + i_td)
-    fp(x) = 2*x * exp(c_lat * x) + c_lat * x^2 * exp(c_lat * x)
-
-    x = NewtonRaphson(f,fp,pred_df.data.length[pred_ind])
-    return x
-end
-
 
 
 
@@ -173,12 +166,13 @@ end
 function move_predator!(pred_df,pred_spec,pred_ind,prey_df,t)
 
     #Handling time is a function of gut fullness with 2.0 seconds as the base. May want a better source.
-    #https://cdnsciencepub.com/doi/pdf/10.1139/f74-186
+    ##https://cdnsciencepub.com/doi/pdf/10.1139/f74-186
+    ##seconds of Handling time from Langbehn et al. 2019. Essentially a cool-off period after feeding.
+
     handling_time_0 = 2.0
 
     handling_time = (1.19 - 1.24 * pred_df.data.gut_fullness[pred_ind] + 3.6 * pred_df.data.gut_fullness[pred_ind]^2 / handling_time_0) * handling_time_0
 
-    #seconds of Handling time from Langbehn et al. 2019. Essentially a cool-off period after feeding.
     #Identify x,y,z of prey
 
     pred_df.data.x[pred_ind] = prey_df.x[1]
@@ -211,30 +205,50 @@ function fill_gut!(pred_df,pred_ind,prey_df)
     return nothing
 end
 
+function prey_density(model)
+    #Calculate % of size distribution is available to predation based on size relationships and densities.
+end
+
+
 function eat!(model::MarineModel,d_matrix,i,j,spec_array1,dt)
     ddt = dt #Subset of time
 
-    prey_list = available_prey(model,d_matrix,j,i,spec_array1,dt)
+    if (model.dimension == 1) #Running the 1D model
 
-    while ddt > 0 ## Can only eat if there is time left
+        ##Calculate consumption from a type 2 functional response
 
-        if (nrow(prey_list) > 0) && (spec_array1.data.gut_fullness[j] < 1) # There are preys within range. Need to choose one and "remove" it.
+        ### Need to calculate prey prey_densities by potential preys
+        prey_species = prey_density(model,pooled) #Need to create function
+        #prey length = mean length of available preys
 
-                chosen_prey = prey_choice(prey_list)
-                pred_success = rand()
+        q = holling_2(prey_species,prey_length,spec_array1,i,j)
 
-                if pred_success >= 0.3 #70% chance of predator success in a feeding event https://onlinelibrary.wiley.com/doi/pdf/10.1111/jfb.14451
-                remove_animal!(model,chosen_prey)
-                ddt = move_predator!(spec_array1,i,j,chosen_prey,ddt)
-                
-                fill_gut!(spec_array1.data,j,chosen_prey)
-                allocate_energy(spec_array1,i,j,chosen_prey)
+        return q
+    else #Running the 3D model
+
+
+        prey_list = available_prey(model,d_matrix,j,i,spec_array1,dt)
+        
+        while ddt > 0 ## Can only eat if there is time left
+
+            if (nrow(prey_list) > 0) && (spec_array1.data.gut_fullness[j] < 1) # There are preys within range. Need to choose one and "remove" it.
+
+                    chosen_prey = prey_choice(prey_list)
+                    pred_success = rand()
+
+                    if pred_success >= 0.3 #70% chance of predator success in a feeding event https://onlinelibrary.wiley.com/doi/pdf/10.1111/jfb.14451
+                    remove_animal!(model,chosen_prey)
+                    ddt = move_predator!(spec_array1,i,j,chosen_prey,ddt)
+                    
+                    fill_gut!(spec_array1.data,j,chosen_prey)
+                    allocate_energy(spec_array1,i,j,chosen_prey)
+                end
+                    #Still remove animal from prey list as if it goes away
+                    deleteat!(prey_list,findall(prey_list.Sp .== chosen_prey.Sp[1] .&& prey_list.Ind .== chosen_prey.Ind[1]))
+            else
+                chosen_prey = nothing
+                ddt = 0 ## No preys within range, therefore we do not need this.
             end
-                #Still remove animal from prey list as if it goes away
-                deleteat!(prey_list,findall(prey_list.Sp .== chosen_prey.Sp[1] .&& prey_list.Ind .== chosen_prey.Ind[1]))
-        else
-            chosen_prey = nothing
-            ddt = 0 ## No preys within range, therefore we do not need this.
         end
     end
 end

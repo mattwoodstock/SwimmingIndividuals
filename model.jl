@@ -1,4 +1,4 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2, QuadGK
 
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
@@ -21,11 +21,13 @@ include("timestep.jl")
 ## Load in necessary databases
 cd("D:/SwimmingIndividuals/Adapted")
 trait = Dict(pairs(eachcol(CSV.read("traits.csv",DataFrame))))
+pool_trait = Dict(pairs(eachcol(CSV.read("pooled_traits.csv",DataFrame))))
 state = CSV.read("state.csv",DataFrame)
 grid = CSV.read("grid.csv",DataFrame)
 
 ## Convert values to match proper structure
 Nsp = parse(Int64,state[state.Name .== "numspec", :Value][1])
+Npool = parse(Int64,state[state.Name .== "numpool", :Value][1])
 N = trait[:Abundance]
 maxN = maximum(N) # Placeholder where the maximum number of individuals created is simply the maximum abundance
 arch = CPU() #Architecure to use
@@ -40,8 +42,10 @@ g = RectilinearGrid(size=(grid[grid.Name.=="latres",:Value][1],grid[grid.Name.==
 ## Create individuals
 inds = generate_individuals(trait, arch, Nsp, N, maxN, g::AbstractGrid,"z_distributions_night.csv")
 
+#pooled = generate_pools(arch, pool_trait, Npool, g::AbstractGrid,"z_pool_distributions_night.csv",grid)
+
 ## Create model object
-model = MarineModel(arch, t, 0, inds, Nsp, N, g)
+model = MarineModel(arch, t, 0, inds, Nsp, N, g, 3)
 
 ## Set up diagnostics (Rework once model runs)
 #diags = MarineDiagnostics(model; tracer=(:PAR, :NH4, :NO3, :DOC), plankton = (:num, :graz, :mort, :dvid, :PS, :BS, :Chl), iteration_interval = 1)
