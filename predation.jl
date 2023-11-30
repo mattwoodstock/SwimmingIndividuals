@@ -44,6 +44,7 @@ function holling_2(prey_species,prey_length,pred_array,pred_spec,pred_ind)
     #Clearance rate of animal (cubic meters per second per predator)
     clearance = 0.5 * π * visual_range^2 * swim_speed
 
+
     for i in 1:nrow(prey_species) # Cycle through number of prey species
         #Enounter rate of predator-prey
         encounter[i] = (clearance * prey_density)/(1+handling_t*prey_density)
@@ -106,13 +107,11 @@ function calculate_distances(model::MarineModel)
     return distances
 end
 
-
-
 function available_prey(model::MarineModel,d_matrix,pred,pred_spec,pred_array,dt)
     
     #Prey limitation. Need to make species-specific
     min_prey_limit = 0.01 #Animals cannot eat anything less than 5% of their body length
-    max_prey_limit = 0.2 #Animals cannot eat anything greater than 20% of their body length
+    max_prey_limit = 0.05 #Animals cannot eat anything greater than 20% of their body length
 
     #Prey Detection Distances
     #https://onlinelibrary.wiley.com/doi/pdf/10.1111/geb.13782

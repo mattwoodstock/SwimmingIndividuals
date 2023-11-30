@@ -61,6 +61,12 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
     z_night_dist = CSV.read(z_night_file,DataFrame)
 
     plank.data.generation[1:N] .= 1.0   # generation
+    
+    if z_night_dist[sp,"Type"] == "Distribution"
+        plank.data.z[1:N] .= gaussmix(N,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])
+    else #Sample between min and max
+        plank.data.z[1:N] .= rand(plank.p.Night_depth_min[2][sp]:plank.p.Night_depth_max[2][sp])
+    end
 
     ## Optimize this? Want all individuals to be different
     for i in 1:N
@@ -68,13 +74,12 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
         plank.data.weight[i]  = plank.p.LWR_a[2][sp] * plank.data.length[i] * plank.p.LWR_b[2][sp]   # Bm
         plank.data.gut_fullness[i] = rand() * 0.03 * plank.data.weight[i] #Proportion of gut that is full. Start with a random value between empty and 3% of predator diet.
         plank.data.interval[i] = rand(0.0:plank.p.Surface_Interval[2][sp])
+
+        while plank.data.z[i] < 0 #Resample if animal is at negative depth
+            plank.data.z[i] = gaussmix(1,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])[1]
+        end
     end
 
-    if z_night_dist[sp,"Type"] == "Distribution"
-        plank.data.z[1:N] .= gaussmix(N,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])
-    else #Sample between min and max
-        z_night_dist[1:N] .= rand(plank.p.Night_depth_min[2][sp]:plank.p.Night_depth_max[2][sp])
-    end
 
     plank.data.x[1:N] .= [rand(-70:-70) for i in 1:N]
     plank.data.y[1:N] .= [rand(44:44) for i in 1:N]
@@ -105,7 +110,7 @@ function generate_pool!(groups, g::AbstractGrid,sp, z_night_file,grid)
 
     maxdepth = grid[grid.Name .== "depthmax", :Value][1]
 
-    depthres = grid[grid.Name .== "depthres",:Value][1]
+    depthres = grid[grid.Name .== "depthres", :Value][1]
 
     z_interval = maxdepth/depthres
 
@@ -125,8 +130,6 @@ function generate_pool!(groups, g::AbstractGrid,sp, z_night_file,grid)
                     min_z = z_interval * k - z_interval + 1
                     max_z = z_interval * k
 
-                    println(min_z)
-
                     density = sum(pdf_values[min_z:max_z]) .* groups.characters.total_density[2][sp]
 
                     groups.density[i,j,k] = density
@@ -142,20 +145,26 @@ function replace_individuals!(model::MarineModel)
         name = Symbol("sp"*string(i))
         spec_array1 = getfield(model.individuals.animals, name)
         for j in 1:model.ninds[i]
-            if spec_array1.data.x == -1 #Need to replace individual
+            if spec_array1.data.x[j] == -1 #Need to replace individual
+
+                if (i == 1) & (j == 1)
+                    println("Dead")
+                end
+
+
                 spec_array1.data.generation[j] = 1.0   # generation
 
-                spec_array1.data.length[j] = rand(spec_array1.p.Min_Size[2][sp]:spec_array1.p.Max_Size[2][sp])
-                spec_array1.data.weight[j]  = spec_array1.p.LWR_a[2][sp] * spec_array1.data.length[j] * spec_array1.p.LWR_b[2][sp]   # Bm
-                spec_array1.data.z[j] = rand(spec_array1.p.Night_depth_min[2][sp]:spec_array1.p.Night_depth_max[2][sp])
+                spec_array1.data.length[j] = rand(spec_array1.p.Min_Size[2][i]:spec_array1.p.Max_Size[2][i])
+                spec_array1.data.weight[j]  = spec_array1.p.LWR_a[2][i] * spec_array1.data.length[j] * spec_array1.p.LWR_b[2][i]   # Bm
+                spec_array1.data.z[j] = rand(spec_array1.p.Night_depth_min[2][i]:spec_array1.p.Night_depth_max[2][i])
 
                 spec_array1.data.x[j]   = rand(-71:70)
                 spec_array1.data.y[j]   = rand(44:45)
-                spec_array1.data.energy[j]  = plank.data.weight * plank.p.energy_density[2][sp]* 0.2   # Initial reserve energy = Rmax
+                spec_array1.data.energy[j]  = spec_array1.data.weight[j] * spec_array1.p.energy_density[2][i]* 0.2   # Initial reserve energy = Rmax
                 spec_array1.data.target_z[j] = copy(spec_array1.data.z[j])
                 spec_array1.data.mig_status[j] = 0
                 spec_array1.data.mig_rate[j] = 0
-                spec_array1.data.gut_fullness[j] = rand() * 0.03*plank.data.weight[i] #Proportion of gut that is full. Start with a random value.
+                spec_array1.data.gut_fullness[j] = rand() * 0.03*spec_array1.data.weight[j] #Proportion of gut that is full. Start with a random value.
                 spec_array1.data.daily_ration[j] = 0
             end
         end

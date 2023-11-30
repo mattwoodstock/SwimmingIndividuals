@@ -22,12 +22,13 @@ function allocate_energy(pred_df,pred_sp,pred_ind,prey)
 
 end
 
-function evacuate_gut!(pred_df,pred_ind,dt)
+function evacuate_gut!(pred_df,pred_ind,dt,temp)
 
-    temp = 10
+    ind_temp = individual_environment_1D(temp,pred_df,pred_ind)
+
     #Pakhomov et al. 1996
     #Gut evacuation per hour converted to per time step.
-    e = (0.0942*exp(0.0708*temp)) * (dt/60)
+    e = (0.0942*exp(0.0708*ind_temp)) * (dt/60)
 
     pred_df.data.gut_fullness[pred_ind] = pred_df.data.gut_fullness[pred_ind] - (pred_df.data.gut_fullness[pred_ind] * e) 
 
@@ -39,15 +40,16 @@ function evacuate_gut!(pred_df,pred_ind,dt)
     return nothing
 end
 
-function metabolism(pred_df,pred_ind,dt)
+function metabolism(pred_df,pred_ind,dt,temp)
+
+    ind_temp = individual_environment_1D(temp,pred_df,pred_ind)
 
     ts = dt / 60
-    temp = 10 #Will need to add temp
     
     ## Equation from Davison et al. 2013
 
     #In Julia, log = natural log, while log10 = log base 10.
-    smr = ((8.52*10^10) * ((pred_df.data.weight[pred_ind]/1000)^ 0.83) * (exp(-0.655/((8.62*10^-5)*(273.15+temp)))) * ((exp(-0.4568/((8.62*10^-5)*273.15)))/(exp(-0.655/((8.62*10^-5)*273.15))))) * ts
+    smr = ((8.52*10^10) * ((pred_df.data.weight[pred_ind]/1000)^ 0.83) * (exp(-0.655/((8.62*10^-5)*(273.15+ind_temp)))) * ((exp(-0.4568/((8.62*10^-5)*273.15)))/(exp(-0.655/((8.62*10^-5)*273.15))))) * ts
 
     #Active type adds to SMR
     rmr = smr * (1 + (pred_df.data.active_time[pred_ind]/dt))

@@ -1,4 +1,4 @@
-function TimeStep!(model::MarineModel, ΔT)
+function TimeStep!(model::MarineModel, ΔT,temp)
 
     # model.t = model.t+ΔT
     model.iteration = model.iteration + 1
@@ -27,7 +27,7 @@ function TimeStep!(model::MarineModel, ΔT)
 
         # Animal movement
         if spec_array.p.DVM_trigger[2][i] > 0 #Species is a vertical migrator
-            dvm_action(spec_array,i,model.t,ΔT)
+            dvm_action(spec_array,i,model.t,ΔT,"z_distributions_night.csv","z_distributions_day.csv")
         end
 
         if spec_array.p.Dive_Frequency[2][i] > 0 #Species will make dives
@@ -68,8 +68,8 @@ function TimeStep!(model::MarineModel, ΔT)
         spec_array = getfield(model.individuals.animals, name)
         
         for j in 1:model.ninds[i]
-            metabolism(spec_array,j,ΔT)
-            evacuate_gut!(spec_array,j,ΔT)
+            metabolism(spec_array,j,ΔT,temp)
+            evacuate_gut!(spec_array,j,ΔT,temp)
             if spec_array.data.energy[j] < 0 #Animal starves to death if its energy reserves fall below 0
                 starvation!(spec_array,j)
             end
@@ -81,7 +81,7 @@ function TimeStep!(model::MarineModel, ΔT)
         end
     end
 
-    println(model.individuals.animals.sp1.data.z[1])
+    println(model.individuals.animals.sp1.data.energy[1])
 
     #Replace individuals
     replace_individuals!(model)

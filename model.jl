@@ -1,4 +1,4 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2, QuadGK
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2
 
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
@@ -7,6 +7,7 @@ using KernelAbstractions: @kernel, @index
 
 include("utilities.jl")
 include("create.jl")
+include("environment.jl")
 include("diagnostics.jl")
 include("simulation.jl")
 include("update.jl")
@@ -42,19 +43,24 @@ g = RectilinearGrid(size=(grid[grid.Name.=="latres",:Value][1],grid[grid.Name.==
 ## Create individuals
 inds = generate_individuals(trait, arch, Nsp, N, maxN, g::AbstractGrid,"z_distributions_night.csv")
 
-#pooled = generate_pools(arch, pool_trait, Npool, g::AbstractGrid,"z_pool_distributions_night.csv",grid)
+pooled = generate_pools(arch, pool_trait, Npool, g::AbstractGrid,"z_pool_distributions_night.csv",grid)
 
 ## Create model object
-model = MarineModel(arch, t, 0, inds, Nsp, N, g, 3)
+model = MarineModel(arch, t, 0, inds, pooled, Nsp, N, g, 3)
+
+## Create environmental parameters for now
+temp = generate_temperature()
+
+#input = MarineInput(temp)
 
 ## Set up diagnostics (Rework once model runs)
 #diags = MarineDiagnostics(model; tracer=(:PAR, :NH4, :NO3, :DOC), plankton = (:num, :graz, :mort, :dvid, :PS, :BS, :Chl), iteration_interval = 1)
 
 # Set up simulation parameters
-sim = simulation(model, ΔT = dt, iterations = n_iteration)
+sim = simulation(model,dt,n_iteration,temp)
 
 # Set up output writer
-sim.output_writer = MarineOutputWriter(save_plankton=true)
+#sim.output_writer = MarineOutputWriter(save_plankton=true)
 
 # Run model. Currently this is very condensed, but I kept the code for when we work with environmental factors
 update!(sim)

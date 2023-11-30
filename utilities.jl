@@ -22,7 +22,7 @@ mutable struct MarineModel
     t::Float64                  # time in minute
     iteration::Int64            # model interation
     individuals::individuals    # initial individuals generated
-    #pools::pools              # Characteristics of pooled species
+    pools::pools              # Characteristics of pooled species
     n_species::Int64            # Number of species
     ninds::Vector{Int}          # Total number of individuals in the model
     grid::AbstractGrid          # grid information

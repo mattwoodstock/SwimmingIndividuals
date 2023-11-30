@@ -46,7 +46,7 @@ function horizontal_movement(ind,trait,g)
 end
 
 
-function dvm_action(df,sp,t,ΔT)
+function dvm_action(df,sp,t,ΔT,z_night_file,z_day_file)
     #All animals will go through this at each time step.
     #The DVM Trigger for synchronous migrators will be 1 (always migrate)
     #The DVM Trigger for asynchronous migrators will be normal
@@ -57,6 +57,8 @@ function dvm_action(df,sp,t,ΔT)
     #Migration speed = function of migration length Weibe et al. 2023
     #https://www.sciencedirect.com/science/article/pii/S0967063722001996
 
+    z_night_dist = CSV.read(z_night_file,DataFrame)
+    z_day_dist = CSV.read(z_day_file,DataFrame)
 
     dvm_trigger = df.p.DVM_trigger[2][sp] #proportion of bodyweight energy necessary for asynchronous migrators to migrate. Synchronous migrators will be 0 because they always migrate
     for ind in 1:length(df.data.length) #Loop through each individual
@@ -65,9 +67,11 @@ function dvm_action(df,sp,t,ΔT)
 
         if (t >= 6*60) && (df.data.mig_status[ind] == 0) && (t < 18*60) #Animal needs to start descending
 
-
             df.data.mig_status[ind] = 2
-            df.data.target_z[ind] = rand(df.p.Day_depth_min[2][sp]:df.p.Day_depth_max[2][sp])
+
+            while (df.data.target_z[ind] <= df.data.z[ind]) | (df.data.target_z[ind] < 0) #Need to descend
+                df.data.target_z[ind] = gaussmix(1,z_day_dist[sp,"mu1"],z_day_dist[sp,"mu2"],z_day_dist[sp,"mu3"],z_day_dist[sp,"sigma1"],z_day_dist[sp,"sigma2"],z_day_dist[sp,"sigma3"],z_day_dist[sp,"lambda1"],z_day_dist[sp,"lambda2"])[1]
+            end
 
             df.data.mig_rate[ind] = 4.2 #Calculate DVM rate per minute
 
@@ -75,10 +79,7 @@ function dvm_action(df,sp,t,ΔT)
 
             df.data.z[ind] = minimum([df.data.target_z[ind],df.data.z[ind] + (df.data.mig_rate[ind] * ΔT)])
 
-
-
             df.data.active_time[ind] = df.data.active_time[ind] + t_adjust
-
 
             if df.data.z[ind] >= df.data.target_z[ind]
                 df.data.mig_status[ind] = -1
@@ -86,13 +87,13 @@ function dvm_action(df,sp,t,ΔT)
 
             df.data.feeding[ind] = 0 #Animal stops feeding
 
-
         elseif  (t >= 18*60) && (df.data.mig_status[ind] == -1) && (df.data.energy[ind] < df.data.weight[ind] * df.p.energy_density[2][sp] * dvm_trigger) #Animal needs to start ascending
 
             df.data.mig_status[ind] = 1
 
-            df.data.target_z[ind] = rand(df.p.Night_depth_min[2][sp]:df.p.Night_depth_max[2][sp])
-
+            while (df.data.target_z[ind] >= df.data.z[ind]) | (df.data.target_z[ind] < 0) #Need to ascend
+                df.data.target_z[ind] = gaussmix(1,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])[1]
+            end
 
             df.data.mig_rate[ind] = 4.2 #Calculate DVM rate per minute
 

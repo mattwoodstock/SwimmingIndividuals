@@ -32,9 +32,9 @@ function update!(sim::MarineSimulation; time_offset = (vels = false, PARF = fals
     #        t_temp = floor(Int,model_t_temp/sim.input.ΔT_temp)+1 # starting from 1
     #        copy_interior!(sim.model.timestepper.temp, sim.input.temp[:,:,:,t_temp], sim.model.grid)
 #
-            TimeStep!(sim.model, sim.ΔT)
+            TimeStep!(sim.model, sim.ΔT,sim.temp)
 
-            write_output!(sim.output_writer, sim.model, sim.ΔT)
+            #write_output!(sim.output_writer, sim.model, sim.ΔT)
         end
     #end
 end
