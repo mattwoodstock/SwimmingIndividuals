@@ -23,17 +23,17 @@ function update!(sim::MarineSimulation; time_offset = (vels = false, PARF = fals
     #    end
    # else
         for i in 1:sim.iterations
-    #        model_t_PARF = time_offset.PARF ? sim.model.t : (i-1)*sim.ΔT
-    #        model_t_temp = time_offset.temp ? sim.model.t : (i-1)*sim.ΔT
-#
-    #        t_par = floor(Int,model_t_PARF/sim.input.ΔT_PAR)+1 # starting from 1
-    #        copyto!(sim.model.timestepper.PARF, sim.input.PARF[:,:,t_par])
-#
-    #        t_temp = floor(Int,model_t_temp/sim.input.ΔT_temp)+1 # starting from 1
-    #        copy_interior!(sim.model.timestepper.temp, sim.input.temp[:,:,:,t_temp], sim.model.grid)
-#
-            TimeStep!(sim.model, sim.ΔT,sim.temp)
 
+            #model_t_PARF = time_offset.PARF ? sim.model.t : (i-1)*sim.ΔT
+            #model_t_temp = time_offset.temp ? sim.model.t : (i-1)*sim.ΔT
+            #t_par = floor(Int,model_t_PARF/sim.input.ΔT_PAR)+1 # starting from 1
+            #copyto!(sim.model.timestepper.PARF, sim.input.PARF[:,:,t_par])
+            #t_temp = floor(Int,model_t_temp/sim.input.ΔT_temp)+1 # starting from 1
+            #copy_interior!(sim.model.timestepper.temp, sim.input.temp[:,:,:,t_temp], sim.model.grid)
+            
+            TimeStep!(sim.model, sim.ΔT,sim.temp,sim.outputs)
+            #Timestep-specific outputs
+            #depth_density(sim.model,i,sim.depth_dens)
             #write_output!(sim.output_writer, sim.model, sim.ΔT)
         end
     #end

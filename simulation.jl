@@ -12,6 +12,33 @@ mutable struct MarineOutputWriter
     part_plankton::Int
 end
 
+##### Strucs for outputs
+mutable struct FoodWeb
+    biomasses::Array{Float64,3}
+    consumption::Array{Float64,4}
+end
+
+mutable struct Z_densities
+    Time::Vector{Int}
+    Depth::Vector{Int}
+    Number::Vector{Int}
+end
+
+mutable struct Mortalities
+    Species::Vector{String}
+    Starvation::Vector{Int}
+    Predation::Vector{Int}
+    #Fishing::Vector{Int}
+    #Senesence::Vector{Int}
+end
+
+struct MarineOutputs
+    trophiclevel::Vector{Float64}
+    z_densities::Z_densities
+    foodweb::FoodWeb
+    #morts::Mortalities
+end
+
 mutable struct MarineInput
     #salt::AbstractArray{Float64,4}      # salinity
     #disox::AbstractArray{Float64,4}     # dissolved oxygen
@@ -31,11 +58,11 @@ mutable struct MarineSimulation
     ΔT::Float64                                  # model time step
     iterations::Int64                          # run the simulation for this number of iterations
     temp::DataFrame                       # temperature
-
+    outputs::MarineOutputs
     #output_writer::Union{MarineOutputWriter,Nothing} # Output writer
 end
 
-function simulation(model::MarineModel, ΔT::Float64, iterations::Int64,temp::DataFrame)
+function simulation(model::MarineModel, ΔT::Float64, iterations::Int64,temp::DataFrame,outputs::MarineOutputs)
 
 #input = MarineInput(temp, PARF, vels, ΔT_vel, ΔT_PAR, ΔT_temp)
 
@@ -45,7 +72,7 @@ function simulation(model::MarineModel, ΔT::Float64, iterations::Int64,temp::Da
 #diags = MarineDiagnostics(model)
 #end
 
-sim = MarineSimulation(model, ΔT, iterations,temp)
+sim = MarineSimulation(model, ΔT, iterations,temp,outputs)
 
 #validate_velocity(sim, model.grid)
 #validate_PARF(sim, model.grid)

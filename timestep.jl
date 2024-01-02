@@ -1,6 +1,5 @@
-function TimeStep!(model::MarineModel, ΔT,temp)
+function TimeStep!(model::MarineModel, ΔT,temp,output)
 
-    # model.t = model.t+ΔT
     model.iteration = model.iteration + 1
     model.t = model.t + ΔT
 
@@ -33,6 +32,9 @@ function TimeStep!(model::MarineModel, ΔT,temp)
         if spec_array.p.Dive_Frequency[2][i] > 0 #Species will make dives
             dive_action(spec_array,i,ΔT)
         end
+
+        #Calculate the depth bin that each individual is in.
+        set_z_bin!(spec_array,"grid.csv")
     end
 
     ##Check to see if species is a diver
@@ -53,9 +55,17 @@ function TimeStep!(model::MarineModel, ΔT,temp)
 
                 
             for j in 1:model.ninds[i] #Cycle through each individual predator
+
+                ## Add biomass to output for food web
+                outputs.foodweb.biomasses[i,Int(spec_array1.data.pool_z[j]),model.iteration] += spec_array1.data.weight[j]
+
+                ## Add depth density for output
+                ### Need to ad here.
+
+                #Predation function
                 if spec_array1.data.x[j] != -1 #Skip over dead animals
                     ## Find potential preys for predator
-                    eat!(model,distance_matrix,i,j,spec_array1,ΔT)
+                    eat!(model,distance_matrix,i,j,spec_array1,ΔT,outputs)
                 end
             end
         end
@@ -81,8 +91,9 @@ function TimeStep!(model::MarineModel, ΔT,temp)
         end
     end
 
-    println(model.individuals.animals.sp1.data.energy[1])
 
+    #println(model.individuals.animals.sp1.data.pool_z[1])
+    #println(outputs.foodweb.consumption[:,:,1,model.iteration])
     #Replace individuals
     replace_individuals!(model)
 
@@ -90,5 +101,5 @@ function TimeStep!(model::MarineModel, ΔT,temp)
     if (model.t >= 1440)
         reset!(model)
     end
-    return nothing
+    return
 end

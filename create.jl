@@ -34,7 +34,7 @@ function generate_pools(arch::Architecture, params::Dict, Npool, g::AbstractGrid
 end
 
 function construct_plankton(arch::Architecture, params::Dict, maxN)
-    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), weight = zeros(maxN), energy = zeros(maxN), generation = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), active_time = zeros(maxN),gut_fullness = zeros(maxN),feeding = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), daily_ration = zeros(maxN)) 
+    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), weight = zeros(maxN), energy = zeros(maxN), generation = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), active_time = zeros(maxN),gut_fullness = zeros(maxN),feeding = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), daily_ration = zeros(maxN), pool_z = zeros(maxN)) 
 
     data = replace_storage(array_type(arch), rawdata)
 
@@ -45,11 +45,11 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
 end
 
 function construct_pool(arch::Architecture, params::Dict, g)
-    rawdata = StructArray(density = zeros(Float64,g.Nx,g.Ny,g.Nz)) 
+    rawdata = StructArray(num = zeros(Float64,g.Nx,g.Ny,g.Nz)) 
 
     density = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:LWR_a, :Group, :Max_Size, :LWR_b, :Total_density, :Min_Size)
+    param_names=(:LWR_a,:Trophic_Level , :Group, :Max_Size, :LWR_b, :Total_density, :Min_Size)
 
     characters = NamedTuple{param_names}(params)
 
@@ -68,6 +68,8 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
         plank.data.z[1:N] .= rand(plank.p.Night_depth_min[2][sp]:plank.p.Night_depth_max[2][sp])
     end
 
+    plank.data.pool_z[1:N] .= 1
+
     ## Optimize this? Want all individuals to be different
     for i in 1:N
         plank.data.length[i] = rand(plank.p.Min_Size[2][sp]:plank.p.Max_Size[2][sp])
@@ -79,7 +81,6 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
             plank.data.z[i] = gaussmix(1,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])[1]
         end
     end
-
 
     plank.data.x[1:N] .= [rand(-70:-70) for i in 1:N]
     plank.data.y[1:N] .= [rand(44:44) for i in 1:N]
@@ -99,7 +100,6 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
     end
 
     plank.data.dives_remaining .= plank.p.Dive_Frequency[2][sp]
-
 
     mask_individuals!(plank.data, g, N, arch)
 end
@@ -127,12 +127,12 @@ function generate_pool!(groups, g::AbstractGrid,sp, z_night_file,grid)
                 pdf_values = [multimodal_distribution(x, means, stds, weights) for x in x_values]
 
                 for k in 1:g.Nz
-                    min_z = z_interval * k - z_interval + 1
-                    max_z = z_interval * k
+                    min_z = round(Int,z_interval * k - z_interval + 1)
+                    max_z = round(Int,z_interval * k)
 
-                    density = sum(pdf_values[min_z:max_z]) .* groups.characters.total_density[2][sp]
+                    density = sum(pdf_values[min_z:max_z]) .* groups.characters.Total_density[2][sp]
 
-                    groups.density[i,j,k] = density
+                    groups.density.num[k,] = density
                 end
             end
         end
@@ -170,7 +170,6 @@ function replace_individuals!(model::MarineModel)
         end
     end
 end
-
 
 function reset!(model::MarineModel)
     for i in 1:model.n_species

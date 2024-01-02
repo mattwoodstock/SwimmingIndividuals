@@ -8,6 +8,7 @@ struct individuals
     animals::NamedTuple
 end
 
+##### structs for pools
 mutable struct groups
     density::AbstractArray
     characters::NamedTuple
@@ -17,19 +18,22 @@ struct pools
     pool::NamedTuple
 end
 
+##### Model struct
 mutable struct MarineModel
     arch::Architecture          # architecture on which models will run
     t::Float64                  # time in minute
     iteration::Int64            # model interation
     individuals::individuals    # initial individuals generated
     pools::pools              # Characteristics of pooled species
-    n_species::Int64            # Number of species
+    n_species::Int64            # Number of IBM species
+    n_pool::Int64               # Number of pooled species
     ninds::Vector{Int}          # Total number of individuals in the model
     grid::AbstractGrid          # grid information
     dimension::Int64            # Dimensionality of the model. Either 1 or 3.
     #timestepper::timestepper    # Add back in once environmental parameters get involved
 end
 
+#####Functions from PlanktonIndividuals that have been placed here.
 @kernel function mask_individuals_kernel!(plank, g::AbstractGrid)
     i = @index(Global)
     @inbounds xi = unsafe_trunc(Int, (plank.x[i]+1)) + g.Hx 
@@ -68,7 +72,7 @@ function NewtonRaphson(f, fp, x0, tol=1e-5, maxIter = 1000)
     return x
 end
 
-
+#Create a multimodal distribution. May not need to be used in the model and should probably be used a priori.
 function multimodal_distribution(x, means, stds, weights)
     if length(means) != length(stds) != length(weights) || length(means) < 1
         error("Invalid input: The lengths of means, stds, and weights should be equal and greater than 0.")
@@ -76,4 +80,34 @@ function multimodal_distribution(x, means, stds, weights)
     
     pdf_values = [weights[i] * pdf(Normal(means[i], stds[i]), x) for i in 1:length(means)]
     return sum(pdf_values)
+end
+
+function set_z_bin!(model, grid_file)
+    # Read grid data outside the loop since it doesn't change
+    grid = CSV.read(grid_file, DataFrame)
+    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
+    depthres = grid[grid.Name .== "depthres", :Value][1]
+    z_interval = maxdepth / depthres
+    z_seq = 0:z_interval:maxdepth
+
+    for i in 1:length(model.data.length)
+        # Find the index where the animal's z value is greater than or equal to z_seq
+        j = findlast(z_seq .<= model.data.z[i])
+
+        # Handle the case where the animal is below the specified maximum depth
+        if j > depthres
+            j = depthres
+        end
+
+        model.data.pool_z[i] = j
+    end
+end
+
+function sample_normal(minimum_value, maximum_value; num_samples = 100000, std=1.0)
+    # Calculate the mean as halfway between the minimum and maximum values
+    mean_value = (minimum_value + maximum_value) / 2.0
+    
+    # Generate an array of samples from a normal distribution
+    samples = rand(Normal(mean_value, std), num_samples)
+    return samples
 end
