@@ -32,7 +32,8 @@ mutable struct Mortalities
     #Senesence::Vector{Int}
 end
 
-struct MarineOutputs
+mutable struct MarineOutputs
+    daily_ration::Vector{Float64}
     trophiclevel::Vector{Float64}
     z_densities::Z_densities
     foodweb::FoodWeb

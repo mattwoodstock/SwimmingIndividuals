@@ -1,53 +1,71 @@
 function generate_outputs(model,spec,depths,iterations)
     trophic_level = zeros(model.n_species+model.n_pool)
+    daily_ration = copy(trophic_level)
     depth_dens = Z_densities([0],[0],[0])
     fweb = FoodWeb(zeros(Float64, spec, depths, iterations), zeros(Float64, spec, spec, depths,iterations))
 
-    return MarineOutputs(trophic_level,depth_dens,fweb)
+    return MarineOutputs(daily_ration,trophic_level,depth_dens,fweb)
     #Holder function to combine outputs in one struct as in the individuals.
 end
 
-function calculate_trophic_levels(model, output, diet_matrix::Matrix{Float64}; max_iterations = 1e10, convergence_threshold = 1e-6)
+function calculate_trophic_levels(model, output, diet_matrix::Matrix{Float64}; max_iterations = 1e5, convergence_threshold = 1e-5)
 
     num_total = model.n_species + model.n_pool
     #Identify known trophic levels from pools. All of these will be at the end of the diet matrix
     known_trophic_levels = Dict(zip(collect((model.n_species+1):num_total),model.pools.pool.pool1.characters.Trophic_Level[2]))
 
-        
     # Initialize trophic levels array
     trophic_levels = zeros(Float64, num_total)
         
     # Set trophic levels for known species
     for (species, level) in known_trophic_levels
         trophic_levels[species] = level
-    end
-        
-    # Iterative update of trophic levels
+    end    
+
+    # Iterative update of trophic levels. Loop stops if it converges
     for iteration in 1:max_iterations
         prev_trophic_levels = copy(trophic_levels)
-            
+
         for i in 1:num_total
             if !haskey(known_trophic_levels, i)
-                prey_trophic_levels = trophic_levels .* diet_matrix[:, i]
+                prey_trophic_levels = trophic_levels .* diet_matrix[i,:]
                 trophic_levels[i] = sum(prey_trophic_levels)
             end
         end
-            
+
         # Check for convergence
         if maximum(abs.(trophic_levels - prev_trophic_levels)) < convergence_threshold
-            println(iteration)
             break
         end
     end
 
-    println(trophic_levels)
-
-        
-    return trophic_levels
+    output.trophiclevel = trophic_levels
+    return nothing
 end
 
-function results!(outputs)
-    #Calculate species-specific trophic level
+function calculate_daily_ration(model,output)
+    for sp in eachindex(fieldnames(typeof(model.individuals.animals)))
+        name = Symbol("sp"*string(sp))
+        spec_array = getfield(model.individuals.animals, name)
+
+        spec_ration = zeros(length(spec_array.data.daily_ration))
+        spec_ration .= spec_array.data.daily_ration ./spec_array.data.weight
+        output.daily_ration[sp] = mean(filter(!isnan,spec_ration)) * 100
+    end
+
+end
+
+function results!(model,output)
+    #Create Full Model Diet Matrix for Calculations
+    sum_matrix = sum(output.foodweb.consumption, dims=(3,4))
+    # Normalize the values so that each column sums to one
+    #diet_matrix = dropdims(sum_matrix ./ sum(sum_matrix, dims=1),dims=(3,4))
+    diet_matrix = dropdims(sum_matrix ./ sum(sum_matrix, dims=2),dims=(3,4))
+    diet_matrix[isnan.(diet_matrix)] .=0 #Replace NaNs that were created with 0s
+
+    calculate_daily_ration(model,output)
+    calculate_trophic_levels(model,output,diet_matrix)
+
 end
 
 function write_output!(writer::Union{MarineOutputWriter, Nothing}, model::MarineModel, ΔT)

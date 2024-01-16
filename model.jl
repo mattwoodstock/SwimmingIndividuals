@@ -1,4 +1,4 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Plots,Statistics
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Plots,Statistics,Dates, BenchmarkTools, Profile, ProfileView
 
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
@@ -79,11 +79,11 @@ sim = simulation(model,dt,n_iteration,temp,outputs)
 update!(sim)
 
 #Full results
-calculate_trophic_levels(model,outputs,outputs.foodweb.consumption[:,:,1,1])
-#results!()
+results!(model,outputs)
 
 #Create plots
 food_web_plot(outputs,model,dt)
+
 #= 
 x,y,reshaped_z = reshape_for_heatmap(sim.depth_dens)
 

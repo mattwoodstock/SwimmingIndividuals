@@ -48,56 +48,58 @@ function holling_2(IBM_prey,pool_prey,model,pred_array,pred_spec,pred_ind,densit
 
     pool_prop = 0.5 #Needs to be input, but is currently set here
     pool_time = dt*pool_prop #Amount of subtime spent foraging for pooled prey.
-
     t_left = dt #Reset time remaining
-    while (t_left > dt-pool_time) & (pred_array.data.daily_ration[pred_ind] < target_q*(1-pool_prop)) & (nrow(IBM_prey) > 0) #Forage for IBM, if they exist
 
-        #move_time = move_predator!() #Move predator to new location
-        chosen_prey = prey_choice(IBM_prey) #Choose nearest prey. Will want to optimize if prey selectivity is added.
+    if target_q > 0 #The predator can still eat
+        while (t_left > dt-pool_time) & (pred_array.data.daily_ration[pred_ind] < target_q*(1-pool_prop)) & (nrow(IBM_prey) > 0)  #Forage for IBM, if they exist, there is time left, and they still can consume this much
 
-        ## Add consumed biomass to food web
-        outputs.foodweb.consumption[pred_spec,chosen_prey.Sp[1],Int(pred_array.data.pool_z[pred_ind]),model.iteration] += chosen_prey.Weight[1]
+            #move_time = move_predator!() #Move predator to new location
+            chosen_prey = IBM_prey[IBM_prey.Distance .== minimum(IBM_prey.Distance),:] #Choose nearest prey. Will want to optimize with the prey_choice() function if prey selectivity is added.
 
-        #Move predator to prey
-        move_time = move_predator!(pred_array,pred_spec,pred_ind,chosen_prey)
+            ## Add consumed biomass to food web
+            outputs.foodweb.consumption[pred_spec,chosen_prey.Sp[1],Int(pred_array.data.pool_z[pred_ind]),model.iteration] += chosen_prey.Weight[1]
 
-        pred_array.data.daily_ration[pred_ind] += IBM_prey.Weight[1] #Add prey weight to daily ration.
+            #Move predator to prey
+            move_time = move_predator!(pred_array,pred_spec,pred_ind,chosen_prey)
 
-        #Fill predator gut
-        fill_gut!(pred_array.data,pred_ind,chosen_prey)
+            pred_array.data.daily_ration[pred_ind] += IBM_prey.Weight[1] #Add prey weight to daily ration.
 
-        #Remove consumed prey from model and add mortality
-        remove_animal!(model,chosen_prey)
-        #pred_mortality!(morts::Mortalities,chosen_prey) ##Need to write.
+            #Fill predator gut
+            pred_array.data.gut_fullness[pred_ind] = pred_array.data.gut_fullness[pred_ind] + (chosen_prey.Weight[1]/pred_array.data.weight[pred_ind])  
 
-        #Delete individual from IBM_prey for next iteration.
-        deleteat!(IBM_prey,findall(IBM_prey.Sp .== chosen_prey.Sp[1] .&& IBM_prey.Ind .== chosen_prey.Ind[1]))
+            #Remove consumed prey from model and add mortality
+            remove_animal!(model,chosen_prey)
+            #pred_mortality!(morts::Mortalities,chosen_prey) ##Need to write.
 
-        t_left -= move_time
-    end
+            #Delete individual from IBM_prey for next iteration.
+            deleteat!(IBM_prey,findall(IBM_prey.Sp .== chosen_prey.Sp[1] .&& IBM_prey.Ind .== chosen_prey.Ind[1]))
+            t_left -= move_time
+        end
 
-    ##Pool species
-    pool_q = target_q*pool_prop #Amount consumed in pool
+        ##Pool species
+        pool_q = target_q*pool_prop #Amount consumed in pool
 
-    ## Identification of minimum and maximum prey size for predator.
-    #Prey limitation. Need to make species-specific
-    min_prey_limit = 0.01 #Animals cannot eat anything less than 1% of their body length
-    max_prey_limit = 0.05 #Animals cannot eat anything greater than 5% of their body length
-    min_prey = pred_array.data.length[pred_ind] * min_prey_limit
-    max_prey = pred_array.data.length[pred_ind] * max_prey_limit
+        ## Identification of minimum and maximum prey size for predator.
+        #Prey limitation. Need to make species-specific
+        min_prey_limit = 0.01 #Animals cannot eat anything less than 1% of their body length
+        max_prey_limit = 0.05 #Animals cannot eat anything greater than 5% of their body length
+        min_prey = pred_array.data.length[pred_ind] * min_prey_limit
+        max_prey = pred_array.data.length[pred_ind] * max_prey_limit
 
-    for i in 1:nrow(pool_prey)
-        group_q = pool_q *pool_prey.Relative[i]
+        for i in 1:nrow(pool_prey)
+            group_q = pool_q *pool_prey.Relative[pool_prey.Pool[i]]
 
-        #Calculate the weight of an individual.
-        ## May want to complicate this and use a size distribution. Otherwise, this creates a pretty simplistic view of plankton size distributions.
-        name = Symbol("pool"*string(i))
-        group_array = getfield(model.pools.pool, name)
+            #Calculate the weight of an individual.
+            ## May want to complicate this and use a size distribution. Otherwise, this creates a pretty simplistic view of plankton size distributions.
+            name = Symbol("pool"*string(pool_prey.Pool[i]))
+            group_array = getfield(model.pools.pool, name)
 
-        ind_weight = group_array.characters.LWR_a[2][i] * (min_prey.+max_prey./2)^group_array.characters.LWR_b[2][i]
+            ind_weight = group_array.characters.LWR_a[2][pool_prey.Pool[i]] * ((min_prey+max_prey)/2)^group_array.characters.LWR_b[2][pool_prey.Pool[i]] #Prey individuals are assumed to be the mean of the possible consumed preys
 
-        #Group consumption is scaled to the predator's remaining ration and the weight of each consumed individual
-        pred_array.data.daily_ration[pred_ind] += ind_weight*group_q
+            outputs.foodweb.consumption[pred_spec,(model.n_species+pool_prey.Pool[i]),Int(pred_array.data.pool_z[pred_ind]),model.iteration] += ind_weight*group_q
+            #Group consumption is scaled to the predator's remaining ration and the weight of each consumed individual
+            pred_array.data.daily_ration[pred_ind] += ind_weight*group_q
+        end
     end
     return nothing
 end
@@ -177,26 +179,29 @@ function available_prey(model::MarineModel,d_matrix,pred,pred_spec,pred_array,dt
         spec_array1 = getfield(model.individuals.animals, name)
 
         for j in 1:model.ninds[i] #Cycle through each potential prey
-            if (i != pred_spec) | (j != pred) |(spec_array1.data.x[j] != -1) #Animal cannot eat itself, or already dead prey
+            if (spec_array1.data.x[j] != -1) #Animal cannot eat itself, or already dead prey
+                if (pred == j) & (pred_spec == i)
+                    #Predator cannot eat itself
+                else
+                    prey_length = spec_array1.data.length[j] #Potential prey length
 
-                prey_length = spec_array1.data.length[j] #Potential prey length
+                    if (prey_length >= pred_array.data.length[pred] * min_prey_limit) & (prey_length <= pred_array.data.length[pred] * max_prey_limit)
 
-                if (prey_length >= pred_array.data.length[pred] * min_prey_limit) & (prey_length <= pred_array.data.length[pred] * max_prey_limit)
+                        prey_distance = d_matrix[pred,prey_count] #Distance to prey item
 
-                    prey_distance = d_matrix[pred,prey_count] #Distance to prey item
+                        detection = detection_distance(prey_length,pred_array,pred)
 
-                    detection = detection_distance(prey_length,pred_array,pred)
+                        if detection > max_detection
+                            max_detection = detection
+                        end
 
-                    if detection > max_detection
-                        max_detection = detection
-                    end
+                        if (prey_distance <= detection)
 
-                    if (prey_distance <= detection)
-
-                        new_row = Dict("ID" => prey_count, "Sp" => i, "Ind" => j, "x" => spec_array1.data.x[j], "y" => spec_array1.data.y[j], "z" => spec_array1.data.z[j],"Weight" => spec_array1.data.weight[j], "Distance" => prey_distance)
-                        #Add individual to prey list
-                        push!(prey_list,new_row)
-                        prey_count += 1
+                            new_row = Dict("ID" => prey_count, "Sp" => i, "Ind" => j, "x" => spec_array1.data.x[j], "y" => spec_array1.data.y[j], "z" => spec_array1.data.z[j],"Weight" => spec_array1.data.weight[j], "Distance" => prey_distance)
+                            #Add individual to prey list
+                            push!(prey_list,new_row)
+                            prey_count += 1
+                        end
                     end
                 end
             end
@@ -209,14 +214,6 @@ function available_prey(model::MarineModel,d_matrix,pred,pred_spec,pred_array,dt
         searched_area = (4/3) * pi * max_detection^3 #Calculate the maximum searched sphere for the predator (i.e., maximum search volume)
     end
     return prey_list, searched_area
-end
-
-function prey_choice(list)
-    #selectivity = 1 Currently, all predators do not feed in a taxon-specific fashion.
-
-    prey = list[list.Distance .== minimum(list.Distance),:]
-
-    return prey
 end
 
 function move_predator!(pred_df,pred_spec,pred_ind,prey_df)
@@ -297,12 +294,15 @@ function prey_density(model,species_array,pred_ind,preys,area)
  
         pool_dens += dens*prop_in_range #Add pooled density to density
 
-        new_row = Dict("Pool" => i, "Dens" => dens)
+        new_row = Dict("Pool" => i, "Dens" => dens*prop_in_range)
         push!(pool_list,new_row)
     end
 
     #Calculate relative abundances for weighted feeding.
     pool_list[:,"Relative"] .= pool_list.Dens / sum(pool_list.Dens)
+
+    #Remove rows with only zero
+    filter!(row -> row.Relative != 0,pool_list)
 
     #Sum IBM and pooled preys
     density = IBM_dens + pool_dens
@@ -325,9 +325,19 @@ function eat!(model::MarineModel,d_matrix,i,j,spec_array1,dt,outputs)
 
         #prey length = mean length of available preys
 
-        q = holling_2(IBM_prey,pool_prey,model,spec_array1,i,j,density,dt,outputs)
+        @profile holling_2(IBM_prey,pool_prey,model,spec_array1,i,j,density,dt,outputs)
 
-        return q
+        #profile_stats()
+        filename = "Predation Profile.txt"
+        f = open(filename, "w")
+        Profile.print(f)
+        close(f)
+
+        ProfileView.view()
+
+        throw(ErrorException("stop"))
+
+        return nothing
     else #Running the 3D model
 
         ## Need to optimize with prey density function. Available prey function is fine because the difference between 1D and 3D is the presense of X,Y coords, but Z dimension still exists and distance calculation is the same.

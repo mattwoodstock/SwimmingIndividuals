@@ -19,10 +19,10 @@ function food_web_plot(output,model,dt)
     plotdir = joinpath(pwd(),"Plots")
 
     # Generate random trophic levels for each species (between 1 and 5). Will inform with calculation later.
-    trophic_levels = rand(model.n_species) * 5
+    trophic_levels = output.trophiclevel
 
     # Generate random x-axis positions to avoid overlap. Set seed for this later.
-    x_positions = rand(model.n_species)
+    x_positions = rand(model.n_species+model.n_pool)
 
 
     for time in 1:length(output.foodweb.consumption[1,1,1,:])
@@ -30,12 +30,13 @@ function food_web_plot(output,model,dt)
         if t % 60 == 0 #Make plot on the hour
             for z in 1:length(output.foodweb.consumption[1,1,:,1])
                 # Wrap this all in a loop later
-                consumption_matrix = output.foodweb.consumption[1:model.n_species,1:model.n_species,z,time]
-
-
+                consumption_matrix = output.foodweb.consumption[:,:,z,time]
 
                 # Biomass for node size. Wrap this later as well.
-                biomass_values = output.foodweb.biomasses[1:model.n_species,z,time]
+                biomass_values = output.foodweb.biomasses[:,z,time]
+
+                #Make Pooled groups equal to 1 for plotting purposes
+                biomass_values[model.n_species:(model.n_species+model.n_pool)] .= mean(biomass_values[1:model.n_species])
 
                 # Set the size of the plot (width, height) in inches
                 #plot_size = (4, 3)
@@ -43,23 +44,22 @@ function food_web_plot(output,model,dt)
                 hour = t/60
                 # Initialize the plot
                 plot(
-                    nodesize = biomass_values .* 20,  # Node size scaled to biomass
+                    nodesize = biomass_values .* 200,  # Node size scaled to biomass
                     nodecolor = :lightblue,
                     xlims = (0, 1),
                     ylims = (minimum(trophic_levels)-0.5, maximum(trophic_levels)+0.5),  # Adjust the y-axis limits based on your trophic level range
                     title = "Food Web: Hour $hour | Depth Bin $z"
                 )
 
-
                 # Add nodes to the plot
-                scatter!(x_positions, trophic_levels, markersize=biomass_values .* 100, color=:lightblue, legend=false)
+                scatter!(x_positions, trophic_levels, markersize=biomass_values .* 500, color=:lightblue, legend=false)
 
-                arrow_size = consumption_matrix * 5000
-
+                arrow_size = consumption_matrix * 5
+                
                 # Draw line segments between nodes based on trophic levels and biomass_matrix
-                for i in 1:model.n_species
-                    for j in 1:model.n_species
-                        if consumption_matrix[j,i] > 0
+                for i in 1:model.n_species+model.n_pool
+                    for j in 1:model.n_species+model.n_pool
+                        if consumption_matrix[i,j] > 0
                             plot!([x_positions[j], x_positions[i]], [trophic_levels[j], trophic_levels[i]], color=:black, line=(:arrow,arrow_size[j,i],0.4,0.1))
                         end
                     end
@@ -69,6 +69,7 @@ function food_web_plot(output,model,dt)
 
                 # Show the plot
                 savefig(joinpath(plotdir,"Plot Hour $hour _Depth $z.png"))
+
             end
         end
     end

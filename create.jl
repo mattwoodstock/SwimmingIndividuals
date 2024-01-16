@@ -147,24 +147,28 @@ function replace_individuals!(model::MarineModel)
         for j in 1:model.ninds[i]
             if spec_array1.data.x[j] == -1 #Need to replace individual
 
+                #Check to see if first individual can die
                 if (i == 1) & (j == 1)
                     println("Dead")
                 end
-
 
                 spec_array1.data.generation[j] = 1.0   # generation
 
                 spec_array1.data.length[j] = rand(spec_array1.p.Min_Size[2][i]:spec_array1.p.Max_Size[2][i])
                 spec_array1.data.weight[j]  = spec_array1.p.LWR_a[2][i] * spec_array1.data.length[j] * spec_array1.p.LWR_b[2][i]   # Bm
-                spec_array1.data.z[j] = rand(spec_array1.p.Night_depth_min[2][i]:spec_array1.p.Night_depth_max[2][i])
 
-                spec_array1.data.x[j]   = rand(-71:70)
-                spec_array1.data.y[j]   = rand(44:45)
+                while spec_array1.data.z[j] < 0 #Resample if animal is at negative depth
+                    spec_array1.data.z[j] = gaussmix(1,z_night_dist[i,"mu1"],z_night_dist[i,"mu2"],z_night_dist[i,"mu3"],z_night_dist[i,"sigma1"],z_night_dist[i,"sigma2"],z_night_dist[i,"sigma3"],z_night_dist[i,"lambda1"],z_night_dist[i,"lambda2"])[1]
+                end
+
+                spec_array1.data.x[j]   = rand(-70:70)
+                spec_array1.data.y[j]   = rand(44:44)
                 spec_array1.data.energy[j]  = spec_array1.data.weight[j] * spec_array1.p.energy_density[2][i]* 0.2   # Initial reserve energy = Rmax
+
                 spec_array1.data.target_z[j] = copy(spec_array1.data.z[j])
                 spec_array1.data.mig_status[j] = 0
                 spec_array1.data.mig_rate[j] = 0
-                spec_array1.data.gut_fullness[j] = rand() * 0.03*spec_array1.data.weight[j] #Proportion of gut that is full. Start with a random value.
+                spec_array1.data.gut_fullness[j] = rand() * 0.03 *spec_array1.data.weight[j] #Proportion of gut that is full. Start with a random value.
                 spec_array1.data.daily_ration[j] = 0
             end
         end
@@ -177,7 +181,7 @@ function reset!(model::MarineModel)
         spec_array1 = getfield(model.individuals.animals, name)
         for j in 1:model.ninds[i]
             if spec_array1.data.x != -1 #Only reset values for living animals
-                spec_array1.data.daily_ration[j] = 0
+                #spec_array1.data.daily_ration[j] = 0
             end
         end
     end

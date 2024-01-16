@@ -65,8 +65,12 @@ function TimeStep!(model::MarineModel, ΔT,temp,output)
                 #Predation function
                 if spec_array1.data.x[j] != -1 #Skip over dead animals
                     ## Find potential preys for predator
-                    eat!(model,distance_matrix,i,j,spec_array1,ΔT,outputs)
+                   #@profile eat!(model,distance_matrix,i,j,spec_array1,ΔT,outputs)
+                   eat!(model,distance_matrix,i,j,spec_array1,ΔT,outputs)
+
                 end
+                
+
             end
         end
     end
@@ -90,15 +94,16 @@ function TimeStep!(model::MarineModel, ΔT,temp,output)
 
         end
     end
-
-
-    #println(model.individuals.animals.sp1.data.pool_z[1])
     #println(outputs.foodweb.consumption[:,:,1,model.iteration])
     #Replace individuals
     replace_individuals!(model)
 
     #Reset necessary components at the end of the day
     if (model.t >= 1440)
+
+        #Tabulate necessary daily tasks
+
+        # Reset all results
         reset!(model)
     end
     return

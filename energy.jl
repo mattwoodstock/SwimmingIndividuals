@@ -20,10 +20,6 @@ function allocate_energy(pred_df,pred_sp,pred_ind,prey)
         #Return energy calculation to storage
         pred_df.data.energy[pred_ind] = pred_df.data.weight[pred_ind] * pred_df.p.energy_density[2][pred_sp] .* 0.2
     end
-
-    ## Calculate addition to Daily_ration in terms of % BW
-    pred_df.data.daily_ration[pred_ind] = pred_df.data.daily_ration[pred_ind] + (prey.Weight[1]/pred_df.data.weight[pred_ind])
-
 end
 
 function evacuate_gut!(pred_df,pred_ind,dt,temp)
