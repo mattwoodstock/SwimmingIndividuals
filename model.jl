@@ -1,64 +1,72 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Plots,Statistics,Dates, BenchmarkTools, Profile, ProfileView
-
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Plots,Statistics,Dates,Optim,LinearAlgebra, Tables
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
 using KernelAbstractions: @kernel, @index
 
 
-include("utilities.jl")
-include("create.jl")
-include("environment.jl")
-include("diagnostics.jl")
-include("simulation.jl")
-include("update.jl")
-include("output.jl")
-include("movement.jl")
-include("predation.jl")
-include("mortality.jl")
-include("energy.jl")
-include("timestep.jl")
-include("plotting.jl")
+include("src/utilities.jl")
+include("src/create.jl")
+include("src/particles.jl")
+include("src/environment.jl")
+include("src/diagnostics.jl")
+include("src/simulation.jl")
+include("src/update.jl")
+include("src/output.jl")
+include("src/behavior.jl")
+include("src/movement.jl")
+include("src/predation.jl")
+include("src/mortality.jl")
+include("src/energy.jl")
+include("src/timestep.jl")
+include("src/plotting.jl")
+include("src/analysis.jl")
 
-
+start = now()
 ## Load in necessary databases
-cd("D:/SwimmingIndividuals/Adapted")
-trait = Dict(pairs(eachcol(CSV.read("traits.csv",DataFrame)))) #Database of IBM species traits 
-pool_trait = Dict(pairs(eachcol(CSV.read("pooled_traits.csv",DataFrame)))) #Database of pooled species traits
-state = CSV.read("state.csv",DataFrame) #Database of state variables
-grid = CSV.read("grid.csv",DataFrame) #Database of grid variables
+
+files = CSV.read("files.csv",DataFrame) #All files needed in the model. Collected like this so that this can be passed through without passing each individual dataframe. 
+
+trait = Dict(pairs(eachcol(CSV.read(files[files.File .== "focal_trait",:Destination][1],DataFrame)))) #Database of IBM species traits 
+
+pool_trait = Dict(pairs(eachcol(CSV.read(files[files.File .== "nonfocal_trait",:Destination][1],DataFrame)))) #Database of pooled species traits
+state = CSV.read(files[files.File .== "state",:Destination][1],DataFrame) #Database of state variables
+grid = CSV.read(files[files.File .== "grid",:Destination][1],DataFrame) #Database of grid variables
+#tracer = Dict(pairs(eachcol(CSV.read(files[files.File .== "tracers",:Destination][1],DataFrame)))) #Database of state variables for particles
 
 #=
 envi = #Database of environmental parameters. Likely .nc files, but could be another function
 =#
-
 ## Convert values to match proper structure
 Nsp = parse(Int64,state[state.Name .== "numspec", :Value][1]) #Number of IBM species
 Npool = parse(Int64,state[state.Name .== "numpool", :Value][1]) #Number of pooled species/groups
+MaxParticle = parse(Int64,state[state.Name .== "maxparticle", :Value][1]) #Number of pooled species/groups
+
 Nall = Nsp + Npool #Number of all groups
 N = trait[:Abundance] #Vector of IBM abundances for all species
 maxN = maximum(N) # Placeholder where the maximum number of individuals created is simply the maximum abundance
 arch = CPU() #Architecure to use. Currently the only one that works. Will want to add a GPU() component
 t = 0.0 #Intial time
 n_iteration = parse(Int64,state[state.Name .== "nts", :Value][1]) #Number of model iterations (i.e., timesteps) to run
-dt = 20.0 #minutes per time step
-
+dt = 1.0 #minutes per time step. Keep this at one.
+dimension = parse(Int64,state[state.Name .== "dimensions", :Value][1])
 
 ## Create Output grid
 g = RectilinearGrid(size=(grid[grid.Name.=="latres",:Value][1],grid[grid.Name.=="lonres",:Value][1],grid[grid.Name.=="depthres",:Value][1]), landmask = nothing, x = (grid[grid.Name.=="latmin",:Value][1], grid[grid.Name.=="latmax",:Value][1]), y = (grid[grid.Name.=="lonmin",:Value][1],grid[grid.Name.=="lonmax",:Value][1]), z = (0,-1*grid[grid.Name.=="depthmax",:Value][1]))
 
 ## Create individuals
-###IBM species
+### Focal species
 inds = generate_individuals(trait, arch, Nsp, N, maxN, g::AbstractGrid,"z_distributions_night.csv")
-###Pooled species/groups
+
+### Nonfocal species/groups
 pooled = generate_pools(arch, pool_trait, Npool, g::AbstractGrid,"z_pool_distributions_night.csv",grid)
+### Create tracers
+#tracers = generate_tracer(tracer, arch)
 
 ## Create model object
-model = MarineModel(arch, t, 0, inds, pooled, Nsp, Npool, N, g, 1)
+model = MarineModel(arch, t, 0, inds, pooled, Nsp, Npool, N, g, dimension,files)
 
 ## Create environmental parameters for now
-temp = generate_temperature()
-
-#input = MarineInput(temp)
+temp = generate_temperature(grid[grid.Name.=="depthmax",:Value][1])
 
 ##Set up outputs in the simulation
 outputs = generate_outputs(model,Nall,grid[grid.Name.=="depthres",:Value][1], n_iteration)
@@ -78,11 +86,15 @@ sim = simulation(model,dt,n_iteration,temp,outputs)
 # Run model. Currently this is very condensed, but I kept the code for when we work with environmental factors
 update!(sim)
 
+stop = now()
+
+println(stop-start)
 #Full results
-results!(model,outputs)
+#results!(model,outputs)
 
 #Create plots
-food_web_plot(outputs,model,dt)
+#food_web_plot(outputs,model,dt)
+#plot_depths(sim)
 
 #= 
 x,y,reshaped_z = reshape_for_heatmap(sim.depth_dens)
@@ -94,4 +106,4 @@ Plot = heatmap(x,y,reshaped_z,c=:blues,xlabel="Time (N timesteps: $(Int(dt)) res
 display(Plot)
 =#
 
-println("Works") #Tells me model works
+#println("Works") #Tells me model works
