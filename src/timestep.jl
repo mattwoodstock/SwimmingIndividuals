@@ -9,6 +9,10 @@ function TimeStep!(sim)
 
     print(model.iteration)
     print(":   ")
+
+    counter_file = DataFrame(Value = [model.iteration]) #To keep track during cluster runs
+    CSV.write("timestepping.csv",counter_file)
+    
     #Add the behavioral context for each species
     for (species_index,animal_index) in enumerate(keys(model.individuals.animals))
         species = model.individuals.animals[species_index]
