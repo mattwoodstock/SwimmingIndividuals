@@ -11,11 +11,11 @@ function generate_outputs(model,spec,depths,iterations)
     pool_density = zeros(iterations,model.n_pool)
     diet_composition = fill(NaN, (model.n_species+model.n_pool, model.n_species+model.n_pool))
 
-    timestep_array = Array{Float64,3}(undef,sum(model.ninds),5,iterations)
+    #timestep_array = Array{Float64,3}(undef,sum(model.ninds),5,iterations)
     #daily_array = Array{Float64,4}(undef,sum(model.ninds),4,model.n_iteration/1440). Fix later
 
 
-    return MarineOutputs(mortalities,biomass,consumption,production,pool_density,diet_composition,timestep_array)
+    return MarineOutputs(mortalities,biomass,consumption,production,pool_density,diet_composition)
 
     #Holder function to combine outputs in one struct as in the individuals.
 end

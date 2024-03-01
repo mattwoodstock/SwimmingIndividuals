@@ -21,7 +21,7 @@ function update!(sim::MarineSimulation; time_offset = (vels = false, PARF = fals
             #write_output!(sim.output_writer, sim.model, sim.ΔT)
     #    end
    # else
-        plt_energy  = @animate for i in 1:sim.iterations
+        for i in 1:sim.iterations
         #for i in 1:sim.iterations
 
             #model_t_PARF = time_offset.PARF ? sim.model.t : (i-1)*sim.ΔT
@@ -36,6 +36,6 @@ function update!(sim::MarineSimulation; time_offset = (vels = false, PARF = fals
             #depth_density(sim.model,i,sim.depth_dens)
             #write_output!(sim.output_writer, sim.model, sim.ΔT)
         end
-        gif(plt_energy, joinpath("diags", "Energy_trend.gif"), fps = 20) # used to be 15 fps
+        #gif(plt_energy, joinpath("diags", "Energy_trend.gif"), fps = 20) # used to be 15 fps
     #end
 end

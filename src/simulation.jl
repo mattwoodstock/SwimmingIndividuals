@@ -24,7 +24,7 @@ mutable struct MarineOutputs
     #production_biomass::Matrix{Float64}
     pool_density::Matrix{Float64}
     diet_composition::Matrix{Float64}
-    timestep_array::Array{Float64,3}
+    #timestep_array::Array{Float64,3}
 end
 
 mutable struct MarineInput

@@ -12,7 +12,7 @@ function TimeStep!(sim)
 
     counter_file = DataFrame(Value = [model.iteration]) #To keep track during cluster runs
     CSV.write("timestepping.csv",counter_file)
-    
+
     #Add the behavioral context for each species
     for (species_index,animal_index) in enumerate(keys(model.individuals.animals))
         species = model.individuals.animals[species_index]
@@ -38,7 +38,7 @@ function TimeStep!(sim)
                     starvation(species,species_index,j,outputs)
                 end    
 
-                timestep_results(model,outputs,respire,ind_temp,species_index,j)
+                #timestep_results(model,outputs,respire,ind_temp,species_index,j)
 
             end
         end
