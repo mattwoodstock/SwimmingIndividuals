@@ -1,0 +1,6 @@
+﻿SpeciesLong,SpeciesShort,Type,Abundance,Assimilation_eff,Min_Size,Max_Size,LWR_a,LWR_b,VBG_K,LBG_LOO,VBG_t0,M_const,Sex_rat,Swim_velo,Night_depth_min,Night_depth_max,Day_depth_min,Day_depth_max,Dive_Frequency,Dive_depth_min,Dive_depth_max,Dive_Interval,Surface_Interval,Daily_ration,Fecundity,N_conc,energy_density,t_resolution
+Species1,sp1,dvm_strong,100,0.8,20,80,4.90E-04,3.509,0.4,60,0,0.2,0.5,0.5,25,200,201,1000,50,500,700,10,10,3,100,10,5000,1
+Species16,sp16,dvm_weak,100,0.8,20,80,2.54E-02,3.076,0.4,63,0,0.2,0.5,0.5,25,200,201,1000,50,500,700,10,10,3,100,10,5000,1
+Species42,sp42,surface_diver,100,0.8,20,80,3.90E-04,2.88,0.4,61,0,0.2,0.5,0.5,25,200,201,1000,50,500,700,10,10,3,100,10,5000,1
+Species43,sp43,pelagic_diver,100,0.8,20,80,6.90E-03,2.77,0.4,45,0,0.2,0.5,0.5,25,200,201,1000,50,500,700,10,10,3,100,10,5000,1
+Species2,sp2,nonmig,100,0.8,20,80,6.90E-03,2.77,0.4,45,0,0.2,0.5,0.5,25,200,201,1000,50,500,700,10,10,3,100,10,5000,1
