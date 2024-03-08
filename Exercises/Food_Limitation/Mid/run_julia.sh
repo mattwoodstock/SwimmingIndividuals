@@ -16,6 +16,6 @@ module load julia                  # Load the julia module
  
 echo "Running julia script for SwimmingIndividuals.jl"
  
-julia /vortexfs1/scratch/matthew.woodstock/SwimmingIndividuals/Exercises/Food_limitation/Mid/model.jl
+julia /vortexfs1/scratch/matthew.woodstock/SwimmingIndividuals/Exercises/Food_Limitation/Mid/model.jl
  
 date
