@@ -1,9 +1,0 @@
-Name,Value,Description
-latmin,0,Minimum Latitude
-latmax,1000,Maximum Latitude
-lonmin,0,Minimum Longitude
-lonmax,1000,Maximum Longitude
-depthmax,1000,Maximum Depth (insert positive value)
-latres,1,Number of latitude grid cells
-lonres,1,Number of Longitude Grid Cells
-depthres,10,Number of depth Grid Cells
