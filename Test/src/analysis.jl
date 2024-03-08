@@ -39,6 +39,12 @@ function timestep_results(model,outputs,respire,ind_temp,species_index,ind)
 
             outputs.timestep_array[ind,5,ts] = ind_temp
 
+            outputs.timestep_array[ind,6,ts] = model.individuals.animals[species_index].data.x[ind]
+
+            outputs.timestep_array[ind,7,ts] = model.individuals.animals[species_index].data.y[ind]
+
+            outputs.timestep_array[ind,8,ts] = model.individuals.animals[species_index].data.z[ind]
+
         
         else
             outputs.timestep_array[sum(model.ninds[1:(species_index-1)])+ind,1,ts] = model.individuals.animals[species_index].data.energy[ind]
@@ -50,6 +56,13 @@ function timestep_results(model,outputs,respire,ind_temp,species_index,ind)
             outputs.timestep_array[sum(model.ninds[1:(species_index-1)])+ind,4,ts] = respire
 
             outputs.timestep_array[sum(model.ninds[1:(species_index-1)])+ind,5,ts] = ind_temp
+
+            outputs.timestep_array[sum(model.ninds[1:(species_index-1)]) + ind,6,ts] = model.individuals.animals[species_index].data.x[ind]
+
+            outputs.timestep_array[sum(model.ninds[1:(species_index-1)]) + ind,7,ts] = model.individuals.animals[species_index].data.y[ind]
+
+            outputs.timestep_array[sum(model.ninds[1:(species_index-1)]) + ind,8,ts] = model.individuals.animals[species_index].data.z[ind]
+
         end
         filename = "timestep_results.jld"
         save(filename,"timestep",outputs.timestep_array)

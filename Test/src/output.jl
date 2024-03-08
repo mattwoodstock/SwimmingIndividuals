@@ -12,7 +12,7 @@ function generate_outputs(model,spec,iterations,output_dt)
     #production_biomass = zeros(model.n_species,iterations)
     pool_density = zeros(iterations,model.n_pool)
 
-    timestep_array = Array{Float64,3}(undef,sum(model.ninds),5,Int(iterations/output_dt))
+    timestep_array = Array{Float64,3}(undef,sum(model.ninds),8,Int(iterations/output_dt))
     #daily_array = Array{Float64,4}(undef,sum(model.ninds),4,model.n_iteration/1440). Fix later
 
     return MarineOutputs(mortalities,biomass,consumption,consumption_aggregate,production,pool_density,timestep_array)
