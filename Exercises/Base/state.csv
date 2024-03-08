@@ -1,0 +1,7 @@
+Name,Value,Description
+architecture,CPU,Can either be CPU or GPU
+numspec,5,Number of Modeled Species
+maxindividuals,1000,Maximum number of individuals
+nts,525600,Number of Time Steps (minutes)
+numpool,20,Number of Pooled Groups
+output_dt,1440,Interval between Timestep Outputs
