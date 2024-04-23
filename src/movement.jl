@@ -1,13 +1,39 @@
-function dvm_action(model, sp, ind)
+function random_movement(latitude, longitude, movement_distance)
+    # Generate random values for the movement vector
+    random_lat_change = rand() - 0.5  # Random value between -0.5 and 0.5
+    random_lon_change = rand() - 0.5
+
+    # Normalize the movement vector
+    norm_factor = sqrt(random_lat_change^2 + random_lon_change^2)
+    norm_random_lat_change = random_lat_change / norm_factor
+    norm_random_lon_change = random_lon_change / norm_factor
+
+    # Calculate the changes in coordinates
+    lat_change = norm_random_lat_change * movement_distance
+    lon_change = norm_random_lon_change * movement_distance
+
+    # Convert degrees to meters for distance calculations
+    lat_meters, lon_meters = degrees_to_meters(latitude, longitude)
+
+    # Calculate the new coordinates in meters
+    new_lat_meters = lat_meters + lat_change
+    new_lon_meters = lon_meters + lon_change
+
+    # Convert the new coordinates back to degrees
+    new_lat_deg, new_lon_deg = meters_to_degrees(new_lat_meters, new_lon_meters)
+
+    return new_lat_deg, new_lon_deg
+end
+
+function dvm_action(model, sp, ind,outputs)
     animal = model.individuals.animals[sp]
     data = animal.data
     params = animal.p
     ΔT = params.t_resolution[2][sp]
 
-    swim_speed = params.Swim_velo[2][sp] * (data.length[ind]/100) * params.t_resolution[2][sp] * 60
+    swim_speed = data.length[ind]/1000 * params.Swim_velo[2][sp] * ΔT
 
-
-    if (6*60 <= model.t < 18*60) && (data.mig_status[ind] == 0) # Descend during daytime
+    if (6*60 <= model.t < 18*60) && (data.mig_status[ind] == 0) # Start descent during daytime
         z_dist_file = model.files[model.files.File .=="focal_z_dist_day",:Destination][1]
         grid_file = model.files[model.files.File .=="grid",:Destination][1]
         z_day_dist = CSV.read(z_dist_file,DataFrame)
@@ -21,15 +47,20 @@ function dvm_action(model, sp, ind)
             data.target_z[ind] = gaussmix(1,z_day_dist[sp,"mu1"],z_day_dist[sp,"mu2"],z_day_dist[sp,"mu3"],z_day_dist[sp,"sigma1"],z_day_dist[sp,"sigma2"],z_day_dist[sp,"sigma3"],z_day_dist[sp,"lambda1"],z_day_dist[sp,"lambda2"])[1]
         end
 
-        data.mig_rate[ind] = swim_speed * 2
+        data.mig_rate[ind] = swim_speed
         t_adjust = min(ΔT, abs((data.target_z[ind] - data.z[ind]) / data.mig_rate[ind]))
         data.z[ind] = min(data.target_z[ind], data.z[ind] + data.mig_rate[ind] * ΔT)
         data.active_time[ind] += t_adjust
         if data.z[ind] >= data.target_z[ind]
             data.mig_status[ind] = -1
         end
+        if sp == 1
+            outputs.behavior[ind,3,1] += ΔT
+        else
+            outputs.behavior[(sum(model.ninds[1:(sp-1)])+ind),3,1] += ΔT
+        end
         data.feeding[ind] = 0
-    elseif (model.t >= 18*60) && (data.mig_status[ind] == -1) # Ascend during nighttime
+    elseif (model.t >= 18*60) && (data.mig_status[ind] == -1) # Start acent during nighttime
         z_dist_file = model.files[model.files.File .=="focal_z_dist_night",:Destination][1]
         grid_file = model.files[model.files.File .=="grid",:Destination][1]
         z_night_dist = CSV.read(z_dist_file,DataFrame)
@@ -42,7 +73,7 @@ function dvm_action(model, sp, ind)
         while (data.target_z[ind] <= 0) | (data.target_z[ind] > maxdepth) #Resample if animal is outside of the grid
             data.target_z[ind] = gaussmix(1,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])[1]
         end
-        data.mig_rate[ind] = swim_speed * 2
+        data.mig_rate[ind] = swim_speed
         t_adjust = min(ΔT, abs((data.target_z[ind] - data.z[ind]) / data.mig_rate[ind]))
         data.z[ind] = max(data.target_z[ind], data.z[ind] - data.mig_rate[ind] * ΔT)
         if data.z[ind] == data.target_z[ind]
@@ -50,21 +81,36 @@ function dvm_action(model, sp, ind)
             data.feeding[ind] = 1
         end
         data.active_time[ind] += t_adjust
+        if sp == 1
+            outputs.behavior[ind,3,1] += ΔT
+        else
+            outputs.behavior[(sum(model.ninds[1:(sp-1)])+ind),3,1] += ΔT
+        end
     elseif data.mig_status[ind] == 1 # Continue ascending
         target_z = data.target_z[ind]
         t_adjust = min(ΔT, abs((target_z - data.z[ind]) / data.mig_rate[ind]))
         data.z[ind] = max(target_z, data.z[ind] - data.mig_rate[ind] * ΔT)
-        if data.z[ind] == target_z
+        if (data.z[ind] == target_z) | (model.t == 21*60)
             data.mig_status[ind] = 0
             data.feeding[ind] = 1
+        end
+        if sp == 1
+            outputs.behavior[ind,3,1] += ΔT
+        else
+            outputs.behavior[(sum(model.ninds[1:(sp-1)])+ind),3,1] += ΔT
         end
         data.active_time[ind] += t_adjust
     elseif data.mig_status[ind] == 2 # Continue descending
         target_z = data.target_z[ind]
         t_adjust = min(ΔT, abs((target_z - data.z[ind]) / data.mig_rate[ind]))
         data.z[ind] = min(target_z, data.z[ind] + data.mig_rate[ind] * ΔT)
-        if data.z[ind] == target_z
+        if (data.z[ind] == target_z) | (model.t == 9*60)
             data.mig_status[ind] = -1
+        end
+        if sp == 1
+            outputs.behavior[ind,3,1] += ΔT
+        else
+            outputs.behavior[(sum(model.ninds[1:(sp-1)])+ind),3,1] += ΔT
         end
         data.active_time[ind] += t_adjust
     end

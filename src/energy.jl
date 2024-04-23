@@ -1,3 +1,27 @@
+function allocate_energy(model,sp,ind,prey)
+    #Calculate energy that was gained
+
+    ## energetic content of fishes:
+    #https://onlinelibrary.wiley.com/doi/pdf/10.1111/jfb.15331
+    energy = prey.Weight[1] * model.individuals.animals[prey.Sp[1]].p.energy_density[2][prey.Sp[1]]
+
+    egestion = energy * 0.16
+    excretion = (energy-egestion) * 0.1
+    sda = (energy-egestion) * 0.175
+
+    # Change in energy = consumed energy - (rmr + sda) - (egestion + excretion). RMR will be calculated later.
+    model.individuals.animals[sp].data.energy[ind] += (energy - sda - (egestion + excretion))
+
+    if model.individuals.animals[sp].data.energy[ind] >= model.individuals.animals[sp].data.weight[ind] * model.individuals.animals[sp].p.energy_density[2][sp] * 0.2 #Reaches maximum energy storage
+        
+        #Activate growth protocol. Does not currently work.
+        #growth!(pred_df,pred_sp,pred_ind)
+
+        #Return energy calculation to storage
+        model.individuals.animals[sp].data.energy[ind] = model.individuals.animals[sp].data.weight[ind] * model.individuals.animals[sp].p.energy_density[2][sp] .* 0.2
+    end
+end
+
 function respiration(model,sp,ind,temp)
 
     #Uses Davison et al. 2013 for equation of Routine Metabolic Rate
@@ -20,6 +44,7 @@ function respiration(model,sp,ind,temp)
     prop_time = model.individuals.animals[sp].data.active_time[ind] / model.individuals.animals[sp].p.t_resolution[2][sp]
 
     R = amr * prop_time + smr*(1-prop_time) 
+    model.individuals.animals[sp].data.rmr[ind] = R
 
     return R
 end
@@ -39,6 +64,8 @@ function excretion(model,sp,consumed)
 
     return egest, excrete
 end
+
+
 
 function evacuate_gut(model,sp,ind,temp)
 
@@ -75,4 +102,19 @@ function growth(model, sp, ind, consumed, sda, respire, egest, excrete)
     end
 
     nothing
+end
+
+
+function metabolism(model,sp,ind,temp)
+    ts = model.individuals.animals[sp].p.t_resolution[2][sp]/60
+    ## Equation from Davison et al. 2013
+
+    rmr = 0.0001* exp(14.47)*model.individuals.animals[sp].data.weight[ind]^0.75*exp((1000*-5.02)/(273.15+ind_temp))
+
+    smr = 0.5 * rmr
+    amr = 4 * rmr
+
+    full_mr = amr*(model.individuals.animals[sp].data.active_time[ind]/ts) + smr*(1-(model.individuals.animals[sp].data.active_time[ind]/ts))
+    model.individuals.animals[sp].data.energy[ind] -= full_mr
+    return nothing 
 end

@@ -1,3 +1,76 @@
+function detection_distance(prey_length,pred_df,pred_ind)
+
+    prey_length = prey_length * 1000
+    salt = 30 #Needs to be in PSU
+    surface_irradiance = 300 #Need real value. in W m-2
+    prey_width = prey_length/4
+    rmax = pred_df.data.length[pred_ind]*1000 # The maximum visual range. Currently this is 1 body length
+    prey_contrast = 0.3 #Utne-Plam (1999)   
+    eye_saturation = 1
+    
+    #Light attentuation coefficient
+    a_lat = 0.64 - 0.016 * salt #Aksnes et al. 2009; per meter
+
+    #Beam Attentuation coefficient
+    c_lat = 4.87*a_lat #Huse and Fiksen (2010); per meter
+
+    #Ambient irradiance at foraging depth
+    i_td = surface_irradiance*exp(-0.1 * pred_df.data.z[pred_ind]) #Currently only reflects surface; 
+
+    #Prey image area 
+    prey_image = 0.75*prey_length*prey_width
+
+    #Visual eye sensitivity
+    eye_sensitivity = (rmax^2)/(prey_image*prey_contrast)
+    
+    #Equations for Visual Field
+    f(x) = x^2 * exp(c_lat * x) - prey_contrast * prey_image * eye_sensitivity * i_td / (eye_saturation + i_td)
+    fp(x) = 2*x * exp(c_lat * x) + c_lat * x^2 * exp(c_lat * x)
+
+    x = NewtonRaphson(f,fp,pred_df.data.length[pred_ind])
+
+    #Visual range estimates may be much more complicated when considering bioluminescent organisms. Could incorporate this if we assigned each species a "luminous type"
+    ##https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3886326/
+    return x
+end
+
+function holling_2_pool(model, pool, IBM_prey, Pool_prey, IBM_dens, outputs, lon, lat, depth)
+    attack_rate = visual_pool(model, pool, depth)
+    handling_time = 2.0 / 60  # ind per minute
+    density = IBM_dens + sum(Pool_prey)
+
+    encounter = (attack_rate * density) / (1 + attack_rate * handling_time * density)
+
+    # Predator density
+    pred_inds = model.pools.pool[pool].density.num[depth] * model.cell_size
+    adjust_inds = round(pred_inds)
+    adj_encounter = round(encounter) * adjust_inds
+
+    while adj_encounter > 0
+        if (IBM_dens > sum(Pool_prey.Dens)) && !isempty(IBM_prey)  # Consume an individual
+            val = rand(1:size(IBM_prey, 1))
+            index = IBM_prey[val, :]  # Chosen prey item
+
+            outputs.consumption[model.n_species + pool, index.Sp, lon, lat, depth, (model.iteration % model.output_dt) + 1] += index.Weight
+            predation_mortality(model, index, outputs)
+            IBM_prey = IBM_prey[1:end .!= val, :]  # Remove consumed individual
+        else  # Consume a pool animal
+            val = argmax(Pool_prey.Dens)
+            index = Pool_prey[val, :]
+
+            avg_size = mean(model.pools.pool[index.Sp].characters.Min_Size[2][index.Sp]:model.pools.pool[index.Sp].characters.Max_Size[2][index.Sp]) / 10
+            encounter_biomass = model.pools.pool[index.Sp].characters.LWR_a[2][index.Sp] * avg_size ^ model.pools.pool[index.Sp].characters.LWR_b[2][index.Sp]
+            consumed = encounter_biomass * model.pools.pool[index.Sp].characters.Energy_density[2][index.Sp]
+
+            outputs.consumption[model.n_species + pool, model.n_species + index.Sp, lon, lat, depth, (model.iteration % model.output_dt) + 1] += encounter_biomass
+            reduce_pool(model, index.Sp, lon, lat, depth)
+            Pool_prey = Pool_prey[1:end .!= val, :]  # Remove consumed pool animal
+        end
+        adj_encounter -= 1
+    end
+end
+
+
 function holling_2(model, sp, ind, pool_prey, range, outputs)
     # Precompute constants
     t_resolution = model.individuals.animals[sp].p.t_resolution[2][sp]
@@ -7,14 +80,13 @@ function holling_2(model, sp, ind, pool_prey, range, outputs)
 
     handling_time = 2.0 / 60  # 2 seconds scaled to resolution
     attack_rate = range
-    density = sum(pool_prey) / model.cell_size
+    density = sum(pool_prey) / model.cell_size #Check the units of pool_prey
     max_stomach = model.individuals.animals[sp].data.weight[ind] * 0.1
     if density > 0
         # Calculate encounter rate
         encounter = (attack_rate * density) * 60 * t_resolution #Number of expected encounters per time step
 
         # Include the possibility of predation for pooled preys in low prey densities
-        left = encounter % 1
         if encounter > typemax(Int64)
             # Handle the case where encounter is too large
             adj_encounter = typemax(Int64)
@@ -55,7 +127,7 @@ function holling_2(model, sp, ind, pool_prey, range, outputs)
 
                     # Reduce pool size
                     reduce_pool(model, index, lon, lat, depth)
-                    pool_prey[index] -= 1
+                    pool_prey[index] -= 1 #Check to assure this is the total number of inds and not a raw abundance
                     adj_encounter -= 1
                 end
             end
@@ -63,6 +135,39 @@ function holling_2(model, sp, ind, pool_prey, range, outputs)
     end
     return nothing
 end
+
+
+
+function calculate_distances_matrix(model::MarineModel)
+    num_animals = sum(model.ninds)
+    distances = zeros(Float64, num_animals, num_animals)
+    count1 = 0
+    for i in 1:model.n_species
+        # Find number of individuals in species i
+        spec_array1 = model.individuals.animals[i]
+        for j in 1:model.ninds[i]
+            count1 += 1
+            count2 = 0
+            for k in 1:model.n_species
+                # Find number of individuals in species k
+                spec_array2 = model.individuals.animals[k]
+                for l in 1:model.ninds[k]
+                    count2 += 1
+                    if (j != l) || (i != k)
+                        delta_y = spec_array1.data.y[j] - spec_array2.data.y[l]
+                        delta_x = spec_array1.data.x[j] - spec_array2.data.x[l]
+                        delta_z = spec_array1.data.z[j] - spec_array2.data.z[l]
+                        distances[count1, count2] = sqrt(delta_y^2 + delta_x^2 + delta_z^2)
+                    else
+                        distances[count1, count2] = Inf # Make object far away from itself for modeling purposes
+                    end
+                end
+            end
+        end
+    end
+    return distances
+end
+
 
 function calculate_distances_prey(model::MarineModel, sp, ind, min_prey, max_prey, detection)
     preys = DataFrame(Sp = Int[], Ind = Int[], x = Float64[], y = Float64[], z = Float64[], Weight = Float64[], Distance = Float64[])
@@ -136,7 +241,7 @@ function move_predator!(model, sp, ind, prey_df)
     handling_time = 2.0 / 60
     time_to_prey = prey_df.Distance[1] / swim_velo
 
-    # Update predator position
+    # Update predator
     model.individuals.animals[sp].data.x[ind] = prey_df.x[1]
     model.individuals.animals[sp].data.y[ind] = prey_df.y[1]
     model.individuals.animals[sp].data.z[ind] = prey_df.z[1]
@@ -186,6 +291,38 @@ function prey_density(model, sp, ind, preys, area)
     return IBM_dens, pool_list
 end
 
+function prey_density_pool(model, sp, lon, lat, depth, min_size, max_size)
+    IBM_prey = DataFrame(Sp = Int[], Ind = Int[], Weight = Float64[])
+
+    # Gather Focal species in grid cell and size range
+    for (species_index, animal) in pairs(model.individuals.animals)
+        lengths = animal.data.length
+        pool_z = animal.data.pool_z
+
+        indices = findall(x -> min_size <= x <= max_size, lengths)
+        depth_indices = ceil.(Int, pool_z[indices])
+
+        append!(IBM_prey, DataFrame(Sp = fill(species_index, length(indices)), Ind = indices, Weight = animal.data.weight[indices]))
+    end
+
+    IBM_dens = nrow(IBM_prey) / model.cell_size  # ind per cubic meter
+
+    Pool_prey = DataFrame(Sp = Int[], Dens = Float64[])
+
+    for (pool_index, pool) in pairs(model.pools.pool)
+        density = pool.density.num[lon, lat, depth]
+
+        if density > 0
+            min_sz = pool.characters.Min_Size[2][pool_index]
+            max_sz = pool.characters.Max_Size[2][pool_index]
+            prop_in_range = count(x -> min_size <= x <= max_size, sample_normal(min_sz, max_sz)) / model.num_samples
+            push!(Pool_prey, (; Sp = pool_index, Dens = density * prop_in_range))
+        end
+    end
+
+    return IBM_prey, IBM_dens, Pool_prey
+end
+
 function eat!(model::MarineModel, sp, ind, outputs)
     ddt = model.individuals.animals[sp].p.t_resolution[2][sp]  # Subset of time
     prey_list, search_area = detect_prey(model, sp, ind)
@@ -198,7 +335,7 @@ function eat!(model::MarineModel, sp, ind, outputs)
 
     density = IBM_dens + sum(pool_prey)
     pool_prop = sum(pool_prey) / density
-    max_stomach = model.individuals.animals[sp].data.weight[ind] * 0.1
+    max_stomach = model.individuals.animals[sp].data.weight[ind] * 0.03
 
     if !isempty(prey_list) & (model.individuals.animals[sp].data.gut_fullness[ind] < max_stomach)  # There are preys within range. Need to choose one and "remove" it.
         while ddt > (1 - pool_prop) && !isempty(prey_list)  ## Can only eat if there is time left for IBM species

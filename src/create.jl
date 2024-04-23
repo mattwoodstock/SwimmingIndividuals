@@ -29,6 +29,30 @@ function generate_pools(arch::Architecture, params::Dict, Npool, g::AbstractGrid
     return pools(groups)
 end
 
+function generate_particle(params::Dict,arch::Architecture,max_particle)
+    ## Can add more as more particles become necessary
+    eDNA = construct_eDNA(arch,params,max_particle)
+
+    return particles(eDNA)
+end
+
+function construct_eDNA(arch::Architecture,params,max_particle)
+    rawdata = StructArray(species = zeros(max_particle), ind = zeros(max_particle),x = zeros(max_particle),y = zeros(max_particle), z = zeros(max_particle), lifespan = zeros(max_particle)) 
+
+    data = replace_storage(array_type(arch),rawdata)
+
+    param_names=(:Shed_rate,:Decay_rate,:Type)
+
+    state = NamedTuple{param_names}(params)
+
+    #Set x,y,and z of all eDNA particles to equal -1 since they are not yet in the system.
+    data.x .= 5e6
+    data.y .= 5e6
+    data.z .= 5e6
+
+    return eDNA(data,state)
+end
+
 function construct_plankton(arch::Architecture, params::Dict, maxN)
     rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), weight = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), active_time = zeros(maxN),gut_fullness = zeros(maxN),feeding = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),eDNA_shed = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN)) 
 
@@ -90,7 +114,7 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
         plank.data.interval[i] = rand() * plank.p.Surface_Interval[2][sp]
     end
 
-    plank.data.energy  .= plank.data.weight * plank.p.energy_density[2][sp] .* 0.2   # Initial reserve energy = Rmax
+    plank.data.energy  .= rand() .* (plank.data.weight .* plank.p.energy_density[2][sp] .* 0.2)   # Initial reserve energy = Rmax
 
     plank.data.target_z .= copy(plank.data.z)
     plank.data.dive_capable .= 1
@@ -164,22 +188,25 @@ function generate_pool(groups, g::AbstractGrid,sp, files)
 end
 
 function reset(model::MarineModel)
-    grid_file = model.files[model.files.File .=="grid",:Destination][1]
-    z_dist_night_file = model.files[model.files.File .=="focal_z_dist_night",:Destination][1]
-    z_dist_day_file = model.files[model.files.File .=="focal_z_dist_day",:Destination][1]
+    files = model.files
+    grid_file = files[files.File .=="grid",:Destination][1]
+    z_night_dist_file = files[files.File .=="focal_z_dist_night",:Destination][1]
+    z_day_dist_file = files[files.File .=="focal_z_dist_day",:Destination][1]
 
     grid = CSV.read(grid_file,DataFrame)
-    z_night_dist = CSV.read(z_dist_night_file,DataFrame)
-    z_day_dist = CSV.read(z_dist_day_file,DataFrame)
+    z_night_dist = CSV.read(z_night_dist_file,DataFrame)
+    z_day_dist = CSV.read(z_day_dist_file,DataFrame)
 
+    depthres = grid[grid.Name .== "depthres", :Value][1]
+    lonres = grid[grid.Name .== "lonres", :Value][1]
+    latres = grid[grid.Name .== "latres", :Value][1]
     maxdepth = grid[grid.Name .== "depthmax", :Value][1]
     depthres = grid[grid.Name .== "depthres", :Value][1]
     lonmax = grid[grid.Name .== "lonmax", :Value][1]
     lonmin = grid[grid.Name .== "lonmin", :Value][1]
     latmax = grid[grid.Name .== "latmax", :Value][1]
     latmin = grid[grid.Name .== "latmin", :Value][1]
-    lonres = grid[grid.Name .== "lonres", :Value][1]
-    latres = grid[grid.Name .== "latres", :Value][1]
+
     #Replace dead individuals and necessary components at the end of the day.
     for (species_index,animal_index) in enumerate(keys(model.individuals.animals))
         species = model.individuals.animals[species_index]
@@ -188,40 +215,39 @@ function reset(model::MarineModel)
         model.individuals.animals[species_index].data.ration .= 0 #Reset timestep ration for next one.
         for j in 1:n_ind
             if species.data.x[j] == 5e6 #Need to replace individual
-                species.data.ac[i] = 1.0
-
-                species.data.length[j] = rand(species.p.Min_Size[2][species_index]:species.p.Max_Size[2][species_index])
-                species.data.length[j] = 40 #For experimental purposes.
-                species.data.weight[j]  = species.p.LWR_a[2][species_index] * species.data.length[j]/10 * species.p.LWR_b[2][species_index]   # Bm after converting to cm
-
-                if 6*60 <= model.t < 18*60
-                    species.data.z[i] = gaussmix(1,z_day_dist[species_index,"mu1"],z_day_dist[species_index,"mu2"],z_day_dist[species_index,"mu3"],z_day_dist[species_index,"sigma1"],z_day_dist[species_index,"sigma2"],z_day_dist[species_index,"sigma3"],z_day_dist[species_index,"lambda1"],z_day_dist[species_index,"lambda2"])[1]
-
-                    while (species.data.z[i] <= 0) | (species.data.z[i] > maxdepth) #Resample if animal is outside of the grid
-                        species.data.z[i] = gaussmix(1,z_day_dist[species_index,"mu1"],z_day_dist[species_index,"mu2"],z_day_dist[species_index,"mu3"],z_day_dist[species_index,"sigma1"],z_day_dist[species_index,"sigma2"],z_day_dist[species_index,"sigma3"],z_day_dist[species_index,"lambda1"],z_day_dist[species_index,"lambda2"])[1]
-                    end
-                else
-                    species.data.z[i] = gaussmix(1,z_night_dist[species_index,"mu1"],z_night_dist[species_index,"mu2"],z_night_dist[species_index,"mu3"],z_night_dist[species_index,"sigma1"],z_night_dist[species_index,"sigma2"],z_night_dist[species_index,"sigma3"],z_night_dist[species_index,"lambda1"],z_night_dist[species_index,"lambda2"])[1]
-
-                    while (species.data.z[i] <= 0) | (species.data.z[i] > maxdepth) #Resample if animal is outside of the grid
-                        species.data.z[i] = gaussmix(1,z_night_dist[species_index,"mu1"],z_night_dist[species_index,"mu2"],z_night_dist[species_index,"mu3"],z_night_dist[species_index,"sigma1"],z_night_dist[species_index,"sigma2"],z_night_dist[species_index,"sigma3"],z_night_dist[species_index,"lambda1"],z_night_dist[species_index,"lambda2"])[1]
-                    end
-                end
-
-                species.data.pool_z[j] = Int(ceil(species.data.z[j]/(maxdepth/depthres),digits=0))
+                species.data.ac[j] = 1.0
 
                 species.data.x[j] = lonmin + rand() * (lonmax-lonmin)
                 species.data.y[j] = latmin + rand() * (latmax-latmin)
 
-                species.data.pool_x[j] = Int(ceil(species.data.x[j]/((lonmax-lonmin)/lonres),digits=0))
-                species.data.pool_y[j] = Int(ceil(species.data.y[j]/((latmax-latmin)/latres),digits=0))
+                species.data.pool_x[j] = Int(ceil(species.data.x[j]/((lonmax-lonmin)/lonres),digits = 0))  
+                species.data.pool_y[j] = Int(ceil(species.data.y[j]/((latmax-latmin)/latres),digits = 0))  
 
-                species.data.energy[j] = species.data.weight[j] * species.p.energy_density[2][species_index]* 0.2   # Initial reserve energy = Rmax
+                species.data.length[j] = species.p.Min_Size[2][species_index] + rand() * (species.p.Max_Size[2][species_index]-species.p.Min_Size[2][species_index])
+                species.data.weight[j]  = species.p.LWR_a[2][species_index] * species.data.length[j]/10 * species.p.LWR_b[2][species_index]   # Bm
+                species.data.gut_fullness[j] = rand() * 0.03 * species.data.weight[j] #Proportion of gut that is full. Start with a random value between empty and 3% of predator diet.
+                species.data.interval[j] = rand() * species.p.Surface_Interval[2][species_index]
+
+                if 6*60 <= model.t < 18*60
+                    species.data.z[j] = gaussmix(1,z_day_dist[species_index,"mu1"],z_day_dist[species_index,"mu2"],z_day_dist[species_index,"mu3"],z_day_dist[species_index,"sigma1"],z_day_dist[species_index,"sigma2"],z_day_dist[species_index,"sigma3"],z_day_dist[species_index,"lambda1"],z_day_dist[species_index,"lambda2"])[1]
+
+                    while (species.data.z[j] <= 0) | (species.data.z[j] > maxdepth) #Resample if animal is outside of the grid
+                        species.data.z[j] = gaussmix(1,z_day_dist[species_index,"mu1"],z_day_dist[species_index,"mu2"],z_day_dist[species_index,"mu3"],z_day_dist[species_index,"sigma1"],z_day_dist[species_index,"sigma2"],z_day_dist[species_index,"sigma3"],z_day_dist[species_index,"lambda1"],z_day_dist[species_index,"lambda2"])[1]
+                    end
+                else
+                    species.data.z[j] = gaussmix(1,z_night_dist[species_index,"mu1"],z_night_dist[species_index,"mu2"],z_night_dist[species_index,"mu3"],z_night_dist[species_index,"sigma1"],z_night_dist[species_index,"sigma2"],z_night_dist[species_index,"sigma3"],z_night_dist[species_index,"lambda1"],z_night_dist[species_index,"lambda2"])[1]
+
+                    while (species.data.z[j] <= 0) | (species.data.z[j] > maxdepth) #Resample if animal is outside of the grid
+                        species.data.z[j] = gaussmix(1,z_night_dist[species_index,"mu1"],z_night_dist[species_index,"mu2"],z_night_dist[species_index,"mu3"],z_night_dist[species_index,"sigma1"],z_night_dist[species_index,"sigma2"],z_night_dist[species_index,"sigma3"],z_night_dist[species_index,"lambda1"],z_night_dist[species_index,"lambda2"])[1]
+                    end
+                end
+                species.data.pool_z[j] = Int(ceil(species.data.z[j]/(maxdepth/depthres),digits=0))
+
+                species.data.energy[j] = rand() * (species.data.weight[j] * species.p.energy_density[2][species_index]* 0.2)   # Initial reserve energy = Rmax
 
                 species.data.gut_fullness[j] = rand() * 0.1 *species.data.weight[j] #Proportion of gut that is full. Start with a random value.
                 species.data.daily_ration[j] = 0
                 species.data.ration[j] = 0
-
             end
             if (model.t == 0) #Only reset values for living animals at the end of the day
                 species.data.daily_ration .= 0
@@ -229,6 +255,8 @@ function reset(model::MarineModel)
         end
     end
 end
+
+
 
 function pool_growth(model)
     #Function that controls the growth of a population back to its carrying capacity

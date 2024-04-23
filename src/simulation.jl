@@ -18,6 +18,8 @@ mutable struct MarineOutputs
     #trophiclevel::Vector{Float64}
     mortalities::Matrix{Float64}
     biomass::Array{Float64,3}
+    behavior::Array{Float64,3}
+    behavior_aggregate::Array{Float64,3}
     #consumption_biomass::Matrix{Float64}
     consumption::Array{Float64,6}
     consumption_aggregate::Array{Float64,6}

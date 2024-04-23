@@ -23,7 +23,7 @@ function TimeStep!(sim)
                     if model.individuals.animals[species_index].data.ac[j] == 1.0
                         behavior(model, species_index, j,outputs)
 
-                        consumed = model.individuals.animals[species_index].data.ration[j]
+                        consumed = species.data.ration[j]
 
                         ind_temp = individual_temp(model,species_index,j,temp)
                         respire = respiration(model,species_index,j,ind_temp)
@@ -33,9 +33,13 @@ function TimeStep!(sim)
 
                         evacuate_gut(model,species_index,j,ind_temp)
 
-                        if species.data.energy[j] < 0 #Animal starves to death if its energy reserves fall below 0
+                        if (species.data.energy[j] < 0) & (model.iteration > model.spinup) #Animal starves to death if its energy reserves fall below 0
                             starvation(species,species_index,j,outputs)
                         end
+
+                        #if model.t == model.spinup #Reset energy budget once the real model starts
+                        #    species.data.energy = species.data.weight[j] * species.p.energy_density[2][species_index]* 0.2
+                        #end
                     end
                 end
             end
@@ -49,15 +53,16 @@ function TimeStep!(sim)
         pool_predation(model,pool_index)
     end
 
-    if model.iteration % model.output_dt == 0
+    if (model.iteration % model.output_dt == 0) & (model.iteration > model.spinup) #Only output results after the spinup is done.
         timestep_results(model,outputs) #Assign and output
         CSV.write("Mortality Counts.csv",Tables.table(outputs.mortalities))
     end 
 
+
     #Save results
-    #results(sim)
+    results(sim)
     #plotting(model,outputs)
     #Reset necessary components
-    #reset(model)
+    reset(model)
     pool_growth(model) #Grow pool individuals back to carrying capacity
 end
