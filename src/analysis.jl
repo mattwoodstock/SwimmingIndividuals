@@ -16,8 +16,8 @@ function results(sim)
     #End of simulation
     if model.iteration == sim.iterations
         mortality_rates(model,outputs)
-        #consumption(outputs)
-        #diet_composition(outputs)
+        consumption(outputs)
+        diet_composition(outputs)
         #q_b(model,outputs)
         #p_b(model,outputs)
         #Export files

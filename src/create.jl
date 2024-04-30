@@ -94,27 +94,56 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
     latmin = grid[grid.Name .== "latmin", :Value][1]
 
     ## Optimize this? Want all individuals to be different
-    for i in 1:N
-        plank.data.ac[i] = 1.0
-        plank.data.x[i] = lonmin + rand() * (lonmax-lonmin)
-        plank.data.y[i] = latmin + rand() * (latmax-latmin)
+    # Set plank data values
+    # Generate random numbers on the CPU
+    rand_gpu = CUDA.rand(Float64, N)
 
-        while (plank.data.z[i] <= 0) | (plank.data.z[i] > maxdepth) #Resample if animal is outside of the grid
-            plank.data.z[i] = gaussmix(1,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])[1]
-        end
+    plank.data.ac[1:N] .= 1.0
+    if arch == GPU()
+        plank.data.x .= lonmin .+ rand_gpu .* (lonmax .- lonmin)
+        plank.data.y .= latmin .+ rand_gpu .* (latmax .- latmin)
+        plank.data.z .= 0.0
+        plank.data.length .= plank.p.Min_Size[2][sp] .+ rand_gpu .* (plank.p.Max_Size[2][sp] .- plank.p.Min_Size[2][sp])
+        plank.data.weight .= plank.p.LWR_a[2][sp] .* plank.data.length ./ 10 .* plank.p.LWR_b[2][sp]
 
-        plank.data.pool_x[i] = Int(ceil(plank.data.x[i]/((lonmax-lonmin)/lonres),digits = 0))  
-        plank.data.pool_y[i] = Int(ceil(plank.data.y[i]/((latmax-latmin)/latres),digits = 0))  
-        plank.data.pool_z[i] = Int(ceil(plank.data.z[i]/(maxdepth/depthres),digits=0))
+        plank.data.gut_fullness .= rand_gpu .* 0.03 .* plank.data.weight
+        plank.data.interval .= rand_gpu .* plank.p.Surface_Interval[2][sp]
+    else
+        plank.data.x .= lonmin .+ rand(N) .* (lonmax .- lonmin)
+        plank.data.y .= latmin .+ rand(N) .* (latmax .- latmin)
+        plank.data.z .= gaussmix(N, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],
+        z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],
+        z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],
+        z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])
+        plank.data.length .= plank.p.Min_Size[2][sp] .+ rand(N) .* (plank.p.Max_Size[2][sp] .- plank.p.Min_Size[2][sp])
+        plank.data.weight .= plank.p.LWR_a[2][sp] .* plank.data.length ./ 10 .* plank.p.LWR_b[2][sp]
 
-
-        plank.data.length[i] = plank.p.Min_Size[2][sp] + rand() * (plank.p.Max_Size[2][sp]-plank.p.Min_Size[2][sp])
-        plank.data.weight[i]  = plank.p.LWR_a[2][sp] * plank.data.length[i]/10 * plank.p.LWR_b[2][sp]   # Bm
-        plank.data.gut_fullness[i] = rand() * 0.03 * plank.data.weight[i] #Proportion of gut that is full. Start with a random value between empty and 3% of predator diet.
-        plank.data.interval[i] = rand() * plank.p.Surface_Interval[2][sp]
+        plank.data.gut_fullness .= rand(N) .* 0.03 .* plank.data.weight
+        plank.data.interval .= rand(N) .* plank.p.Surface_Interval[2][sp]
     end
 
-    plank.data.energy  .= rand() .* (plank.data.weight .* plank.p.energy_density[2][sp] .* 0.2)   # Initial reserve energy = Rmax
+    # Loop to resample values until they meet the criteria
+    while any(plank.data.z .<= 1) || any(plank.data.z .> maxdepth)
+        # Resample z values for points outside the grid
+        outside_indices = findall((plank.data.z .<= 1) .| (plank.data.z .> maxdepth))
+        
+        # Resample the values for the resampled indices
+        new_values = gaussmix(length(outside_indices), z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],
+                            z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],
+                            z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],
+                            z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])
+        
+        # Assign the resampled values to the corresponding indices in plank.data.z
+
+        plank.data.z[outside_indices] = new_values
+    end
+
+    # Calculate pool indices
+    plank.data.pool_x .= ceil.(Int, plank.data.x ./ ((lonmax - lonmin) / lonres))
+    plank.data.pool_y .= ceil.(Int, plank.data.y ./ ((latmax - latmin) / latres))
+    plank.data.pool_z .= ceil.(Int, plank.data.z ./ (maxdepth / depthres))
+
+    plank.data.energy  .= plank.data.weight * plank.p.energy_density[2][sp] .* 0.2   # Initial reserve energy = Rmax
 
     plank.data.target_z .= copy(plank.data.z)
     plank.data.dive_capable .= 1
@@ -130,20 +159,19 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
     plank.data.dives_remaining .= plank.p.Dive_Frequency[2][sp]
     plank.data.eDNA_shed .= 0
 
-    mask_individuals!(plank.data, g, N, arch)
+    return plank.data
 end
 
-function generate_pool(groups, g::AbstractGrid,sp, files)
+function generate_pool(groups, g::AbstractGrid, sp, files)
+    z_night_file = files[files.File .== "nonfocal_z_dist_night", :Destination][1]
+    grid_file = files[files.File .== "grid", :Destination][1]
+    state_file = files[files.File .== "state", :Destination][1]
 
-    z_night_file = files[files.File .=="nonfocal_z_dist_night",:Destination][1]
-    grid_file = files[files.File .=="grid",:Destination][1]
-    state_file = files[files.File .=="state",:Destination][1]
+    z_night_dist = CSV.read(z_night_file, DataFrame)
+    grid = CSV.read(grid_file, DataFrame)
+    state = CSV.read(state_file, DataFrame)
 
-    z_night_dist = CSV.read(z_night_file,DataFrame)
-    grid = CSV.read(grid_file,DataFrame)
-    state = CSV.read(state_file,DataFrame)
-
-    food_limit = parse(Float64,state[state.Name .== "food_exp", :Value][1])
+    food_limit = parse(Float64, state[state.Name .== "food_exp", :Value][1])
 
     maxdepth = grid[grid.Name .== "depthmax", :Value][1]
     depthres = grid[grid.Name .== "depthres", :Value][1]
@@ -154,37 +182,28 @@ function generate_pool(groups, g::AbstractGrid,sp, files)
     lonres = grid[grid.Name .== "lonres", :Value][1]
     latres = grid[grid.Name .== "latres", :Value][1]
 
-    z_interval = maxdepth/depthres
+    z_interval = maxdepth / depthres
 
-    horiz_cell_size = ((latmax-latmin)/latres) * ((lonmax-lonmin)/lonres) #Square meters of grid cell
-    cell_size = ((latmax-latmin)/latres) * ((lonmax-lonmin)/lonres) * (maxdepth/depthres) #cubic meters of water in each grid cell
+    horiz_cell_size = ((latmax - latmin) / latres) * ((lonmax - lonmin) / lonres) # Square meters of grid cell
+    cell_size = horiz_cell_size * (maxdepth / depthres) # Cubic meters of water in each grid cell
 
-    for pool in 1:sp
-        # Example parameters for the multimodal distribution
-        means = [z_night_dist[pool,"mu1"],z_night_dist[pool,"mu2"],z_night_dist[pool,"mu3"]]
-        stds = [z_night_dist[pool,"sigma1"],z_night_dist[pool,"sigma2"],z_night_dist[pool,"sigma3"]]
-        weights = [z_night_dist[pool,"lambda1"],z_night_dist[pool,"lambda2"],z_night_dist[pool,"lambda3"]]
-                        
-        x_values = collect(0:maxdepth)
-        for i in 1:g.Nx
-            for j in 1:g.Ny
-                pdf_values = [multimodal_distribution(x, means, stds, weights) for x in x_values]
-                pdf_values .= pdf_values/sum(pdf_values) #Normalize
-                for k in 1:g.Nz
-                    min_z = round(Int,z_interval * k - z_interval + 1)
-                    max_z = round(Int,z_interval * k + 1)
-                    density = sum(pdf_values[min_z:max_z]) .* groups.characters.Total_density[2][sp] / maxdepth * horiz_cell_size * (max_z - min_z) #N inds in each grid cell
-                    if max_z < 200
-                        groups.density.num[i,j,k] = density * food_limit
-                        groups.density.capacity[i,j,k] = density * 2 * food_limit
-                    else
-                        groups.density.num[i,j,k] = density
-                        groups.density.capacity[i,j,k] = density * 2
-                    end
-                end
-            end
-        end
-    end
+    means = [z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"], z_night_dist[sp, "mu3"]]
+    stds = [z_night_dist[sp, "sigma1"], z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"]]
+    weights = [z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"], z_night_dist[sp, "lambda3"]]
+
+    x_values = 0:maxdepth
+    pdf_values = multimodal_distribution.(Ref(x_values), means, stds, weights)
+    
+    min_z = round.(Int, z_interval .* (1:g.Nz) .- z_interval .+ 1)
+    max_z = round.(Int, z_interval .* (1:g.Nz) .+ 1)
+
+    density = [sum(@view pdf_values[1][min_z[k]:max_z[k]]) .* groups.characters.Total_density[2][sp] / maxdepth * horiz_cell_size * (max_z[k] - min_z[k]) for k in 1:g.Nz]
+
+    max_z_lt_200 = max_z .< 200
+    food_limit_arr = fill(food_limit, g.Nx, g.Ny)
+    density_num = ifelse.(max_z_lt_200, density .* food_limit_arr, density)
+
+    groups.density = reshape(density_num, 1, 1, :)
 end
 
 function reset(model::MarineModel)
@@ -243,7 +262,7 @@ function reset(model::MarineModel)
                 end
                 species.data.pool_z[j] = Int(ceil(species.data.z[j]/(maxdepth/depthres),digits=0))
 
-                species.data.energy[j] = rand() * (species.data.weight[j] * species.p.energy_density[2][species_index]* 0.2)   # Initial reserve energy = Rmax
+                species.data.energy[j] = species.data.weight[j] * species.p.energy_density[2][species_index]* 0.2   # Initial reserve energy = Rmax
 
                 species.data.gut_fullness[j] = rand() * 0.1 *species.data.weight[j] #Proportion of gut that is full. Start with a random value.
                 species.data.daily_ration[j] = 0
@@ -262,12 +281,10 @@ function pool_growth(model)
     #Function that controls the growth of a population back to its carrying capacity
     for (species_index,animal_index) in enumerate(keys(model.pools.pool))
         for i in 1:model.grid.Nz
-        carrying_capacity = model.pools.pool[species_index].density.capacity[i,]### Create as intitial variables
-        growth_rate = model.pools.pool[species_index].characters.Growth[2][species_index]/1440
-        population = model.pools.pool[species_index].density.num[i,]
+            growth_rate = model.pools.pool[species_index].characters.Growth[2][species_index]/1440
+            population = model.pools.pool[species_index].density[i,]
 
-        growth_rate = growth_rate * (1 - population / carrying_capacity)
-        model.pools.pool[species_index].density.num[i,] *= 1 + growth_rate
+            model.pools.pool[species_index].density[i,] += growth_rate * population
         end
     end
     return nothing

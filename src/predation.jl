@@ -42,7 +42,7 @@ function holling_2_pool(model, pool, IBM_prey, Pool_prey, IBM_dens, outputs, lon
     encounter = (attack_rate * density) / (1 + attack_rate * handling_time * density)
 
     # Predator density
-    pred_inds = model.pools.pool[pool].density.num[depth] * model.cell_size
+    pred_inds = model.pools.pool[pool].density[depth] * model.cell_size
     adjust_inds = round(pred_inds)
     adj_encounter = round(encounter) * adjust_inds
 
@@ -270,7 +270,7 @@ function prey_density(model, sp, ind, preys, area)
     pool_list = Float64[]
     
     for i in 1:model.n_pool
-        dens = model.pools.pool[i].density.num[Int(ceil(model.individuals.animals[sp].data.pool_x[ind])), Int(ceil(model.individuals.animals[sp].data.pool_y[ind])), Int(ceil(model.individuals.animals[sp].data.pool_z[ind]))]
+        dens = model.pools.pool[i].density[Int(ceil(model.individuals.animals[sp].data.pool_x[ind])), Int(ceil(model.individuals.animals[sp].data.pool_y[ind])), Int(ceil(model.individuals.animals[sp].data.pool_z[ind]))]
         
         if model.pools.pool[i].characters.Min_Size[2][i] < min_prey && model.pools.pool[i].characters.Max_Size[2][i] < max_prey
             first = max_prey - min_prey
@@ -310,7 +310,7 @@ function prey_density_pool(model, sp, lon, lat, depth, min_size, max_size)
     Pool_prey = DataFrame(Sp = Int[], Dens = Float64[])
 
     for (pool_index, pool) in pairs(model.pools.pool)
-        density = pool.density.num[lon, lat, depth]
+        density = pool.density[lon, lat, depth]
 
         if density > 0
             min_sz = pool.characters.Min_Size[2][pool_index]
@@ -377,7 +377,7 @@ function pool_predation(model, pool)
     Threads.@threads for i in 1:model.grid.Nx
         for j in 1:model.grid.Ny
             for k in 1:model.grid.Nz
-                density = model.pools.pool[i].density.num[i,j,k]
+                density = model.pools.pool[i].density[i,j,k]
                 biomass = density * avg_pred_weight
 
                 q_timestep = biomass * 0.03/1440 #Biomass to consume per minute
@@ -467,7 +467,7 @@ function pool_predation(model, pool)
 
                         outputs.consumption[model.n_species + pool, model.n_species + index, i,j,k, (model.iteration % model.output_dt) + 1] += biom_consumed
 
-                        model.pools.pool[index].density.num[i,j,k] -= num_consumed
+                        model.pools.pool[index].density[i,j,k] -= num_consumed
 
                         pool_list[index] -= num_consumed
                     end

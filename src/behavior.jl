@@ -45,12 +45,11 @@ function predator_density(model, sp, ind)
     return pred_list
 end
 
-function decision(model, sp, ind, outputs)
-    # Precompute constant values
+function decision(model, sp, ind, outputs)    
     max_fullness = 0.03 *model.individuals.animals[sp].data.weight[ind] 
     swim_speed = model.individuals.animals[sp].p.Swim_velo[2][sp] * (model.individuals.animals[sp].data.length[ind] / 1000) * 60 * model.individuals.animals[sp].p.t_resolution[2][sp]
     
-    feed_trigger = model.individuals.animals[sp].data.gut_fullness[ind] / max_fullness
+    feed_trigger = Array(model.individuals.animals[sp].data.gut_fullness[ind] / max_fullness)[1]
     val1 = rand()
 
     # Individual avoids predators if predators exist
@@ -70,9 +69,10 @@ function decision(model, sp, ind, outputs)
             predator_avoidance(pred_dens, prey_loc, swim_speed)  # Optimize movement away from all perceivable predators
         end
         if sp == 1
-            outputs.behavior[ind,2,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
+            outputs.behavior[ind,2,1] .+= model.individuals.animals[sp].p.t_resolution[2][sp]
         else
-            outputs.behavior[(sum(model.ninds[1:(sp-1)])+ind),2,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
+            index = sum(model.ninds[1:(sp-1)])+first(ind)
+            outputs.behavior[index,2,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
         end
     else #Currently the animal does not move at all
         # Random movement
@@ -94,36 +94,69 @@ function decision(model, sp, ind, outputs)
 end
 
 
-function visual_range_preds(model,sp,ind)
-    ind_length = model.individuals.animals[sp].data.length[ind]/1000 # Length in meters
+function visual_range_preds(model, sp, ind)
+    if model.arch == CPU()
+        salt = fill(30,length(ind)) # Needs to be in PSU
+        pred_contrast = fill(0.3,length(ind)) # Utne-Plam (1999)
+        eye_saturation = fill(4 * 10^-4,length(ind))
 
-    pred_length = ind_length / 0.01 #Largest possible pred-prey size ratio
-    salt = 30 #Needs to be in PSU
-    surface_irradiance = 300 #Need real value. in W m-2
-    pred_width = pred_length/4
-    rmax = ind_length * 30 # The maximum visual range. Currently this is 1 body length
-    pred_contrast = 0.3 #Utne-Plam (1999)   
-    eye_saturation = 4 * 10^-4
-    #Light attentuation coefficient
-    a_lat = 0.64 - 0.016 * salt #Aksnes et al. 2009; per meter
-    #Beam Attentuation coefficient
-    c_lat = 4.87*a_lat #Huse and Fiksen (2010); per meter
-    #Ambient irradiance at foraging depth
-    i_td = surface_irradiance*exp(-0.1 * model.individuals.animals[sp].data.z[ind]) #Currently only reflects surface; 
-    #Prey image area 
-    pred_image = 0.75*pred_length*pred_width
-    #Visual eye sensitivity
-    eye_sensitivity = (rmax^2)/(pred_image*pred_contrast)
-    #Equations for Visual Field
-    f(x) =  x^2 * exp(c_lat * x) - (pred_contrast * pred_image * eye_sensitivity * (i_td/(eye_saturation + i_td)))
-    fp(x) =  2 * x * exp(c_lat * x) + x^2 * c_lat * exp(c_lat * x)
-    x = newton_raphson(f,fp)
+    else
+        salt = CUDA.fill(30,length(ind)) # Needs to be in PSU
+        pred_contrast = CUDA.fill(0.3,length(ind)) # Utne-Plam (1999)
+        eye_saturation = CUDA.fill(4 * 10^-4,length(ind))
 
-    if x < 0.05
-        x = sqrt(pred_contrast * pred_image * eye_sensitivity * (i_td / (eye_saturation + i_td)))
     end
-    #Visual range estimates may be much more complicated when considering bioluminescent organisms. Could incorporate this if we assigned each species a "luminous type"
-    ##https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3886326/
+
+    ind_length = model.individuals.animals[sp].data.length[ind] ./ 1000 # Length in meters
+
+    pred_length = ind_length ./ 0.01 # Largest possible pred-prey size ratio
+    surface_irradiance = 300 # Need real value, in W m^-2
+    pred_width = pred_length ./ 4
+    rmax = ind_length .* 30 # The maximum visual range. Currently, this is 1 body length
+    # Light attenuation coefficient
+    a_lat = 0.64 .- 0.016 .* salt # Aksnes et al. 2009; per meter
+    # Beam Attenuation coefficient
+    c_lat = 4.87 .* a_lat # Huse and Fiksen (2010); per meter
+
+    # Compute irradiance based on architecture
+    if model.arch == CPU()
+        i_td = surface_irradiance .* exp.(-0.1 .* model.individuals.animals[sp].data.z[ind])
+    else
+        z_cpu = model.individuals.animals[sp].data.z[ind] # Assuming 'z' is already a Julia array
+        z_gpu = CuArray(z_cpu) # Convert 'z' to a CuArray
+        
+        # Perform the exponential operation on the GPU
+        i_td = surface_irradiance .* CUDA.exp.(-0.1 .* z_gpu) 
+    end
+
+    # Prey image area
+    pred_image = 0.75 .* pred_length .* pred_width
+    # Visual eye sensitivity
+    eye_sensitivity = (rmax.^2) ./ (pred_image .* pred_contrast)
+
+    # Define f(x) and its derivative fp(x)
+    f(x) = x.^2 .* exp.(c_lat .* x) .- (pred_contrast .* pred_image .* eye_sensitivity .* (i_td ./ (eye_saturation .+ i_td)))
+    fp(x) = 2 .* x .* exp.(c_lat .* x) .+ x.^2 .* c_lat .* exp.(c_lat .* x)
+
+
+    # Call the Newton-Raphson method
+    x = newton_raphson(f, fp)
+
+    # Check if x is too small and adjust accordingly
+    if any(x .< 0.05)
+        indices_to_recalculate = findall(x .< 0.05)
+        # Subset arrays to only include elements where x < 0.05
+        pred_contrast_subset = pred_contrast[indices_to_recalculate]
+        pred_image_subset = pred_image[indices_to_recalculate]
+        eye_sensitivity_subset = eye_sensitivity[indices_to_recalculate]
+        i_td_subset = i_td[indices_to_recalculate]
+        eye_saturation = eye_saturation[indices_to_recalculate]
+        # Perform the calculation using broadcasting
+        x[indices_to_recalculate] .= sqrt.(pred_contrast_subset .* pred_image_subset .* eye_sensitivity_subset .* (i_td_subset ./ (eye_saturation .+ i_td_subset)))
+    end
+
+    # Visual range estimates may be much more complicated when considering bioluminescent organisms. Could incorporate this if we assigned each species a "luminous type"
+    ## https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3886326/
     return x
 end
 

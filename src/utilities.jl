@@ -73,7 +73,7 @@ function deg2rad(deg)
 end
 
 #Derive a NewtonRaphson equation
-function newton_raphson(f,fp)
+function newton_raphson(f, fp)
     # Initial guess for r
     r_prev = 1.0
     
@@ -84,8 +84,9 @@ function newton_raphson(f,fp)
     while true
         f_val = f(r_prev)
         df_val = fp(r_prev)
-        r_next = r_prev - f_val / df_val
-        if abs(r_next - r_prev) < tolerance
+        r_next = r_prev .- f_val ./ df_val
+        difference = abs.(r_next .- r_prev)
+        if all(difference .< tolerance)
             return r_next
         end
         r_prev = r_next
@@ -163,5 +164,5 @@ function meters_to_degrees(lat_meters, lon_meters)
 end
 
 function logistic(x, k, c)
-    return 1 / (1 + exp(k*(x-c)))
+    return 1 ./ (1 .+ exp.(k.*(x.-c)))
 end

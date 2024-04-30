@@ -26,10 +26,10 @@ function starvation(dead_sp, sp, i, outputs)
 end
 
 function reduce_pool(model,pool,lon,lat,depth)
-    model.pools.pool[pool].density.num[lon,lat,depth] -= 1/model.cell_size
+    model.pools.pool[pool].density[lon,lat,depth] -= 1/model.cell_size
 
-    if model.pools.pool[pool].density.num[lon,lat,depth] < 0 #Find a better way to implement this?
-        model.pools.pool[pool].density.num[lon,lat,depth] = 0
+    if model.pools.pool[pool].density[lon,lat,depth] < 0 #Find a better way to implement this?
+        model.pools.pool[pool].density[lon,lat,depth] = 0
     end
     return nothing
 end
