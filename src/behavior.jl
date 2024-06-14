@@ -3,9 +3,7 @@ function behavior(model, sp, ind, outputs)
     
     if behave_type == "dvm_strong"
         dvm_action(model, sp, ind,outputs)
-        if model.individuals.animals[sp].data.mig_status[ind] in (0, -1)  # Not currently migrating
-            decision(model, sp, ind, outputs)
-        end
+        decision(model, sp, ind, outputs)
 
     elseif behave_type == "dvm_weak"
         max_fullness = 0.1 * model.individuals.animals[sp].data.weight[ind]
@@ -16,18 +14,15 @@ function behavior(model, sp, ind, outputs)
             decision(model, sp, ind, outputs)  # Animal does not migrate when it has the chance. Behaves as normal
         else
             dvm_action(model, sp, ind,outputs)  # Animal either migrates or continues what it should do
+            decision(model, sp, ind, outputs)
+
         end
         
-        if model.individuals.animals[sp].data.mig_status[ind] in (0, -1)  # Not currently migrating
-            decision(model, sp, ind, outputs)
-        end
     elseif behave_type in ("surface_diver", "pelagic_diver")
         dive_func = behave_type == "surface_diver" ? surface_dive : pelagic_dive
         dive_func(model, sp, ind)  # Function of energy density and dive characteristics to start dive
+        decision(model, sp, ind, outputs)
         
-        if model.individuals.animals[sp].data.mig_status[ind] in (0, -1)  # Animal is not currently ascending or descending
-            decision(model, sp, ind, outputs)
-        end
     elseif behave_type == "nonmig"
         decision(model, sp, ind, outputs)
     end
@@ -36,11 +31,12 @@ end
 
 
 function predator_density(model, sp, ind)
+
     # Precompute constant values
     min_pred_limit = 0.01
     max_pred_limit = 0.1
     # Gather distances
-    detection = visual_range_preds(model, sp, ind)
+    detection = model.individuals.animals[sp].data.vis_pred[ind]
     pred_list = calculate_distances_pred(model,sp,ind,min_pred_limit,max_pred_limit,detection)
     return pred_list
 end
@@ -51,50 +47,159 @@ function decision(model, sp, ind, outputs)
     
     feed_trigger = Array(model.individuals.animals[sp].data.gut_fullness[ind] / max_fullness)[1]
     val1 = rand()
-
     # Individual avoids predators if predators exist
     pred_dens = predator_density(model, sp, ind)  # #/m2
 
-    if feed_trigger < val1 && model.individuals.animals[sp].data.feeding[ind] == 1
-        eat!(model, sp, ind, outputs)
+    if (feed_trigger < val1) & (model.individuals.animals[sp].data.feeding[ind][1] == 1)
 
+        eat!(model, sp, ind, outputs)
         if sp == 1
-            outputs.behavior[ind,1,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
-        else
-            outputs.behavior[(sum(model.ninds[1:(sp-1)])+ind),1,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
-        end
-    elseif rand() > 0 #Currently they always avoid predators if not attacking prey
-        prey_loc = [model.individuals.animals[sp].data.x[ind], model.individuals.animals[sp].data.y[ind], model.individuals.animals[sp].data.z[ind]]
-        if nrow(pred_dens)> 0
-            predator_avoidance(pred_dens, prey_loc, swim_speed)  # Optimize movement away from all perceivable predators
-        end
-        if sp == 1
-            outputs.behavior[ind,2,1] .+= model.individuals.animals[sp].p.t_resolution[2][sp]
+            outputs.behavior[ind,1,1] .+= model.individuals.animals[sp].p.t_resolution[2][sp]
         else
             index = sum(model.ninds[1:(sp-1)])+first(ind)
-            outputs.behavior[index,2,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
+            outputs.behavior[index,1,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
         end
-    else #Currently the animal does not move at all
-        # Random movement
-        #original_pos = [model.individuals.animals[sp].data.x[ind], model.individuals.animals[sp].data.y[ind], model.individuals.animals[sp].data.z[ind]]
+    else
 
-        #steady_speed = swim_speed / 2 #Random movement speed at 50% of the burst speed.
-        
-        #new_pos = random_movement(original_pos, steady_speed)
+        prey_loc = [model.individuals.animals[sp].data.x[ind], model.individuals.animals[sp].data.y[ind], model.individuals.animals[sp].data.z[ind]]
+        if nrow(pred_dens)> 0
 
-        #model.individuals.animals[sp].data.x[ind] = new_pos[1]
-        #model.individuals.animals[sp].data.y[ind] = new_pos[2]
-        if sp == 1
-            outputs.behavior[ind,4,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
+            predator_avoidance(pred_dens, prey_loc, swim_speed)  # Optimize movement away from all perceivable predators
+            if sp == 1
+                outputs.behavior[ind,2,1] .+= model.individuals.animals[sp].p.t_resolution[2][sp]
+            else
+                index = sum(model.ninds[1:(sp-1)])+first(ind)
+                outputs.behavior[index,2,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
+            end
         else
-            outputs.behavior[(sum(model.ninds[1:(sp-1)])+ind),4,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
+            # Random movement
+            original_pos = (model.individuals.animals[sp].data.x[ind], model.individuals.animals[sp].data.y[ind])
+    
+            steady_speed = swim_speed / 2 #Random movement speed at 50% of the burst speed.
+            
+            new_pos = random_movement(model.individuals.animals[sp].data.x[ind],model.individuals.animals[sp].data.y[ind], steady_speed)
+    
+            model.individuals.animals[sp].data.x[ind] .= new_pos[1]
+            model.individuals.animals[sp].data.y[ind] .= new_pos[2]
+
+            if sp == 1
+                outputs.behavior[ind,4,1] .+= model.individuals.animals[sp].p.t_resolution[2][sp]
+            else
+                index = sum(model.ninds[1:(sp-1)])+first(ind)
+                outputs.behavior[index,4,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
+            end
+            #Animal does not randomly change depths since this is such an integral component of community structure. The model therefore assumes that depth distribution changes are a function of predator/prey dynamics or coordinated movements (DVM, diving)
         end
-        #Animal does not randomly change depths since this is such an integral component of community structure.
     end
 end
 
+function visual_range_preds_init(arch,length,depth,ind)
+
+    if arch == CPU()
+        salt = fill(30,ind) # Needs to be in PSU
+        pred_contrast = fill(0.3,ind) # Utne-Plam (1999)
+        eye_saturation = fill(4 * 10^-4,ind)
+
+    else
+        salt = CUDA.fill(30,ind) # Needs to be in PSU
+        pred_contrast = CUDA.fill(0.3,ind) # Utne-Plam (1999)
+        eye_saturation = CUDA.fill(4 * 10^-4,ind)
+
+    end
+
+    ind_length = length ./ 1000 # Length in meters
+
+    pred_length = ind_length ./ 0.01 # Largest possible pred-prey size ratio
+    surface_irradiance = 300 # Need real value, in W m^-2
+    pred_width = pred_length ./ 4
+    rmax = ind_length .* 30 # The maximum visual range. Currently, this is 1 body length
+    # Light attenuation coefficient
+    a_lat = 0.64 .- 0.016 .* salt # Aksnes et al. 2009; per meter
+    # Beam Attenuation coefficient
+    c_lat = 4.87 .* a_lat # Huse and Fiksen (2010); per meter
+
+    # Compute irradiance based on architecture
+    if arch == CPU()
+        i_td = surface_irradiance .* exp.(-0.1 .* depth)
+    else
+        z_cpu = depth # Assuming 'z' is already a Julia array
+        z_gpu = CuArray(z_cpu) # Convert 'z' to a CuArray
+        
+        # Perform the exponential operation on the GPU
+        i_td = surface_irradiance .* CUDA.exp.(-0.1 .* z_gpu) 
+    end
+
+    # Prey image area
+    pred_image = 0.75 .* pred_length .* pred_width
+    # Visual eye sensitivity
+    eye_sensitivity = (rmax.^2) ./ (pred_image .* pred_contrast)
+
+    # Define f(x) and its derivative fp(x)
+    f(x) = x.^2 .* exp.(c_lat .* x) .- (pred_contrast .* pred_image .* eye_sensitivity .* (i_td ./ (eye_saturation .+ i_td)))
+    fp(x) = 2 .* x .* exp.(c_lat .* x) .+ x.^2 .* c_lat .* exp.(c_lat .* x)
+
+
+    # Call the Newton-Raphson method
+    x = newton_raphson(f, fp)
+
+    # Visual range estimates may be much more complicated when considering bioluminescent organisms. Could incorporate this if we assigned each species a "luminous type"
+    ## https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3886326/
+    return x
+end
+
+function visual_range_preys_init(arch,length,depth,ind)
+
+    if arch == CPU()
+        salt = fill(30,ind) # Needs to be in PSU
+        pred_contrast = fill(0.3,ind) # Utne-Plam (1999)
+        eye_saturation = fill(4 * 10^-4,ind)
+
+    else
+        salt = CUDA.fill(30,ind) # Needs to be in PSU
+        pred_contrast = CUDA.fill(0.3,ind) # Utne-Plam (1999)
+        eye_saturation = CUDA.fill(4 * 10^-4,ind)
+
+    end
+
+    ind_length = length ./ 1000 # Length in meters
+
+    pred_length = ind_length .* 0.05 # Largest possible pred-prey size ratio
+    surface_irradiance = 300 # Need real value, in W m^-2
+    pred_width = pred_length ./ 4
+    rmax = ind_length .* 30 # The maximum visual range. Currently, this is 1 body length
+    # Light attenuation coefficient
+    a_lat = 0.64 .- 0.016 .* salt # Aksnes et al. 2009; per meter
+    # Beam Attenuation coefficient
+    c_lat = 4.87 .* a_lat # Huse and Fiksen (2010); per meter
+
+    # Compute irradiance based on architecture
+    if arch == CPU()
+        i_td = surface_irradiance .* exp.(-0.1 .* depth)
+    else
+        z_cpu = depth # Assuming 'z' is already a Julia array
+        z_gpu = CuArray(z_cpu) # Convert 'z' to a CuArray
+        
+        # Perform the exponential operation on the GPU
+        i_td = surface_irradiance .* CUDA.exp.(-0.1 .* z_gpu) 
+    end
+
+    # Prey image area
+    pred_image = 0.75 .* pred_length .* pred_width
+    # Visual eye sensitivity
+    eye_sensitivity = (rmax.^2) ./ (pred_image .* pred_contrast)
+
+    # Define f(x) and its derivative fp(x)
+    f(x) = x.^2 .* exp.(c_lat .* x) .- (pred_contrast .* pred_image .* eye_sensitivity .* (i_td ./ (eye_saturation .+ i_td)))
+    fp(x) = 2 .* x .* exp.(c_lat .* x) .+ x.^2 .* c_lat .* exp.(c_lat .* x)
+
+
+    # Call the Newton-Raphson method
+    x = newton_raphson(f, fp)
+    return x
+end
 
 function visual_range_preds(model, sp, ind)
+
     if model.arch == CPU()
         salt = fill(30,length(ind)) # Needs to be in PSU
         pred_contrast = fill(0.3,length(ind)) # Utne-Plam (1999)
@@ -141,19 +246,6 @@ function visual_range_preds(model, sp, ind)
 
     # Call the Newton-Raphson method
     x = newton_raphson(f, fp)
-
-    # Check if x is too small and adjust accordingly
-    if any(x .< 0.05)
-        indices_to_recalculate = findall(x .< 0.05)
-        # Subset arrays to only include elements where x < 0.05
-        pred_contrast_subset = pred_contrast[indices_to_recalculate]
-        pred_image_subset = pred_image[indices_to_recalculate]
-        eye_sensitivity_subset = eye_sensitivity[indices_to_recalculate]
-        i_td_subset = i_td[indices_to_recalculate]
-        eye_saturation = eye_saturation[indices_to_recalculate]
-        # Perform the calculation using broadcasting
-        x[indices_to_recalculate] .= sqrt.(pred_contrast_subset .* pred_image_subset .* eye_sensitivity_subset .* (i_td_subset ./ (eye_saturation .+ i_td_subset)))
-    end
 
     # Visual range estimates may be much more complicated when considering bioluminescent organisms. Could incorporate this if we assigned each species a "luminous type"
     ## https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3886326/

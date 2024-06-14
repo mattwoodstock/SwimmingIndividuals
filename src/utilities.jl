@@ -74,22 +74,25 @@ end
 
 #Derive a NewtonRaphson equation
 function newton_raphson(f, fp)
+    max_iteration = 100
     # Initial guess for r
     r_prev = 1.0
     
     # Define tolerance for convergence
     tolerance = 1e-6
     
+    iter = 1
     # Perform Newton-Raphson iteration
     while true
         f_val = f(r_prev)
         df_val = fp(r_prev)
         r_next = r_prev .- f_val ./ df_val
         difference = abs.(r_next .- r_prev)
-        if all(difference .< tolerance)
+        if (all(difference .< tolerance)) | (iter == max_iteration)
             return r_next
         end
         r_prev = r_next
+        iter += 1
     end
 end
 
@@ -165,4 +168,15 @@ end
 
 function logistic(x, k, c)
     return 1 ./ (1 .+ exp.(k.*(x.-c)))
+end
+
+function safe_intersect(sets::Vector{Set{Int}})
+    common_indices = sets[1]
+    for s in sets[2:end]
+        common_indices = intersect(common_indices, s)
+        if isempty(common_indices)
+            return Set{Int}()
+        end
+    end
+    return common_indices
 end

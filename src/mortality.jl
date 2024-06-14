@@ -13,13 +13,13 @@ end
 function starvation(dead_sp, sp, i, outputs)
     if model.iteration > model.spinup
 
-        dead_sp.data.x[i] = 5e6
-        dead_sp.data.y[i] = 5e6
-        dead_sp.data.z[i] = 5e6
-        dead_sp.data.ac[i] = 0.0
+        dead_sp.data.x[i] .= 5e6
+        dead_sp.data.y[i] .= 5e6
+        dead_sp.data.z[i] .= 5e6
+        dead_sp.data.ac[i] .= 0.0
 
         outputs.mortalities[sp,2] += 1 #Add one to the starvation mortality column
-        outputs.production[model.iteration,sp] += model.individuals.animals[sp].data.weight[i] #For P/B iteration
+        #outputs.production[model.iteration,sp] .+= model.individuals.animals[sp].data.weight[i] #For P/B iteration
     end
 
     return nothing

@@ -1,27 +1,3 @@
-function allocate_energy(model,sp,ind,prey)
-    #Calculate energy that was gained
-
-    ## energetic content of fishes:
-    #https://onlinelibrary.wiley.com/doi/pdf/10.1111/jfb.15331
-    energy = prey.Weight[1] * model.individuals.animals[prey.Sp[1]].p.energy_density[2][prey.Sp[1]]
-
-    egestion = energy * 0.16
-    excretion = (energy-egestion) * 0.1
-    sda = (energy-egestion) * 0.175
-
-    # Change in energy = consumed energy - (rmr + sda) - (egestion + excretion). RMR will be calculated later.
-    model.individuals.animals[sp].data.energy[ind] += (energy - sda - (egestion + excretion))
-
-    if model.individuals.animals[sp].data.energy[ind] >= model.individuals.animals[sp].data.weight[ind] * model.individuals.animals[sp].p.energy_density[2][sp] * 0.2 #Reaches maximum energy storage
-        
-        #Activate growth protocol. Does not currently work.
-        #growth!(pred_df,pred_sp,pred_ind)
-
-        #Return energy calculation to storage
-        model.individuals.animals[sp].data.energy[ind] = model.individuals.animals[sp].data.weight[ind] * model.individuals.animals[sp].p.energy_density[2][sp] .* 0.2
-    end
-end
-
 function respiration(model,sp,ind,temp)
     #Uses Davison et al. 2013 for equation of Routine Metabolic Rate
     oxy = 13.6 #kj/g
@@ -32,6 +8,7 @@ function respiration(model,sp,ind,temp)
     weight = Array(model.individuals.animals[sp].data.weight[ind])
     t_res = model.individuals.animals[sp].p.t_resolution[2][sp]
     depth = Array(model.individuals.animals[sp].data.z[ind])
+    taxa = model.individuals.animals[sp].p.Taxa[2][sp]
 
     #Langbehn et al. 2019
     #x_prime = -0.655
@@ -44,7 +21,14 @@ function respiration(model,sp,ind,temp)
     #smr = (component1 * component2 * component3 * component4) / 60 * t_res #J per timestep
 
     ## Ikeda et al. 2016
-    lnr = 18.592 .+ 0.893*log.(weight).-5.519 .*(1000/(273.15 .+temp)) .-0.232 .*log.(depth)
+    if taxa == "Fish"
+        lnr = 19.491 .+ 0.885*log.(weight).-5.770 .*(1000/(273.15 .+temp)) .-0.261 .*log.(depth)
+    elseif taxa == "Cephalopod"
+        lnr = 28.326 .+ 0.779*log.(weight).-7.903 .*(1000/(273.15 .+temp)) .-0.365 .*log.(depth)
+    elseif taxa == "Crustacean"
+        # Ikeda et al. 2014: Representative of copepods. Other crustaceans would have a dummy variable depicting specific taxa (e.g., decapods, euphausiids)
+        lnr = 18.775 .+ 0.766*log.(weight).-5.265 .*(1000/(273.15 .+temp)) .-0.113.*log.(depth)
+    end
     rmr = (exp(lnr) / 1140 * (oxy*1000)) / 60 * t_res
 
     smr = rmr / 2
@@ -64,8 +48,8 @@ function specific_dynamic_action(consumed,egest)
 end
 
 function excretion(model,sp,consumed)
-    egestion_coefficient = (1-model.individuals.animals[sp].p.Assimilation_eff[2][sp])
-    excretion_coefficient = (1-model.individuals.animals[sp].p.Assimilation_eff[2][sp])
+    egestion_coefficient = (1-0.8)
+    excretion_coefficient = (1-0.8)
 
     egest = consumed * egestion_coefficient
     excrete = excretion_coefficient * (consumed - egest)
@@ -93,7 +77,7 @@ end
 function growth(model, sp, ind, consumed, sda, respire, egest, excrete)
     animal = model.individuals.animals[sp]
     animal_data = animal.data
-    animal_ed = animal.p.energy_density[2][sp]
+    animal_ed = animal.p.Energy_density[2][sp]
 
     leftover = Array(consumed - (respire + sda + egest + excrete))
 

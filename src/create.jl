@@ -54,11 +54,11 @@ function construct_eDNA(arch::Architecture,params,max_particle)
 end
 
 function construct_plankton(arch::Architecture, params::Dict, maxN)
-    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), weight = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), active_time = zeros(maxN),gut_fullness = zeros(maxN),feeding = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),eDNA_shed = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN)) 
+    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), weight = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), active_time = zeros(maxN),gut_fullness = zeros(maxN),feeding = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), consumed = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),eDNA_shed = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN), vis_prey = zeros(maxN), vis_pred = zeros(maxN))
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Sex_rat,:Dive_Interval, :Day_depth_min, :Daily_ration, :Day_depth_max, :Fecundity, :LWR_b, :Surface_Interval, :SpeciesLong, :LWR_a, :VBG_K, :VBG_t0, :Max_Size, :t_resolution, :SpeciesShort, :M_const, :Dive_depth_max,:Night_depth_min, :energy_density, :Abundance, :Dive_depth_min, :Min_Size, :Dive_Frequency, :N_conc, :Night_depth_max, :Assimilation_eff, :Swim_velo, :VBG_LOO,:Type)
+    param_names=(:SpeciesShort,:LWR_b, :Abundance, :Energy_density,:Min_Size,:SpeciesLong, :LWR_a, :Max_Size, :t_resolution,  :Swim_velo,:Taxa, :Type)
 
     p = NamedTuple{param_names}(params)
     return plankton(data, p)
@@ -96,10 +96,11 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
     ## Optimize this? Want all individuals to be different
     # Set plank data values
     # Generate random numbers on the CPU
-    rand_gpu = CUDA.rand(Float64, N)
 
     plank.data.ac[1:N] .= 1.0
     if arch == GPU()
+        rand_gpu = CUDA.rand(Float64, N)
+
         plank.data.x .= lonmin .+ rand_gpu .* (lonmax .- lonmin)
         plank.data.y .= latmin .+ rand_gpu .* (latmax .- latmin)
         plank.data.z .= 0.0
@@ -119,7 +120,10 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
         plank.data.weight .= plank.p.LWR_a[2][sp] .* plank.data.length ./ 10 .* plank.p.LWR_b[2][sp]
 
         plank.data.gut_fullness .= rand(N) .* 0.03 .* plank.data.weight
-        plank.data.interval .= rand(N) .* plank.p.Surface_Interval[2][sp]
+
+        plank.data.vis_prey .= visual_range_preys_init(arch,plank.data.length,plank.data.z,N)
+        plank.data.vis_pred .= visual_range_preds_init(arch,plank.data.length,plank.data.z,N)
+
     end
 
     # Loop to resample values until they meet the criteria
@@ -143,7 +147,7 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
     plank.data.pool_y .= ceil.(Int, plank.data.y ./ ((latmax - latmin) / latres))
     plank.data.pool_z .= ceil.(Int, plank.data.z ./ (maxdepth / depthres))
 
-    plank.data.energy  .= plank.data.weight * plank.p.energy_density[2][sp] .* 0.2   # Initial reserve energy = Rmax
+    plank.data.energy  .= plank.data.weight * plank.p.Energy_density[2][sp] .* 0.2   # Initial reserve energy = Rmax
 
     plank.data.target_z .= copy(plank.data.z)
     plank.data.dive_capable .= 1
@@ -156,7 +160,8 @@ function generate_plankton!(plank, N::Int64, g::AbstractGrid, arch::Architecture
         plank.data.z[N+1:maxN]   .= 5e6
     end
 
-    plank.data.dives_remaining .= plank.p.Dive_Frequency[2][sp]
+    plank.data.consumed .= 0
+
     plank.data.eDNA_shed .= 0
 
     return plank.data
@@ -197,7 +202,8 @@ function generate_pool(groups, g::AbstractGrid, sp, files)
     min_z = round.(Int, z_interval .* (1:g.Nz) .- z_interval .+ 1)
     max_z = round.(Int, z_interval .* (1:g.Nz) .+ 1)
 
-    density = [sum(@view pdf_values[1][min_z[k]:max_z[k]]) .* groups.characters.Total_density[2][sp] / maxdepth * horiz_cell_size * (max_z[k] - min_z[k]) for k in 1:g.Nz]
+    #Individuals per cubic meter.
+    density = [sum(@view pdf_values[1][min_z[k]:max_z[k]])/sum(pdf_values[1]) .* groups.characters.Total_density[2][sp] / maxdepth for k in 1:g.Nz]
 
     max_z_lt_200 = max_z .< 200
     food_limit_arr = fill(food_limit, g.Nx, g.Ny)
@@ -262,7 +268,7 @@ function reset(model::MarineModel)
                 end
                 species.data.pool_z[j] = Int(ceil(species.data.z[j]/(maxdepth/depthres),digits=0))
 
-                species.data.energy[j] = species.data.weight[j] * species.p.energy_density[2][species_index]* 0.2   # Initial reserve energy = Rmax
+                species.data.energy[j] = species.data.weight[j] * species.p.Energy_density[2][species_index]* 0.2   # Initial reserve energy = Rmax
 
                 species.data.gut_fullness[j] = rand() * 0.1 *species.data.weight[j] #Proportion of gut that is full. Start with a random value.
                 species.data.daily_ration[j] = 0
