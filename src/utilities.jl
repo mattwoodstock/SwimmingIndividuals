@@ -9,8 +9,8 @@ struct individuals
 end
 
 ##### structs for pools
-mutable struct groups
-    density::AbstractArray
+mutable struct patch
+    data::AbstractArray
     characters::NamedTuple
 end
 
@@ -32,12 +32,15 @@ mutable struct MarineModel
     arch::Architecture          # architecture on which models will run
     t::Float64                  # time in minute
     iteration::Int64            # model interation
+    dt::Float64                 # Patch Resolution
     individuals::individuals    # initial individuals generated
     pools::pools              # Characteristics of pooled species
     #parts::particles            # Particle characteristics (e.g., eDNA)
+    ninds::Int64
     n_species::Int64            # Number of IBM species
     n_pool::Int64               # Number of pooled species
-    ninds::Vector{Int}          # Total number of individuals in the model
+    bioms::Vector{Float64}          # Total number of individuals in the model
+    abund::Vector{Int64}        #Abundance of animals
     grid::AbstractGrid          # grid information
     files::DataFrame            #Files to call later in model
     output_dt::Int64
@@ -179,4 +182,8 @@ function safe_intersect(sets::Vector{Set{Int}})
         end
     end
     return common_indices
+end
+
+function get_memory_usage()
+    return Sys.total_memory() - Sys.free_memory()
 end

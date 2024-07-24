@@ -24,53 +24,44 @@ function results(sim)
     end
 end
 
-function timestep_results(model,outputs)
-    ts = Int(model.iteration / model.output_dt)
-    new_array = zeros(sum(model.ninds),3)
+function timestep_results(sim)
+    model = sim.model
+    outputs = sim.outputs
+    total_abund = sum(model.abund)
+    new_array = zeros(total_abund, 5, 1)  # Make new_array a 3D array with the third dimension size 1
 
+    # Locations, energy, and ration
+    for (species_index, animal_index) in enumerate(keys(model.individuals.animals))
 
-    ## Locations, energy, and ration
-    for (species_index,animal_index) in enumerate(keys(model.individuals.animals))
-            if species_index == 1
+        if species_index == 1
+            start_index = 1
+            end_index = model.abund[1]
+        else
+            start_index = sum(model.abund[1:(species_index-1)]) + 1
+            end_index = sum(model.abund[1:species_index])
+        end
+        
+        length_data = model.individuals.animals[species_index].data.length
+        ration_data = model.individuals.animals[species_index].data.ration
+        energy_data = model.individuals.animals[species_index].data.energy
+        rmr_data = model.individuals.animals[species_index].data.rmr
+        behavior_data = model.individuals.animals[species_index].data.behavior
+        
+        new_array[start_index:end_index, 1] .= length_data
+        new_array[start_index:end_index, 2] .= ration_data
+        new_array[start_index:end_index, 3] .= energy_data
+        new_array[start_index:end_index, 4] .= rmr_data
+        new_array[start_index:end_index, 5] .= behavior_data
 
-                #new_array[1:model.ninds[1], 1] .= model.individuals.animals[species_index].data.z
-                new_array[1:model.ninds[1], 1] .= model.individuals.animals[species_index].data.length
-                new_array[1:model.ninds[1], 2] .= model.individuals.animals[species_index].data.ration
-                new_array[1:model.ninds[1], 3] .= model.individuals.animals[species_index].data.energy
-                #new_array[1:model.ninds[1], 4] .= model.individuals.animals[species_index].data.ac
-            else
-                #new_array[(sum(model.ninds[1:(species_index-1)])+1):sum(model.ninds[1:(species_index)]), 1] .= model.individuals.animals[species_index].data.z
-                new_array[(sum(model.ninds[1:(species_index-1)])+1):sum(model.ninds[1:(species_index)]), 1] .= model.individuals.animals[species_index].data.length
-                new_array[(sum(model.ninds[1:(species_index-1)])+1):sum(model.ninds[1:(species_index)]), 2] .= model.individuals.animals[species_index].data.ration
-                new_array[(sum(model.ninds[1:(species_index-1)])+1):sum(model.ninds[1:(species_index)]), 3] .= model.individuals.animals[species_index].data.energy
-                #new_array[(sum(model.ninds[1:(species_index-1)])+1):sum(model.ninds[1:(species_index)]), 4] .= model.individuals.animals[species_index].data.ac
-            end
     end
 
-    ## Consumption
-    #sum_consumption = sum(outputs.consumption,dims=6)
-    #sum_behavior = sum(outputs.behavior,dims=3)
-
-    if ts == 1
-        outputs.timestep_array[:,:,1] = new_array
-        #outputs.consumption_aggregate[:,:,:,:,:,1] = sum_consumption
-        #outputs.behavior_aggregate[:,:,1] = sum_behavior
-    else
-        outputs.timestep_array = cat(outputs.timestep_array,new_array,dims=3)
-        #outputs.consumption_aggregate = cat(outputs.consumption_aggregate,sum_consumption,dims=6)
-        #outputs.behavior_aggregate = cat(outputs.behavior_aggregate,sum_behavior,dims=3)
-    end
-
-    #outputs.behavior = zeros(sum(model.ninds),4,1) #Subconsumption timestep
-    #Reset to zero for next iteration
-
-    filename = "timestep_results.jld"
-    #For no behavior
-    save(filename,"timestep",outputs.timestep_array)
-
-    #With behavior included
-    #save(filename,"timestep",outputs.timestep_array,"behavior",outputs.behavior_aggregate)
+    # Save the results periodically
+    ts = Int(model.iteration)
+    filename = "timestep_results_$ts.jld"
+    save(filename, "timestep", new_array)
 end
+
+
 
 function biomasses(model, outputs)
     Nz = model.grid.Nz

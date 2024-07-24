@@ -6,7 +6,7 @@ function behavior(model, sp, ind, outputs)
         decision(model, sp, ind, outputs)
 
     elseif behave_type == "dvm_weak"
-        max_fullness = 0.1 * model.individuals.animals[sp].data.weight[ind]
+        max_fullness = 0.2 * model.individuals.animals[sp].data.biomass[ind]
         feed_trigger = model.individuals.animals[sp].data.gut_fullness[ind] / max_fullness
         dist = logistic(feed_trigger, 5, 0.5)  # Resample from negative sigmoidal relationship
         
@@ -42,53 +42,31 @@ function predator_density(model, sp, ind)
 end
 
 function decision(model, sp, ind, outputs)    
-    max_fullness = 0.03 *model.individuals.animals[sp].data.weight[ind] 
-    swim_speed = model.individuals.animals[sp].p.Swim_velo[2][sp] * (model.individuals.animals[sp].data.length[ind] / 1000) * 60 * model.individuals.animals[sp].p.t_resolution[2][sp]
-    
+    max_fullness = 0.2 *model.individuals.animals[sp].data.biomass[ind]     
     feed_trigger = Array(model.individuals.animals[sp].data.gut_fullness[ind] / max_fullness)[1]
     val1 = rand()
     # Individual avoids predators if predators exist
     pred_dens = predator_density(model, sp, ind)  # #/m2
 
-    if (feed_trigger < val1) & (model.individuals.animals[sp].data.feeding[ind][1] == 1)
+    if (feed_trigger > val1) & (model.individuals.animals[sp].data.feeding[ind][1] == 1)
 
-        eat!(model, sp, ind, outputs)
-        if sp == 1
-            outputs.behavior[ind,1,1] .+= model.individuals.animals[sp].p.t_resolution[2][sp]
-        else
-            index = sum(model.ninds[1:(sp-1)])+first(ind)
-            outputs.behavior[index,1,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
+        time, preys = eat(model, sp, ind, outputs)
+
+        if time > 0
+            move_to_prey(model,sp,ind,time,preys)
         end
     else
 
         prey_loc = [model.individuals.animals[sp].data.x[ind], model.individuals.animals[sp].data.y[ind], model.individuals.animals[sp].data.z[ind]]
         if nrow(pred_dens)> 0
 
-            predator_avoidance(pred_dens, prey_loc, swim_speed)  # Optimize movement away from all perceivable predators
-            if sp == 1
-                outputs.behavior[ind,2,1] .+= model.individuals.animals[sp].p.t_resolution[2][sp]
-            else
-                index = sum(model.ninds[1:(sp-1)])+first(ind)
-                outputs.behavior[index,2,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
-            end
+            #predator_avoidance(pred_dens, prey_loc, swim_speed)  # Optimize movement away from all perceivable predators
         else
-            # Random movement
-            original_pos = (model.individuals.animals[sp].data.x[ind], model.individuals.animals[sp].data.y[ind])
-    
-            steady_speed = swim_speed / 2 #Random movement speed at 50% of the burst speed.
-            
-            new_pos = random_movement(model.individuals.animals[sp].data.x[ind],model.individuals.animals[sp].data.y[ind], steady_speed)
-    
-            model.individuals.animals[sp].data.x[ind] .= new_pos[1]
-            model.individuals.animals[sp].data.y[ind] .= new_pos[2]
+            time = model.individuals.animals[sp].p.t_resolution[2][sp] * 60
+            preys = DataFrame(Type = Int[],Sp = Int[], Ind = Int[], x = Float64[], y = Float64[], z = Float64[], Weight = Float64[], Distance = Float64[])
 
-            if sp == 1
-                outputs.behavior[ind,4,1] .+= model.individuals.animals[sp].p.t_resolution[2][sp]
-            else
-                index = sum(model.ninds[1:(sp-1)])+first(ind)
-                outputs.behavior[index,4,1] += model.individuals.animals[sp].p.t_resolution[2][sp]
-            end
-            #Animal does not randomly change depths since this is such an integral component of community structure. The model therefore assumes that depth distribution changes are a function of predator/prey dynamics or coordinated movements (DVM, diving)
+            move_to_prey(model,sp,ind,time,preys) #Animal moves towards nearest prey with none in sight
+
         end
     end
 end
@@ -192,10 +170,15 @@ function visual_range_preys_init(arch,length,depth,ind)
     f(x) = x.^2 .* exp.(c_lat .* x) .- (pred_contrast .* pred_image .* eye_sensitivity .* (i_td ./ (eye_saturation .+ i_td)))
     fp(x) = 2 .* x .* exp.(c_lat .* x) .+ x.^2 .* c_lat .* exp.(c_lat .* x)
 
-
     # Call the Newton-Raphson method
-    x = newton_raphson(f, fp)
-    return x
+    range = newton_raphson(f, fp)
+    threshold = 0.1 # Non-visual detection range.
+    indices = findall(x -> x < threshold, range)
+
+    if !isempty(indices) > 0
+        range[indices] .= 0.1
+    end    
+    return range
 end
 
 function visual_range_preds(model, sp, ind)

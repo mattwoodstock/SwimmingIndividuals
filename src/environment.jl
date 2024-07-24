@@ -24,6 +24,9 @@ function individual_temp(model,sp,ind,temp)
     ## Find depth of animal for temperature estimates
     depth = round.(Int,first(depths))
 
+    if depth > length(temp)
+        depth = Int(length(temp))
+    end
     ind_val = temp[depth:depth] #Currently, depth is each meter
     return ind_val
 end

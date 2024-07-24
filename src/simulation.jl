@@ -14,9 +14,11 @@ end
 
 mutable struct MarineOutputs
     #depths::Vector{Float64}
+    mortalities::Matrix{Float64}
+    lengths::Vector{Float64}
+    weights::Vector{Float64}
     #daily_ration::Vector{Float64}
     #trophiclevel::Vector{Float64}
-    mortalities::Matrix{Float64}
     biomass::Array{Float64,3}
     behavior::Array{Float64,3}
     behavior_aggregate::Array{Float64,3}

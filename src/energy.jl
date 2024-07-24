@@ -5,7 +5,7 @@ function respiration(model,sp,ind,temp)
     #From Davison et al. 2013
     #rmr = (0.001*exp(14.47)*model.individuals.animals[sp].data.weight[ind]^0.75*exp((1000*-5.020)/(273.15+temp))) * 1000 * model.individuals.animals[sp].p.t_resolution[2][sp]
 
-    weight = Array(model.individuals.animals[sp].data.weight[ind])
+    weight = Array(model.individuals.animals[sp].data.biomass[ind])
     t_res = model.individuals.animals[sp].p.t_resolution[2][sp]
     depth = Array(model.individuals.animals[sp].data.z[ind])
     taxa = model.individuals.animals[sp].p.Taxa[2][sp]
@@ -30,13 +30,13 @@ function respiration(model,sp,ind,temp)
         lnr = 18.775 .+ 0.766*log.(weight).-5.265 .*(1000/(273.15 .+temp)) .-0.113.*log.(depth)
     end
     rmr = (exp(lnr) / 1140 * (oxy*1000)) / 60 * t_res
-
-    smr = rmr / 2
-    amr = smr * 4 #Winberg adjustment
-
-    prop_time = model.individuals.animals[sp].data.active_time[ind] / model.individuals.animals[sp].p.t_resolution[2][sp]
-
-    R = first(amr) .* prop_time .+ first(smr)*(1 .-prop_time) 
+    if model.individuals.animals[sp].data.behavior[ind][1] == 0
+        R = rmr/2 #Animal is resting
+    elseif model.individuals.animals[sp].data.behavior[ind][1] == 2
+        R = rmr*4 #Animal is migrating/diving
+    else
+        R = rmr #Animal is foraging
+    end
     model.individuals.animals[sp].data.rmr[ind] = R
     return R
 end
@@ -81,29 +81,15 @@ function growth(model, sp, ind, consumed, sda, respire, egest, excrete)
 
     leftover = Array(consumed - (respire + sda + egest + excrete))
 
-    r_max = Array(animal_data.weight[ind] * animal_ed * 0.2)
+    r_max = Array(animal_data.biomass[ind] * animal_ed * 0.2)
     excess = Array(animal_data.energy[ind]) + leftover - r_max
 
-    animal_data.energy[ind] = min(r_max, Array(animal_data.energy[ind]) + leftover)
-
+    animal_data.energy[ind] = min(r_max, Array(animal_data.energy[ind]) .+ leftover[1])
     if any(x -> x>0,excess)
-        #model.individuals.animals[sp].data.weight[ind] += excess / animal_ed
+        growth_prop = min(0.5,animal_data.length[ind][1]/animal.p.Max_Size[2][sp]) #Scale this with distance of length to maximum length? Assume a certain proportion (minimum 50%) is always going towards maturity or reproduction.
+        animal_data.biomass[ind] += (excess * growth_prop)/animal_ed
+        animal_data.length[ind] .= (animal_data.biomass[ind][1]/animal.p.LWR_a[2][sp]) ^ (1/animal.p.LWR_b[2][sp])*10
+        animal_data.mature[ind] .= min(1,animal_data.length[ind][1]/(0.5*(animal.p.Max_Size[2][sp])))
     end
-
     nothing
-end
-
-
-function metabolism(model,sp,ind,temp)
-    ts = model.individuals.animals[sp].p.t_resolution[2][sp]/60
-    ## Equation from Davison et al. 2013
-
-    rmr = 0.0001* exp(14.47)*model.individuals.animals[sp].data.weight[ind]^0.75*exp((1000*-5.02)/(273.15+ind_temp))
-
-    smr = 0.5 * rmr
-    amr = 4 * rmr
-
-    full_mr = amr*(model.individuals.animals[sp].data.active_time[ind]/ts) + smr*(1-(model.individuals.animals[sp].data.active_time[ind]/ts))
-    model.individuals.animals[sp].data.energy[ind] -= full_mr
-    return nothing 
 end
