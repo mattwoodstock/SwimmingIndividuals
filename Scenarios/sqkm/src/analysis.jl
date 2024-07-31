@@ -28,13 +28,10 @@ function timestep_results(sim)
     model = sim.model
     outputs = sim.outputs
     total_abund = sum(model.abund)
-    individual_array = zeros(total_abund, 5, 1)  # Make new_array a 3D array with the third dimension size 1
-    population_array = zeros(model.n_species,2,1) #3D array to append to the
+    new_array = zeros(total_abund, 5, 1)  # Make new_array a 3D array with the third dimension size 1
+
     # Locations, energy, and ration
-
-    #Individual-scale
     for (species_index, animal_index) in enumerate(keys(model.individuals.animals))
-
         if species_index == 1
             start_index = 1
             end_index = model.abund[1]
@@ -42,40 +39,25 @@ function timestep_results(sim)
             start_index = sum(model.abund[1:(species_index-1)]) + 1
             end_index = sum(model.abund[1:species_index])
         end
-
+        
         length_data = model.individuals.animals[species_index].data.length
         ration_data = model.individuals.animals[species_index].data.ration
         energy_data = model.individuals.animals[species_index].data.energy
         rmr_data = model.individuals.animals[species_index].data.rmr
         behavior_data = model.individuals.animals[species_index].data.behavior
         
-        individual_array[start_index:end_index, 1] .= length_data
-        individual_array[start_index:end_index, 2] .= ration_data
-        individual_array[start_index:end_index, 3] .= energy_data
-        individual_array[start_index:end_index, 4] .= rmr_data
-        individual_array[start_index:end_index, 5] .= behavior_data
+        new_array[start_index:end_index, 1] .= length_data
+        new_array[start_index:end_index, 2] .= ration_data
+        new_array[start_index:end_index, 3] .= energy_data
+        new_array[start_index:end_index, 4] .= rmr_data
+        new_array[start_index:end_index, 5] .= behavior_data
+
     end
-
-    #Population-Scale
-    population_array[:,1,:] = model.abund
-    population_array[:,2,:] = model.bioms
-
-    if model.t == model.output_dt
-        outputs.population_results[:,:,1] = population_array
-    else
-        outputs.population_results = cat(outputs.population_results,population_array,dims=3)
-    end
-
-    #Ecosystem-scale
-    ## Food webs - To be added
-
 
     # Save the results periodically
-    ts = Int(model.iteration)
-    filename = "IndividualResults_$ts.jld"
-    save(filename, "timestep", individual_array)
-    filename2 = "PoputlationResults.jld"
-    save(filename2,"population",population_array)
+    ts = Int(ceil(model.iteration / 1440))
+    filename = "timestep_results_$ts.jld"
+    save(filename, "timestep", new_array)
 end
 
 

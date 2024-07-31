@@ -20,12 +20,13 @@ function generate_temperature(files::DataFrame; surface_temp::Float64=26.0, deep
 end
 
 function individual_temp(model,sp,ind,temp)
-    depths = model.individuals.animals[sp].data.z[ind]
+    depths = Array(model.individuals.animals[sp].data.z[ind])
     ## Find depth of animal for temperature estimates
+    depth = round.(Int,first(depths))
 
-    depths = clamp.(model.individuals.animals[sp].data.z[ind],1,3000)
-    depth = round.(Int,depths)
-
-    ind_val = temp[depth] #Currently, depth is each meter
+    if depth > length(temp)
+        depth = Int(length(temp))
+    end
+    ind_val = temp[depth:depth] #Currently, depth is each meter
     return ind_val
 end

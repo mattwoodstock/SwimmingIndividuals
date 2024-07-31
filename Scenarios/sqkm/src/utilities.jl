@@ -27,35 +27,6 @@ struct particles
     eDNA::eDNA
 end
 
-struct PredatorInfo
-    x::Float64
-    y::Float64
-    z::Float64
-    Distance::Float64
-end
-
-struct PreyInfo
-    Type::Int
-    Sp::Int
-    Ind::Int
-    x::Float64
-    y::Float64
-    z::Float64
-    Biomass::Float64
-    Length::Float64
-    Inds::Float64
-    Distance::Float64
-end
-
-mutable struct AllPreds
-    preds::NamedTuple
-end
-
-mutable struct AllPreys
-    preys::NamedTuple
-end
-
-
 ##### Model struct
 mutable struct MarineModel
     arch::Architecture          # architecture on which models will run
@@ -215,17 +186,4 @@ end
 
 function get_memory_usage()
     return Sys.total_memory() - Sys.free_memory()
-end
-
-function update_prey_distance(prey_info::PreyInfo; distance::Float64)
-    return PreyInfo(
-        prey_info.id,
-        prey_info.type,
-        prey_info.time,
-        prey_info.location,
-        prey_info.depth,
-        prey_info.temperature,
-        prey_info.density,
-        distance  # Updated length or distance
-    )
 end

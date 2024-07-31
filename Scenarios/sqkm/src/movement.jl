@@ -1,23 +1,11 @@
 function dvm_action(model, sp, ind,outputs)
-    animal = model.individuals.animals[sp]
-    data = animal.data
-    params = animal.p
-    ΔT = params.t_resolution[2][sp]
-    swim_speed = 2.64 #Meters per minute following Bianchi and Mislan 2016. Want to make this size based.
-    z_dist_file_day = model.files[model.files.File .== "focal_z_dist_day", :Destination][1]
-    z_dist_file_night = model.files[model.files.File .== "focal_z_dist_night", :Destination][1]
-    grid_file = model.files[model.files.File .== "grid", :Destination][1]
-    z_day_dist = CSV.read(z_dist_file_day, DataFrame)
-    z_night_dist = CSV.read(z_dist_file_night, DataFrame)
-    grid = CSV.read(grid_file, DataFrame)
-    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-    target_z_day = gaussmix(length(ind), z_day_dist[sp, "mu1"], z_day_dist[sp, "mu2"], z_day_dist[sp, "mu3"], z_day_dist[sp, "sigma1"], z_day_dist[sp, "sigma2"], z_day_dist[sp, "sigma3"], z_day_dist[sp, "lambda1"], z_day_dist[sp, "lambda2"])
-    target_z_night = gaussmix(length(ind), z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"], z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"], z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"], z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])
+    for i in ind[1]:ind[1]
+        animal = model.individuals.animals[sp]
+        data = animal.data
+        params = animal.p
+        ΔT = params.t_resolution[2][sp]
 
-    target_z_night .= clamp.(target_z_night, 1, maxdepth)
-
-    for i in 1:length(ind)
-
+        swim_speed = 2.64 #Meters per minute following Bianchi and Mislan 2016. Want to make this size based.
 
         if (6*60 <= model.t < 18*60) && (any(data.mig_status[i] == 0.0)) # Start descent during daytime
             z_dist_file = model.files[model.files.File .=="focal_z_dist_day",:Destination][1]
@@ -28,7 +16,10 @@ function dvm_action(model, sp, ind,outputs)
 
             data.mig_status[i] = 2
             data.target_z[i] = gaussmix(1,z_day_dist[sp,"mu1"],z_day_dist[sp,"mu2"],z_day_dist[sp,"mu3"],z_day_dist[sp,"sigma1"],z_day_dist[sp,"sigma2"],z_day_dist[sp,"sigma3"],z_day_dist[sp,"lambda1"],z_day_dist[sp,"lambda2"])[1]
-            data.target_z[i] = clamp(data.target_z[i], 1, maxdepth)
+
+            while (data.target_z[i] < 1) | (data.target_z[i] > maxdepth) #Resample if animal is outside of the grid
+                data.target_z[i] = gaussmix(1,z_day_dist[sp,"mu1"],z_day_dist[sp,"mu2"],z_day_dist[sp,"mu3"],z_day_dist[sp,"sigma1"],z_day_dist[sp,"sigma2"],z_day_dist[sp,"sigma3"],z_day_dist[sp,"lambda1"],z_day_dist[sp,"lambda2"])[1]
+            end
 
             data.mig_rate[i] = swim_speed
             t_adjust = min(ΔT, abs((data.target_z[i] - data.z[i]) / data.mig_rate[i]))
@@ -48,8 +39,10 @@ function dvm_action(model, sp, ind,outputs)
 
             data.mig_status[i] = 1
             data.target_z[i] = gaussmix(1,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])[1]
-            data.target_z[i] = clamp(data.target_z[i], 1, maxdepth)
 
+            while (data.target_z[i] < 1) | (data.target_z[i] > maxdepth) #Resample if animal is outside of the grid
+                data.target_z[i] = gaussmix(1,z_night_dist[sp,"mu1"],z_night_dist[sp,"mu2"],z_night_dist[sp,"mu3"],z_night_dist[sp,"sigma1"],z_night_dist[sp,"sigma2"],z_night_dist[sp,"sigma3"],z_night_dist[sp,"lambda1"],z_night_dist[sp,"lambda2"])[1]
+            end
             data.behavior[i] = 2
 
             data.mig_rate[i] = swim_speed
@@ -286,53 +279,35 @@ function predator_avoidance(predator_locations, initial_prey_location, max_dista
     return Optim.minimizer(result)
 end
 
-function move_to_prey(model, sp, ind,eat_ind, time, prey_list)
-    ddt = fill(model.individuals.animals[sp].p.t_resolution[2][sp] * 60.0,length(ind))
-    ddt[eat_ind] .= time #Update times from feeding
+function move_to_prey(model,sp,ind,time,preys)
+    distance = model.individuals.animals[sp].p.Swim_velo[2][sp] * model.individuals.animals[sp].data.length[ind] / 1000 * time #meters the animal can swim
+    
+    if nrow(preys) > 0
+        index = argmin(preys.Distance)
 
-    distances = model.individuals.animals[sp].p.Swim_velo[2][sp] .* (model.individuals.animals[sp].data.length[ind] / 1000) .* ddt  # meters the animal can swim
+        dx = preys.x[index] - model.individuals.animals[sp].data.x[ind][1]
+        dy = preys.y[index] - model.individuals.animals[sp].data.y[ind][1]
+        dz = preys.z[index] - model.individuals.animals[sp].data.z[ind][1]
+        distance_to_target = sqrt(dx^2+dy^2+dz^2)
 
-    Threads.@threads for ind_index in 1:length(ind)
-        animal = ind[ind_index]
-        prey_info = prey_list.preys[ind_index]
+        if distance_to_target <= distance[1]
+            model.individuals.animals[sp].data.x[ind] .= preys.x[index]
+            model.individuals.animals[sp].data.y[ind] .= preys.y[index]
+            model.individuals.animals[sp].data.z[ind] .= preys.z[index]
+        else
+            # Normalize the direction vector
+            direction_x = dx / distance_to_target
+            direction_y = dy / distance_to_target
+            direction_z = dz / distance_to_target
         
-        if !isempty(prey_info)
-            # Extract distances of all preys
-            prey_distances = [prey.Distance for prey in prey_info]
-            
-            # Find the nearest prey
-            min_distance, index = findmin(prey_distances)
-
-            if !iszero(index)
-                if min_distance <= distances[ind_index]
-                    # Directly move to prey location
-                    nearest_prey = prey_info[index]
-                    model.individuals.animals[sp].data.x[animal] = nearest_prey.x
-                    model.individuals.animals[sp].data.y[animal] = nearest_prey.y
-                    model.individuals.animals[sp].data.z[animal] = nearest_prey.z
-                else
-                    # Move in a straight line towards the prey
-                    nearest_prey = prey_info[index]
-                    dx = nearest_prey.x - model.individuals.animals[sp].data.x[animal]
-                    dy = nearest_prey.y - model.individuals.animals[sp].data.y[animal]
-                    dz = nearest_prey.z - model.individuals.animals[sp].data.z[animal]
-
-                    if !iszero(dx) && !iszero(dy) && !iszero(dz)
-                        norm_factor = sqrt(dx^2 + dy^2 + dz^2)
-                        direction = (dx, dy, dz) ./ norm_factor
-
-                        model.individuals.animals[sp].data.x[animal] += direction[1] * distances[ind_index]
-                        model.individuals.animals[sp].data.y[animal] += direction[2] * distances[ind_index]
-                        model.individuals.animals[sp].data.z[animal] += direction[3] * distances[ind_index]
-                    else
-                        model.individuals.animals[sp].data.x[animal] = nearest_prey.x
-                        model.individuals.animals[sp].data.y[animal] = nearest_prey.y
-                        model.individuals.animals[sp].data.z[animal] = nearest_prey.z
-                    end
-                end
-            end
+            # Calculate the new location
+            model.individuals.animals[sp].data.x[ind] .+= direction_x * distance[1]
+            model.individuals.animals[sp].data.y[ind] .+= direction_y * distance[1]
+            model.individuals.animals[sp].data.z[ind] .+= direction_z * distance[1]
         end
+    else
+        min_prey = 0.01
+        max_prey = 0.1
+        find_nearest_prey(model,sp,ind,min_prey,max_prey) #Find preys with no visual limit and move towards it.
     end
 end
-
-

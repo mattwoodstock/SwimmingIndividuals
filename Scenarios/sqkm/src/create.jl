@@ -95,6 +95,8 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
     # Set plank data values
     current_b = 0
     ind = 0
+
+
     while current_b < target_b
         ind += 1
         if ind > length(plank.data.length)
@@ -216,23 +218,21 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt)
     ## Calculate density
     patch_num = 0
     for k in 1:g.Nz
-        num_patches = 1000 #Total number of patches per bin.
+        num_patches = Int(ceil(rand() * cell_size)) #Maximum number of individuals in a patch
         target_b = density[k][1] * cell_size
         b_remaining = target_b
         for i in 1:num_patches
-            den = b_remaining / (num_patches - (i-1))
             patch_num += 1
+            den = b_remaining * rand()
             ind_size = group.characters.Min_Size[2][sp] + rand() * (group.characters.Max_Size[2][sp] - group.characters.Min_Size[2][sp])
             ind_biom =  group.characters.LWR_a[2][sp] * (ind_size/10) ^ group.characters.LWR_b[2][sp]
-
             if (den < ind_biom) & (patch_num > 1)
-                break
+                continue
             end
             if i == num_patches
                 den = b_remaining
             end
             inds = ceil(den / ind_biom)
-
             if inds > typemax(Int64)
                 patch_inds = BigInt(inds)
             else
@@ -255,17 +255,17 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt)
                 push!(group.data.vis_prey, visual_range_preys_init(arch,ind_size,z,1)[1]*dt)
                 push!(group.data.vis_pred, visual_range_preds_init(arch,ind_size,z,1)[1]*dt)
             else
-                group.data.x[1] = x
-                group.data.y[1] = y
-                group.data.z[1] = z
-                group.data.abundance[1] = patch_inds
-                group.data.volume[1] = patch_vol
-                group.data.biomass[1] = den
-                group.data.init_biomass[1] = den
-                group.data.length[1] = ind_size
-                group.data.vis_prey[1] = visual_range_preys_init(arch,ind_size,z,1)[1]*dt
-                group.data.vis_pred[1] = visual_range_preds_init(arch,ind_size,z,1)[1]*dt
-                group.data.ration[1] = 0
+                group.data.x[patch_num] = x
+                group.data.y[patch_num] = y
+                group.data.z[patch_num] = z
+                group.data.abundance[patch_num] = patch_inds
+                group.data.volume[patch_num] = patch_vol
+                group.data.biomass[patch_num] = den
+                group.data.init_biomass[patch_num] = den
+                group.data.length[patch_num] = ind_size
+                group.data.vis_prey[patch_num] = visual_range_preys_init(arch,ind_size,z,1)[1]*dt
+                group.data.vis_pred[patch_num] = visual_range_preds_init(arch,ind_size,z,1)[1]*dt
+                group.data.ration[patch_num] = 0
             end
             b_remaining -= den
         end
@@ -290,53 +290,39 @@ function reproduce(model,sp,ind)
     #Current parameters from Fishbase oceanic species
     a = 0.03
     b = 3.3
-    maturity = model.individuals.animals[sp].data.mature[ind]
-    mature = findall(x -> x >= 1,maturity)
-    if length(mature) > 0
-        sp_dat = model.individuals.animals[sp].data
-        sp_char = model.individuals.animals[sp].p
-        size = 0.01 * sp_char.Max_Size[2][sp]
+    num_eggs = Int(round(a * model.individuals.animals[sp].data.length[ind][1] ^ b))
+    sp_dat = model.individuals.animals[sp].data
+    sp_char = model.individuals.animals[sp].p
+    for i in 1:num_eggs
+        size = 0.01 *sp_char.Max_Size[2][sp]
         biomass = sp_char.LWR_a[2][sp] .* (size ./ 10) .^ sp_char.LWR_b[2][sp]
-        for (i,parent) in enumerate(mature)
-            num_eggs = (a * (sp_dat.length[ind[i]]/10) ^ b)/(1440*365/model.dt) #Number of eggs produced by the individual per year
-            if num_eggs < 1
-                if num_eggs > rand()
-                    num_eggs = Int(1)
-                else 
-                    num_eggs = Int(0)
-                end
-            else
-                num_eggs = Int(round(num_eggs))
-            end
-            if num_eggs > 0
-                append!(sp_dat.length, fill(size, num_eggs))
-                append!(sp_dat.biomass, fill(biomass, num_eggs))
-                append!(sp_dat.ac, fill(1.0, num_eggs))
-                append!(sp_dat.x, fill(model.individuals.animals[sp].data.x[ind[i]], num_eggs))
-                append!(sp_dat.y, fill(model.individuals.animals[sp].data.y[ind[i]], num_eggs))
-                append!(sp_dat.z, fill(model.individuals.animals[sp].data.z[ind[i]], num_eggs))
-                append!(sp_dat.gut_fullness, fill(0, num_eggs))
-                append!(sp_dat.vis_prey, fill(visual_range_preys_init(arch,size,model.individuals.animals[sp].data.z[ind[i]],1)[1] * sp_char.t_resolution[2][sp], num_eggs))
-                append!(sp_dat.vis_pred, fill(visual_range_preds_init(arch,size,model.individuals.animals[sp].data.z[ind[i]],1)[1] * sp_char.t_resolution[2][sp], num_eggs))
-                append!(sp_dat.pool_x, fill(model.individuals.animals[sp].data.pool_x[ind[i]], num_eggs))
-                append!(sp_dat.pool_y, fill(model.individuals.animals[sp].data.pool_y[ind[i]], num_eggs))
-                append!(sp_dat.pool_z, fill(model.individuals.animals[sp].data.pool_z[ind[i]], num_eggs))
-                append!(sp_dat.energy, fill(biomass * sp_char.Energy_density[2][sp] * 0.2, num_eggs))
-                append!(sp_dat.behavior, fill(1.0, num_eggs))
-                append!(sp_dat.target_z, fill(model.individuals.animals[sp].data.z[ind[i]], num_eggs))
-                append!(sp_dat.dive_capable, fill(1, num_eggs))
-                append!(sp_dat.feeding, fill(1, num_eggs))
-                append!(sp_dat.consumed, fill(0, num_eggs))
-                append!(sp_dat.eDNA_shed, fill(0, num_eggs))
-                append!(sp_dat.mig_status, fill(0, num_eggs))
-                append!(sp_dat.mig_rate, fill(0, num_eggs))
-                append!(sp_dat.rmr, fill(0, num_eggs))
-                append!(sp_dat.dives_remaining, fill(0, num_eggs))
-                append!(sp_dat.interval, fill(0, num_eggs))
-                append!(sp_dat.daily_ration, fill(0, num_eggs))
-                append!(sp_dat.ration, fill(0, num_eggs))
-                append!(sp_dat.mature, fill(0, num_eggs))
-            end
-        end
+        push!(sp_dat.length,size)
+        push!(sp_dat.biomass,biomass)
+        push!(sp_dat.ac, 1.0)
+        push!(sp_dat.x, model.individuals.animals[sp].data.x[ind])
+        push!(sp_dat.y, model.individuals.animals[sp].data.y[ind])
+        push!(sp_dat.z, model.individuals.animals[sp].data.z[ind])
+        push!(sp_dat.gut_fullness, 0)
+        push!(sp_dat.vis_prey, visual_range_preys_init(arch,size,model.individuals.animals[sp].data.z[ind],1)[1] * sp_char.t_resolution[2][sp])
+        push!(sp_dat.vis_pred, visual_range_preds_init(arch,size,model.individuals.animals[sp].data.z[ind],1)[1] * sp_char.t_resolution[2][sp])
+        push!(sp_dat.pool_x, model.individuals.animals[sp].data.pool_x[ind])
+        push!(sp_dat.pool_y, model.individuals.animals[sp].data.pool_y[ind])
+        push!(sp_dat.pool_z, model.individuals.animals[sp].data.pool_z[ind])
+        push!(sp_dat.energy, biomass * sp_char.Energy_density[2][sp] * 0.2)
+        push!(sp_dat.behavior, 1.0)
+        push!(sp_dat.target_z, model.individuals.animals[sp].data.z[ind])
+        push!(sp_dat.dive_capable, 1)
+        push!(sp_dat.feeding, 1)
+        push!(sp_dat.consumed, 0)
+        push!(sp_dat.eDNA_shed, 0)
+        push!(sp_dat.mig_status, 0)
+        push!(sp_dat.mig_rate, 0)
+        push!(sp_dat.rmr, 0)
+        push!(sp_dat.dives_remaining, 0)
+        push!(sp_dat.interval, 0)
+        push!(sp_dat.daily_ration, 0)
+        push!(sp_dat.ration, 0)
+        push!(sp_dat.mature,0)
     end
+    model.abund[sp] += num_eggs
 end

@@ -1,13 +1,26 @@
 function generate_outputs(model,spec,iterations,output_dt)
     model.ninds = sum(length(model.individuals.animals[i].data) for i in 1:model.n_species)
-    
+
+    #depth = zeros(iterations)
+    #trophic_level = zeros(model.n_species+model.n_pool)
+    #daily_ration = copy(trophic_level)
     mortalities = zeros(model.n_species,2)
     lengths = zeros(model.ninds)
     weights = zeros(model.ninds)
+    biomass = zeros(iterations,model.grid.Nz,model.n_species)
+    behavior = zeros(model.ninds,4,1) #Subconsumption timestep
+    behavior_aggregate = zeros(model.ninds,4,1)
     consumption = zeros(spec, spec, model.grid.Nx,model.grid.Ny,model.grid.Nz,output_dt) #Subconsumption timestep
-    individual_results = Array{Float64,3}(undef,sum(model.abund),5,1)
-    population_results = Array{Float64,3}(undef,model.n_species,2,1)
-    return MarineOutputs(mortalities,lengths,weights,consumption,individual_results,population_results)
+    consumption_aggregate = zeros(spec, spec, model.grid.Nx,model.grid.Ny,model.grid.Nz,1)
+    #consumption_biomass = zeros(model.n_species,iterations)
+    production = zeros(iterations,model.n_species)
+    #production_biomass = zeros(model.n_species,iterations)
+    pool_density = zeros(iterations,model.n_pool)
+
+    timestep_array = Array{Float64,3}(undef,sum(model.abund),5,1)
+    #daily_array = Array{Float64,4}(undef,sum(model.ninds),4,1). Fix later
+
+    return MarineOutputs(mortalities,lengths,weights,biomass,behavior,behavior_aggregate,consumption,consumption_aggregate,production,pool_density,timestep_array)
 end
 
 function calculate_trophic_levels(model, output, diet_matrix::Matrix{Float64}; max_iterations = 1e5, convergence_threshold = 1e-5)

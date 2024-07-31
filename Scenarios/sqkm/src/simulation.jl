@@ -13,12 +13,22 @@ mutable struct MarineOutputWriter
 end
 
 mutable struct MarineOutputs
+    #depths::Vector{Float64}
     mortalities::Matrix{Float64}
     lengths::Vector{Float64}
     weights::Vector{Float64}
+    #daily_ration::Vector{Float64}
+    #trophiclevel::Vector{Float64}
+    biomass::Array{Float64,3}
+    behavior::Array{Float64,3}
+    behavior_aggregate::Array{Float64,3}
+    #consumption_biomass::Matrix{Float64}
     consumption::Array{Float64,6}
-    individual_results::Array{Float64,3}
-    population_results::Array{Float64,3}
+    consumption_aggregate::Array{Float64,6}
+    production::Matrix{Float64}
+    #production_biomass::Matrix{Float64}
+    pool_density::Matrix{Float64}
+    timestep_array::Array{Float64,3}
 end
 
 mutable struct MarineSimulation

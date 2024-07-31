@@ -69,6 +69,7 @@ for i in 1:Nsp
     model.abund[i] = length(model.individuals.animals[i].data.length)
 end
 
+
 ## Create environmental parameters for now
 temp = generate_temperature(files)
 

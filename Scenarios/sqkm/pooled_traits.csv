@@ -1,7 +1,12 @@
 Group,Min_Size,Max_Size,Total_Density,LWR_a,LWR_b,Trophic_Level,Growth,Energy_density,Avg_energy,Max_patch,Type
+Sinking Detritus,1.00E-04,1.00E-03,3.432011,0.01,3,2,1,5000,6.44E-03,10,Producer
+Particulate Detritus,1.00E-06,1.00E-05,1.119,0.01,3,2.1,1,5000,1.69E-01,10,Producer
+DOM,1.00E-06,1.00E-05,1.119,0.01,3,2.1,1,5000,7.81E-01,10,Producer
+Sargassum,3,4,3.54,0.01,3,2.1,1,5000,2.14E+00,10,Producer
+Phytoplankton,1.00E-04,1.00E-03,4.111338,0.01,3,2.205,1,5000,4.56E+00,10,Producer
+Bacteria,1.00E-07,1.00E-06,8.486,0.01,3,2.31525,1,5000,8.32E+00,10,Producer
 MT Flagelletes,1.00E-03,1.00E-02,3.6,0.01,3,2.4310125,1,5000,1.37E+01,10,Predator
 Microzooplankton,1.00E-03,1.00E-02,2.213057,0.01,3,2.552563125,1,5000,2.11E+01,10,Predator
-Euphausids,1.00E-02,5.00E+00,0.171,0.01,3,3,1,5000,3.07E+01,10,Predator
 Appendicularians,1.00E-02,5,0.297619,0.01,3,2.680191281,1,5000,3.07E+01,10,Predator
 Gelatinous Zooplankton,0.01,10,0.227,0.01,3,2.680191281,1,5000,4.29E+01,10,Predator
 Ichthyoplankton,0.1,5,0.3034917,0.01,3,2.814200845,1,5000,5.79E+01,10,Predator
