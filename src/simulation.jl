@@ -16,8 +16,7 @@ mutable struct MarineOutputs
     mortalities::Matrix{Float64}
     lengths::Vector{Float64}
     weights::Vector{Float64}
-    consumption::Array{Float64,6}
-    individual_results::Array{Float64,3}
+    consumption::Array{Float64,5}
     population_results::Array{Float64,3}
 end
 
@@ -25,14 +24,9 @@ mutable struct MarineSimulation
     model::MarineModel                       # Model object
     ΔT::Float64                                  # model time step
     iterations::Int64                          # run the simulation for this number of iterations
-    temp::Vector{Float64}                       # temperature
+    run::Int64                                  #Model run ID
     outputs::MarineOutputs
     #output_writer::Union{MarineOutputWriter,Nothing} # Output writer
-end
-
-function simulation(model::MarineModel, ΔT::Float64, iterations::Int64,temp::Vector,outputs::MarineOutputs)
-    sim = MarineSimulation(model, ΔT, iterations,temp,outputs)
-return sim
 end
 
 function MarineOutputWriter(;dir = "./results",

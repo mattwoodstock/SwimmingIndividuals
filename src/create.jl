@@ -12,14 +12,14 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp, B, maxN, g:
     return individuals(planks)
 end
 
-function generate_pools(arch::Architecture, params::Dict, Npool, g::AbstractGrid,files,maxN,dt)
+function generate_pools(arch::Architecture, params::Dict, Npool, g::AbstractGrid,files,maxN,dt,environment)
     pool_names = Symbol[]
     pool_data=[]
 
     for i in 1:Npool
         name = Symbol("pool"*string(i))
         pool = construct_pool(arch,params,g,maxN)
-        generate_pool(pool, g ,i, files,dt)
+        generate_pool(pool, g ,i, files,dt,environment)
         push!(pool_names, name)
         push!(pool_data, pool)
     end
@@ -52,7 +52,7 @@ function construct_eDNA(arch::Architecture,params,max_particle)
 end
 
 function construct_plankton(arch::Architecture, params::Dict, maxN)
-    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), biomass = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), behavior = zeros(maxN),gut_fullness = zeros(maxN),feeding = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), consumed = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),eDNA_shed = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN), vis_prey = zeros(maxN), vis_pred = zeros(maxN),mature = zeros(maxN))
+    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), biomass = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), behavior = zeros(maxN),gut_fullness = zeros(maxN),cost = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), consumed = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),active = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN), vis_prey = zeros(maxN), vis_pred = zeros(maxN),mature = zeros(maxN),age = zeros(maxN))
 
     data = replace_storage(array_type(arch), rawdata)
 
@@ -63,7 +63,7 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
 end
 
 function construct_pool(arch::Architecture, params::Dict, g,maxN)
-    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),abundance=zeros(maxN),volume = zeros(maxN),biomass = zeros(maxN),init_biomass= zeros(maxN), length = zeros(maxN),vis_prey = zeros(maxN), vis_pred = zeros(maxN),ration = zeros(maxN)) 
+    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),abundance=zeros(maxN),volume = zeros(maxN),biomass = zeros(maxN),init_biomass= zeros(maxN), length = zeros(maxN),length_sd=zeros(maxN),vis_prey = zeros(maxN), vis_pred = zeros(maxN),ration = zeros(maxN),pool_x = zeros(maxN),pool_y = zeros(maxN),pool_z = zeros(maxN)) 
 
     data = replace_storage(array_type(arch), rawdata)
 
@@ -95,37 +95,16 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
     # Set plank data values
     current_b = 0
     ind = 0
+
+    k = 0.4
+    t0 = -0.5
+    Linf = plank.p.Max_Size[2][sp]
+
     while current_b < target_b
         ind += 1
         if ind > length(plank.data.length)
             push!(plank.data.length,rand() .* (plank.p.Max_Size[2][sp]))
             push!(plank.data.biomass,plank.p.LWR_a[2][sp] .* (plank.data.length[ind] ./ 10) .^ plank.p.LWR_b[2][sp])
-            push!(plank.data.ac, 1.0)
-            push!(plank.data.x, lonmin + rand() * (lonmax - lonmin))
-            push!(plank.data.y, latmin + rand() * (latmax - latmin))
-            push!(plank.data.z, gaussmix(1, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],
-            z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])[1])
-            push!(plank.data.gut_fullness, rand() * 0.2 * plank.data.biomass[ind])
-            push!(plank.data.vis_prey, visual_range_preys_init(arch,plank.data.length[ind],plank.data.z[ind],1)[1] * plank.p.t_resolution[2][sp])
-            push!(plank.data.vis_pred, visual_range_preds_init(arch,plank.data.length[ind],plank.data.z[ind],1)[1] * plank.p.t_resolution[2][sp])
-            push!(plank.data.pool_x, ceil(Int, plank.data.x[ind] / ((lonmax - lonmin) / lonres)))
-            push!(plank.data.pool_y, ceil(Int, plank.data.y[ind] / ((latmax - latmin) / latres)))
-            push!(plank.data.pool_z, ceil(Int, plank.data.z[ind] / (maxdepth / depthres)))
-            push!(plank.data.energy, plank.data.biomass[ind] * plank.p.Energy_density[2][sp] * 0.2)
-            push!(plank.data.behavior, 1.0)
-            push!(plank.data.target_z, copy(plank.data.z[ind]))
-            push!(plank.data.dive_capable, 1)
-            push!(plank.data.feeding, 1)
-            push!(plank.data.consumed, 0)
-            push!(plank.data.eDNA_shed, 0)
-            push!(plank.data.mig_status, 0)
-            push!(plank.data.mig_rate, 0)
-            push!(plank.data.rmr, 0)
-            push!(plank.data.dives_remaining, 0)
-            push!(plank.data.interval, 0)
-            push!(plank.data.daily_ration, 0)
-            push!(plank.data.ration, 0)
-            push!(plank.data.mature,min(1,plank.data.length[ind]/(0.5*(plank.p.Max_Size[2][sp]))))
         else
             plank.data.length[ind] = rand() .* (plank.p.Max_Size[2][sp])
             plank.data.biomass[ind] = plank.p.LWR_a[2][sp] .* (plank.data.length[ind] ./ 10) .^ plank.p.LWR_b[2][sp]
@@ -134,54 +113,77 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
             plank.data.y[ind] = latmin + rand() * (latmax - latmin)
             plank.data.z[ind] = gaussmix(1, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])[1]
             plank.data.gut_fullness[ind] = rand() * 0.2 * plank.data.biomass[ind]
-            plank.data.vis_prey[ind] = visual_range_preys_init(arch,plank.data.length[ind],plank.data.z[ind],1)[1] * plank.p.t_resolution[2][sp]
+            plank.data.vis_prey[ind] = visual_range_preys_init(plank.data.length[ind],plank.data.z[ind],1)[1] * plank.p.t_resolution[2][sp]
             plank.data.vis_pred[ind] = visual_range_preds_init(arch,plank.data.length[ind],plank.data.z[ind],1)[1] * plank.p.t_resolution[2][sp]
             # Calculate pool indices
-            plank.data.pool_x[ind] = ceil(Int, plank.data.x[ind] / ((lonmax - lonmin) / lonres))
-            plank.data.pool_y[ind] = ceil(Int, plank.data.y[ind] / ((latmax - latmin) / latres))
-            plank.data.pool_z[ind] = ceil(Int, plank.data.z[ind] / (maxdepth / depthres))
+            plank.data.pool_x[ind] = max(1,ceil(Int, plank.data.x[ind] / ((lonmax - lonmin) / lonres)))
+            plank.data.pool_y[ind] = max(1,ceil(Int, plank.data.y[ind] / ((latmax - latmin) / latres)))
+            plank.data.pool_z[ind] = max(1,ceil(Int, plank.data.z[ind] / (maxdepth / depthres)))
+            plank.data.pool_z[ind] = clamp(plank.data.pool_z[ind],1,depthres)
+
             plank.data.energy[ind]  = plank.data.biomass[ind] * plank.p.Energy_density[2][sp] * 0.2   # Initial reserve energy = Rmax
             plank.data.behavior[ind] = 1.0
             plank.data.target_z[ind] = copy(plank.data.z[ind])
             plank.data.dive_capable[ind] = 1
-            plank.data.feeding[ind] = 1 #Animal can feed. 0 if the animal is not in a feeding cycle
+            plank.data.cost[ind] = 0
             plank.data.consumed[ind] = 0
-            plank.data.eDNA_shed[ind] = 0
+            plank.data.active[ind] = 0
             plank.data.mature[ind] = min(1,plank.data.length[ind]/(0.5*(plank.p.Max_Size[2][sp])))
+            plank.data.age[ind] = t0 - (1/k)*log(1-plank.data.length[ind]/Linf)
+
         end
         current_b += plank.data.biomass[ind]
     end
+    to_append = ind - 1
 
-    # Loop to resample values until they meet the criteria
-    while any(plank.data.z .<= 1) || any(plank.data.z .> maxdepth)
-        # Resample z values for points outside the grid
-        outside_indices = findall((plank.data.z .<= 1) .| (plank.data.z .> maxdepth))
-        # Resample the values for the resampled indices
-        new_values = gaussmix(length(outside_indices), z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])
-        
-        # Assign the resampled values to the corresponding indices in plank.data.z
-        plank.data.z[outside_indices] = new_values
+    x = lonmin .+ rand(to_append) * (lonmax - lonmin)
+    y = latmin .+ rand(to_append) * (latmax - latmin)
+    z = gaussmix(to_append, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],
+    z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])
 
-        plank.data.pool_z[outside_indices] = ceil.(Int, plank.data.z[outside_indices] ./ (maxdepth / depthres))
-    end
-    if ind != maxN #Remove the individuals that are not created out of the model domain
-        plank.data.x[ind+1:maxN] .= 5e6
-        plank.data.y[ind+1:maxN] .= 5e6
-        plank.data.z[ind+1:maxN] .= 5e6
-    end
+    x = clamp.(x,lonmin,lonmax)
+    y = clamp.(y,latmin,latmax)
+    z = clamp.(z,1,maxdepth)
+
+    pool_x = max.(1,ceil.(Int,x ./ ((lonmax - lonmin) / lonres)))
+    pool_y = max.(1,ceil.(Int,y ./ ((latmax - latmin) / latres)))
+    pool_z = max.(1,ceil.(Int,z ./ (maxdepth/depthres)))
+    pool_z = clamp.(pool_z,1,depthres)
+    append!(plank.data.ac, fill(1.0,to_append))
+    append!(plank.data.x, x)
+    append!(plank.data.y, y)
+    append!(plank.data.z, z)
+    append!(plank.data.gut_fullness, rand(to_append) .* 0.2 .* plank.data.biomass[(2:ind)])
+    append!(plank.data.vis_prey, visual_range_preys_init(plank.data.length[(2:ind)],z,to_append) .* plank.p.t_resolution[2][sp])
+    append!(plank.data.vis_pred, visual_range_preds_init(arch,plank.data.length[(2:ind)],z,to_append) .* plank.p.t_resolution[2][sp])
+    append!(plank.data.pool_x, pool_x)
+    append!(plank.data.pool_y, pool_y)
+    append!(plank.data.pool_z, pool_z)
+    append!(plank.data.energy, plank.data.biomass[(2:ind)] .* plank.p.Energy_density[2][sp] .* 0.2)
+    append!(plank.data.behavior, fill(1.0,to_append))
+    append!(plank.data.target_z, z)
+    append!(plank.data.dive_capable, fill(1,to_append))
+    append!(plank.data.cost, fill(0,to_append))
+    append!(plank.data.consumed, fill(0,to_append))
+    append!(plank.data.active, fill(0,to_append))
+    append!(plank.data.mig_status, fill(0,to_append))
+    append!(plank.data.mig_rate, fill(0,to_append))
+    append!(plank.data.rmr, fill(0,to_append))
+    append!(plank.data.dives_remaining, fill(0,to_append))
+    append!(plank.data.interval, fill(0,to_append))
+    append!(plank.data.daily_ration, fill(0,to_append))
+    append!(plank.data.ration, fill(0,to_append))
+    append!(plank.data.mature, min.(1,plank.data.length[(2:ind)] ./ (0.5*(plank.p.Max_Size[2][sp]))))
+    append!(plank.data.age, t0 .- (1/k) .* log.(1 .- plank.data.length[(2:ind)] ./ Linf))
     return plank.data
 end
 
-function generate_pool(group, g::AbstractGrid, sp, files,dt)
+function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
     z_night_file = files[files.File .== "nonfocal_z_dist_night", :Destination][1]
     grid_file = files[files.File .== "grid", :Destination][1]
-    state_file = files[files.File .== "state", :Destination][1]
 
     z_night_dist = CSV.read(z_night_file, DataFrame)
     grid = CSV.read(grid_file, DataFrame)
-    state = CSV.read(state_file, DataFrame)
-
-    food_limit = parse(Float64, state[state.Name .== "food_exp", :Value][1])
 
     maxdepth = grid[grid.Name .== "depthmax", :Value][1]
     depthres = grid[grid.Name .== "depthres", :Value][1]
@@ -214,15 +216,17 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt)
     ## Total biomass in grid cell as target
     ## Number of individuals 
     ## Calculate density
+
     patch_num = 0
     for k in 1:g.Nz
-        num_patches = 1000 #Total number of patches per bin.
+        num_patches = 10 #Total number of patches per bin.
         target_b = density[k][1] * cell_size
         b_remaining = target_b
         for i in 1:num_patches
             den = b_remaining / (num_patches - (i-1))
             patch_num += 1
-            ind_size = group.characters.Min_Size[2][sp] + rand() * (group.characters.Max_Size[2][sp] - group.characters.Min_Size[2][sp])
+            ind_size = (group.characters.Min_Size[2][sp] + group.characters.Max_Size[2][sp])/2
+            size_sd = (group.characters.Max_Size[2][sp] - group.characters.Min_Size[2][sp])/4
             ind_biom =  group.characters.LWR_a[2][sp] * (ind_size/10) ^ group.characters.LWR_b[2][sp]
 
             if (den < ind_biom) & (patch_num > 1)
@@ -238,32 +242,53 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt)
             else
                 patch_inds = Int64(inds)
             end  
-            patch_vol = rand() * (group.characters.Max_patch[2][sp] / 2)^3 * π * (4 / 3)
-            x = lonmin + rand() * (lonmax - lonmin)
-            y = latmin + rand() * (latmax - latmin)
+            ind_volume = (4/3) * pi * ((ind_size/1000)/2)^3
+            
+            total_volume = sphere_volume(ind_size, patch_inds)
+
+            x_part, y_part = smart_placement(environment.chl,1,1)
+            lon_chl_res = size(environment.chl,1)
+            lat_chl_res = size(environment.chl,2)
+
+            x = lonmin + rand() * ((lonmax - lonmin)*(x_part/lon_chl_res))
+            y = latmin + rand() * (latmax - latmin)*(y_part/lat_chl_res)
+
             z = min_z[k] + rand() * (max_z[k] - min_z[k])
+
+            x = clamp(x,lonmin,lonmax)
+            y = clamp(y,latmin,latmax)
+            z = clamp(z,1,maxdepth)
+
             if patch_num > length(group.data.x)
                 push!(group.data.x, x)
                 push!(group.data.y, y)
                 push!(group.data.z, z)
+                push!(group.data.pool_x, max(1,ceil(Int, x / ((lonmax - lonmin) / lonres))))
+                push!(group.data.pool_y, max(1,ceil(Int, y / ((latmax - latmin) / latres))))
+                push!(group.data.pool_z, max(1,ceil(Int, z / (maxdepth / depthres))))
                 push!(group.data.abundance, patch_inds)
-                push!(group.data.volume, patch_vol)
+                push!(group.data.volume, total_volume)
                 push!(group.data.biomass, den)
                 push!(group.data.init_biomass, den)
                 push!(group.data.length, ind_size)
+                push!(group.data.length_sd, size_sd)
                 push!(group.data.ration, 0)
-                push!(group.data.vis_prey, visual_range_preys_init(arch,ind_size,z,1)[1]*dt)
+                push!(group.data.vis_prey, visual_range_preys_init(ind_size,z,1)[1]*dt)
                 push!(group.data.vis_pred, visual_range_preds_init(arch,ind_size,z,1)[1]*dt)
             else
                 group.data.x[1] = x
                 group.data.y[1] = y
                 group.data.z[1] = z
+                group.data.pool_x[1] = max(1,ceil(Int, x / ((lonmax - lonmin) / lonres)))
+                group.data.pool_y[1] = max(1,ceil(Int, y / ((latmax - latmin) / latres)))
+                group.data.pool_z[1] = max(1,ceil(Int, z / (maxdepth / depthres)))
                 group.data.abundance[1] = patch_inds
-                group.data.volume[1] = patch_vol
+                group.data.volume[1] = total_volume
                 group.data.biomass[1] = den
                 group.data.init_biomass[1] = den
                 group.data.length[1] = ind_size
-                group.data.vis_prey[1] = visual_range_preys_init(arch,ind_size,z,1)[1]*dt
+                group.data.length_sd[1] = size_sd
+                group.data.vis_prey[1] = visual_range_preys_init(ind_size,z,1)[1]*dt
                 group.data.vis_pred[1] = visual_range_preds_init(arch,ind_size,z,1)[1]*dt
                 group.data.ration[1] = 0
             end
@@ -287,55 +312,143 @@ function pool_growth(model)
 end
 
 function reproduce(model,sp,ind)
-    #Current parameters from Fishbase oceanic species
-    a = 0.03
-    b = 3.3
+    sp_dat = model.individuals.animals[sp].data
+    sp_char = model.individuals.animals[sp].p
+
+    rel_fecund = 100 #eggs per g 
+    sex_rat = 0.5 #Sex ratio
+    density_dependent_coefficient = 1  # Example value
+
+    files = model.files
+    grid_file = files[files.File .=="grid",:Destination][1]
+    grid = CSV.read(grid_file,DataFrame)
+    lonres = grid[grid.Name .== "lonres", :Value][1]
+    latres = grid[grid.Name .== "latres", :Value][1]
+    lonmax = grid[grid.Name .== "lonmax", :Value][1]
+    lonmin = grid[grid.Name .== "lonmin", :Value][1]
+    latmax = grid[grid.Name .== "latmax", :Value][1]
+    latmin = grid[grid.Name .== "latmin", :Value][1]
+    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
+
+    domain_size = (latmax - latmin) * (lonmax - lonmin) * maxdepth # Cubic meters in model
+    target_biomass = sp_char.Biomass[2][sp]
+
+    total_biomass = sum(sp_dat.biomass[ind]) / domain_size
+    #Calculate spawning stock biomass
     maturity = model.individuals.animals[sp].data.mature[ind]
     mature = findall(x -> x >= 1,maturity)
-    if length(mature) > 0
-        sp_dat = model.individuals.animals[sp].data
-        sp_char = model.individuals.animals[sp].p
-        size = 0.01 * sp_char.Max_Size[2][sp]
-        biomass = sp_char.LWR_a[2][sp] .* (size ./ 10) .^ sp_char.LWR_b[2][sp]
-        for (i,parent) in enumerate(mature)
-            num_eggs = (a * (sp_dat.length[ind[i]]/10) ^ b)/(1440*365/model.dt) #Number of eggs produced by the individual per year
-            if num_eggs < 1
-                if num_eggs > rand()
-                    num_eggs = Int(1)
-                else 
-                    num_eggs = Int(0)
+    ssb = sum(sp_dat.biomass[mature]) / domain_size
+    max_rate = 1.5
+    r = max_rate * ssb * exp(-ssb/target_biomass) #Ricker model
+    adjusted_rel_fecund = rel_fecund * exp(-density_dependent_coefficient * (total_biomass / target_biomass))
+    num_eggs = sex_rat*r
+
+    if num_eggs < 1
+        if num_eggs > rand()
+            num_eggs = Int(1)
+        else 
+            num_eggs = Int(0)
+        end
+    else
+        num_eggs = Int(round(num_eggs))
+    end
+
+    size = 0.001 * sp_char.Max_Size[2][sp]
+    biomass = sp_char.LWR_a[2][sp] .* (size ./ 10) .^ sp_char.LWR_b[2][sp]
+    if num_eggs > 0
+        x = lonmin .+ rand(num_eggs) * (lonmax - lonmin)
+        y = latmin .+ rand(num_eggs) * (latmax - latmin)
+        z = rand(num_eggs).*25
+        pool_x = max.(1,ceil.(Int,x ./ ((lonmax - lonmin) / lonres)))
+        pool_y = max.(1,ceil.(Int,y ./ ((latmax - latmin) / latres)))
+        append!(sp_dat.length, fill(size, num_eggs))
+        append!(sp_dat.biomass, fill(biomass, num_eggs))
+        append!(sp_dat.ac, fill(1.0, num_eggs))
+        append!(sp_dat.x, x, num_eggs)
+        append!(sp_dat.y, y, num_eggs)
+        append!(sp_dat.z, z, num_eggs)
+        append!(sp_dat.gut_fullness, fill(0, num_eggs))
+        append!(sp_dat.vis_prey, fill(visual_range_preys_init(size,z,1)[1] * sp_char.t_resolution[2][sp], num_eggs))
+        append!(sp_dat.vis_pred, fill(visual_range_preds_init(arch,size,z,1)[1] * sp_char.t_resolution[2][sp], num_eggs))
+        append!(sp_dat.pool_x, pool_x, num_eggs)
+        append!(sp_dat.pool_y, pool_y, num_eggs)
+        append!(sp_dat.pool_z, fill(1, num_eggs))
+        append!(sp_dat.energy, fill(biomass * sp_char.Energy_density[2][sp] * 0.2, num_eggs))
+        append!(sp_dat.behavior, fill(1.0, num_eggs))
+        append!(sp_dat.target_z, z, num_eggs)
+        append!(sp_dat.dive_capable, fill(1, num_eggs))
+        append!(sp_dat.cost, fill(0, num_eggs))
+        append!(sp_dat.consumed, fill(0, num_eggs))
+        append!(sp_dat.active, fill(0, num_eggs))
+        append!(sp_dat.mig_status, fill(0, num_eggs))
+        append!(sp_dat.mig_rate, fill(0, num_eggs))
+        append!(sp_dat.rmr, fill(0, num_eggs))
+        append!(sp_dat.dives_remaining, fill(0, num_eggs))
+        append!(sp_dat.interval, fill(0, num_eggs))
+        append!(sp_dat.daily_ration, fill(0, num_eggs))
+        append!(sp_dat.ration, fill(0, num_eggs))
+        append!(sp_dat.mature, fill(0, num_eggs))
+    end
+end
+
+function reset(model::MarineModel)
+    files = model.files
+    grid_file = files[files.File .=="grid",:Destination][1]
+    z_night_dist_file = files[files.File .=="focal_z_dist_night",:Destination][1]
+    z_day_dist_file = files[files.File .=="focal_z_dist_day",:Destination][1]
+
+    grid = CSV.read(grid_file,DataFrame)
+    z_night_dist = CSV.read(z_night_dist_file,DataFrame)
+    z_day_dist = CSV.read(z_day_dist_file,DataFrame)
+
+    depthres = grid[grid.Name .== "depthres", :Value][1]
+    lonres = grid[grid.Name .== "lonres", :Value][1]
+    latres = grid[grid.Name .== "latres", :Value][1]
+    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
+    depthres = grid[grid.Name .== "depthres", :Value][1]
+    lonmax = grid[grid.Name .== "lonmax", :Value][1]
+    lonmin = grid[grid.Name .== "lonmin", :Value][1]
+    latmax = grid[grid.Name .== "latmax", :Value][1]
+    latmin = grid[grid.Name .== "latmin", :Value][1]
+
+    #Replace dead individuals and necessary components at the end of the day.
+    for (species_index,animal_index) in enumerate(keys(model.individuals.animals))
+        species = model.individuals.animals[species_index]
+        n_ind = length(model.individuals.animals[species_index].data.length) #Number of individuals per species
+
+        model.individuals.animals[species_index].data.ration .= 0 #Reset timestep ration for next one.
+        for j in 1:n_ind
+            if species.data.ac[j] == 0.0 #Need to replace individual
+                species.data.ac[j] = 1.0
+
+                species.data.x[j] = lonmin + rand() * (lonmax-lonmin)
+                species.data.y[j] = latmin + rand() * (latmax-latmin)
+
+                species.data.length[j] = rand() .* (species.p.Max_Size[2][species_index])
+                species.data.biomass[j]  = species.p.LWR_a[2][species_index] .* (species.data.length[j] ./ 10) .^ species.p.LWR_b[2][species_index]  # Bm
+                species.data.gut_fullness[j] = rand() * 0.2 * species.data.biomass[j] #Proportion of gut that is full. Start with a random value between empty and 3% of predator diet.
+                species.data.interval[j] = rand() * species.p.Surface_Interval[2][species_index]
+
+                if 6*60 <= model.t < 18*60
+                    species.data.z[j] = gaussmix(1,z_day_dist[species_index,"mu1"],z_day_dist[species_index,"mu2"],z_day_dist[species_index,"mu3"],z_day_dist[species_index,"sigma1"],z_day_dist[species_index,"sigma2"],z_day_dist[species_index,"sigma3"],z_day_dist[species_index,"lambda1"],z_day_dist[species_index,"lambda2"])[1]
+                else
+                    species.data.z[j] = gaussmix(1,z_night_dist[species_index,"mu1"],z_night_dist[species_index,"mu2"],z_night_dist[species_index,"mu3"],z_night_dist[species_index,"sigma1"],z_night_dist[species_index,"sigma2"],z_night_dist[species_index,"sigma3"],z_night_dist[species_index,"lambda1"],z_night_dist[species_index,"lambda2"])[1]
                 end
-            else
-                num_eggs = Int(round(num_eggs))
-            end
-            if num_eggs > 0
-                append!(sp_dat.length, fill(size, num_eggs))
-                append!(sp_dat.biomass, fill(biomass, num_eggs))
-                append!(sp_dat.ac, fill(1.0, num_eggs))
-                append!(sp_dat.x, fill(model.individuals.animals[sp].data.x[ind[i]], num_eggs))
-                append!(sp_dat.y, fill(model.individuals.animals[sp].data.y[ind[i]], num_eggs))
-                append!(sp_dat.z, fill(model.individuals.animals[sp].data.z[ind[i]], num_eggs))
-                append!(sp_dat.gut_fullness, fill(0, num_eggs))
-                append!(sp_dat.vis_prey, fill(visual_range_preys_init(arch,size,model.individuals.animals[sp].data.z[ind[i]],1)[1] * sp_char.t_resolution[2][sp], num_eggs))
-                append!(sp_dat.vis_pred, fill(visual_range_preds_init(arch,size,model.individuals.animals[sp].data.z[ind[i]],1)[1] * sp_char.t_resolution[2][sp], num_eggs))
-                append!(sp_dat.pool_x, fill(model.individuals.animals[sp].data.pool_x[ind[i]], num_eggs))
-                append!(sp_dat.pool_y, fill(model.individuals.animals[sp].data.pool_y[ind[i]], num_eggs))
-                append!(sp_dat.pool_z, fill(model.individuals.animals[sp].data.pool_z[ind[i]], num_eggs))
-                append!(sp_dat.energy, fill(biomass * sp_char.Energy_density[2][sp] * 0.2, num_eggs))
-                append!(sp_dat.behavior, fill(1.0, num_eggs))
-                append!(sp_dat.target_z, fill(model.individuals.animals[sp].data.z[ind[i]], num_eggs))
-                append!(sp_dat.dive_capable, fill(1, num_eggs))
-                append!(sp_dat.feeding, fill(1, num_eggs))
-                append!(sp_dat.consumed, fill(0, num_eggs))
-                append!(sp_dat.eDNA_shed, fill(0, num_eggs))
-                append!(sp_dat.mig_status, fill(0, num_eggs))
-                append!(sp_dat.mig_rate, fill(0, num_eggs))
-                append!(sp_dat.rmr, fill(0, num_eggs))
-                append!(sp_dat.dives_remaining, fill(0, num_eggs))
-                append!(sp_dat.interval, fill(0, num_eggs))
-                append!(sp_dat.daily_ration, fill(0, num_eggs))
-                append!(sp_dat.ration, fill(0, num_eggs))
-                append!(sp_dat.mature, fill(0, num_eggs))
+                species.data.x[j] = clamp(species.data.x[j],lonmin,lonmax)
+                species.data.y[j] = clamp(species.data.y[j],latmin,latmax)
+                species.data.z[j] = clamp(species.data.z[j],1,maxdepth)
+
+                species.data.pool_x[j] = Int(ceil(species.data.x[j]/((lonmax-lonmin)/lonres),digits = 0))  
+                species.data.pool_y[j] = Int(ceil(species.data.y[j]/((latmax-latmin)/latres),digits = 0))  
+                species.data.pool_z[j] = Int(ceil(species.data.z[j]/(maxdepth/depthres),digits=0))
+
+                species.data.pool_z[j] = clamp(species.data.pool_z[j],1,depthres)
+
+                species.data.energy[j] = species.data.biomass[j] * species.p.Energy_density[2][species_index]* 0.2   # Initial reserve energy = Rmax
+
+                species.data.gut_fullness[j] = rand() * 0.2 *species.data.biomass[j] #Proportion of gut that is full. Start with a random value.
+                species.data.daily_ration[j] = 0
+                species.data.ration[j] = 0
             end
         end
     end

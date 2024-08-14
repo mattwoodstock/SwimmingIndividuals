@@ -55,10 +55,16 @@ mutable struct AllPreys
     preys::NamedTuple
 end
 
+mutable struct MarineEnvironment
+    temp::Array                 #TemperatureArray
+    temp_z::Vector{Float64}     #Z values for temperaturearray
+    chl::Array
+end
 
 ##### Model struct
 mutable struct MarineModel
     arch::Architecture          # architecture on which models will run
+    environment::MarineEnvironment
     t::Float64                  # time in minute
     iteration::Int64            # model interation
     dt::Float64                 # Patch Resolution
@@ -213,19 +219,85 @@ function safe_intersect(sets::Vector{Set{Int}})
     return common_indices
 end
 
-function get_memory_usage()
-    return Sys.total_memory() - Sys.free_memory()
+function trilinear_interpolation_irregular_z(temp_grid, xs, ys, zs, z_vals)
+    num_individuals = length(xs)
+    temperatures = Vector{Float64}(undef, num_individuals)
+
+    # Get grid dimensions
+    x_size, y_size, z_size = size(temp_grid)
+
+    # Calculate indices
+    x1 = clamp.(floor.(Int, xs), 1, x_size - 1)
+    x2 = clamp.(x1 .+ 1, 1, x_size)
+
+    y1 = clamp.(floor.(Int, ys), 1, y_size - 1)
+    y2 = clamp.(y1 .+ 1, 1, y_size)
+
+    # Prepare arrays to hold z1 and z2 indices
+    z1_indices = Int[]
+    z2_indices = Int[]
+
+    # Find z indices and corresponding values
+    for z in zs
+        z1 = findfirst(z_val -> z_val >= z, z_vals)
+        if isnothing(z1)
+            push!(z1_indices, z_size - 1)
+            push!(z2_indices, z_size)
+        else
+            z1 = clamp(z1, 1, z_size - 1)
+            push!(z1_indices, z1)
+            push!(z2_indices, clamp(z1 + 1, 1, z_size))
+        end
+    end
+
+    z1_values = z_vals[z1_indices]
+    z2_values = z_vals[z2_indices]
+
+    # Calculate the relative positions along the z-axis
+    zd = (zs .- z1_values) ./ (z2_values .- z1_values)
+
+    # Retrieve the values from the grid using the computed indices
+    for i in 1:num_individuals
+        xi, yi, zi1, zi2 = x1[i], y1[i], z1_indices[i], z2_indices[i]
+        
+        c000 = temp_grid[xi, yi, zi1]
+        c001 = temp_grid[xi, yi, zi2]
+        c010 = temp_grid[xi, y2[i], zi1]
+        c011 = temp_grid[xi, y2[i], zi2]
+        c100 = temp_grid[x2[i], yi, zi1]
+        c101 = temp_grid[x2[i], yi, zi2]
+        c110 = temp_grid[x2[i], y2[i], zi1]
+        c111 = temp_grid[x2[i], y2[i], zi2]
+
+        # Compute the interpolated value for each z slice
+        c00 = c000 * (1 - zd[i]) + c100 * zd[i]
+        c01 = c001 * (1 - zd[i]) + c101 * zd[i]
+        c10 = c010 * (1 - zd[i]) + c110 * zd[i]
+        c11 = c011 * (1 - zd[i]) + c111 * zd[i]
+
+        # Interpolate in x and y
+        xd = xs[i] - x1[i] + 1
+        yd = ys[i] - y1[i] + 1
+
+        c0 = c00 * (1 - yd) + c10 * yd
+        c1 = c01 * (1 - yd) + c11 * yd
+
+        temperatures[i] = c0 * (1 - xd) + c1 * xd
+    end
+
+    return temperatures
 end
 
-function update_prey_distance(prey_info::PreyInfo; distance::Float64)
-    return PreyInfo(
-        prey_info.id,
-        prey_info.type,
-        prey_info.time,
-        prey_info.location,
-        prey_info.depth,
-        prey_info.temperature,
-        prey_info.density,
-        distance  # Updated length or distance
-    )
+function sphere_volume(length::Float64, num_individuals)::Float64
+    # Calculate the total volume occupied by the individuals
+    volume_individual = π * length^3 / 6
+    total_volume = num_individuals * volume_individual
+    
+    # Calculate the radius of the sphere containing all individuals
+    radius_cubed = total_volume * 3 / (4 * π)
+    radius = radius_cubed^(1/3)
+    
+    # Calculate the volume of the sphere
+    sphere_volume = 4/3 * π * radius^3
+    return sphere_volume
 end

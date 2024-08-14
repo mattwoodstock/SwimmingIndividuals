@@ -2,8 +2,8 @@ function behavior(model, sp, ind, outputs)
     behave_type = model.individuals.animals[sp].p.Type[2][sp]  # A variable that determines the behavioral type of an animal
     
     if behave_type == "dvm_strong"
-        dvm_action(model, sp, ind,outputs)
-        decision(model, sp, ind, outputs)
+        dvm_action(model, sp, ind)
+        decision(model, sp, ind,outputs)
     elseif behave_type == "dvm_weak"
         max_fullness = 0.2 * model.individuals.animals[sp].data.biomass[ind]
         feed_trigger = model.individuals.animals[sp].data.gut_fullness[ind] / max_fullness
@@ -12,7 +12,7 @@ function behavior(model, sp, ind, outputs)
         if model.t >= 18 * 60 && model.individuals.animals[sp].data.mig_status[ind] == -1 && rand() >= dist
             decision(model, sp, ind, outputs)  # Animal does not migrate when it has the chance. Behaves as normal
         else
-            dvm_action(model, sp, ind,outputs)  # Animal either migrates or continues what it should do
+            dvm_action(model, sp, ind)  # Animal either migrates or continues what it should do
             decision(model, sp, ind, outputs)
         end
     elseif behave_type in ("surface_diver", "pelagic_diver")
@@ -28,7 +28,7 @@ end
 function predators(model, sp, ind)
     # Precompute constant values
     min_pred_limit = 0.01
-    max_pred_limit = 0.1
+    max_pred_limit = 0.2
     # Gather distances
     detection = model.individuals.animals[sp].data.vis_pred[ind]
     calculate_distances_pred(model,sp,ind,min_pred_limit,max_pred_limit,detection)
@@ -37,7 +37,7 @@ end
 function preys(model, sp, ind)
     # Precompute constant values
     min_prey_limit = 0.01
-    max_prey_limit = 0.1
+    max_prey_limit = 0.2
     # Gather distances
     detection = model.individuals.animals[sp].data.vis_prey[ind]
     prey = calculate_distances_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
@@ -48,7 +48,7 @@ end
 function patch_preys(model, sp, ind)
     # Precompute constant values
     min_prey_limit = 0.01
-    max_prey_limit = 0.1
+    max_prey_limit = 0.2
     # Gather distances
     detection = model.pools.pool[sp].data.vis_prey[ind]
     prey = calculate_distances_patch_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
@@ -61,30 +61,28 @@ function decision(model, sp, ind, outputs)
     val1 = rand(length(ind))
 
     # Individual avoids predators if predators exist
-    #preds = predators(model, sp, ind)  #Create list of predators
-
+    preds = predators(model, sp, ind)  #Create list of predators
     prey = preys(model, sp, ind)  #Create list of preys for all individuals in the species
-
-    to_eat = findall(feed_trigger .>= val1)
-    not_eat = findall(feed_trigger .< val1)
+    to_eat = findall(feed_trigger .<= val1)
+    not_eat = findall(feed_trigger .> val1)
 
     eating = ind[to_eat]
     not_eating = ind[not_eat]
 
     if length(to_eat) > 0
         time = eat(model, sp, eating,to_eat, prey, outputs)
-        move_to_prey(model,sp,ind,to_eat,time,prey) #Move all animals to nearest prey if possible.
-    else
-        ## Only do this currently if nobody can eat.
-        #READD PREDATOR AVOIDANCE WITH INFORMED INFOMRATION
-        ## Use @preds variable to have predator list
-        time = fill(model.individuals.animals[sp].p.t_resolution[2][sp] * 60,length(not_eating))
-        move_to_prey(model,sp,ind,not_eat,time,prey) #Move all animals to nearest prey if possible.
+        time_remaining = findall(x -> x>0,time)
+        predator_avoidance(model,time,eating,to_eat,preds,sp)
     end
 
+    if length(not_eating) > 0
+        time = fill(model.individuals.animals[sp].p.t_resolution[2][sp] * 60,length(not_eating))
+        predator_avoidance(model,time,not_eating,not_eat,preds,sp)
+    end 
+    
     #Clear these as they are no longer necessary and take up memory.
     prey.preys = NamedTuple()
-    #preds.preds = NamedTuple()
+    preds.preds = NamedTuple()
 end
 
 function visual_range_preds_init(arch,length,depth,ind)
@@ -129,17 +127,12 @@ function visual_range_preds_init(arch,length,depth,ind)
     return x
 end
 
-function visual_range_preys_init(arch,length,depth,ind)
+function visual_range_preys_init(length,depth,ind)
 
-    if arch == CPU()
-        salt = fill(30,ind) # Needs to be in PSU
-        pred_contrast = fill(0.3,ind) # Utne-Plam (1999)
-        eye_saturation = fill(4 * 10^-4,ind)
-    else
-        salt = CUDA.fill(30,ind) # Needs to be in PSU
-        pred_contrast = CUDA.fill(0.3,ind) # Utne-Plam (1999)
-        eye_saturation = CUDA.fill(4 * 10^-4,ind)
-    end
+    salt = fill(30,ind) # Needs to be in PSU
+    pred_contrast = fill(0.3,ind) # Utne-Plam (1999)
+    eye_saturation = fill(4 * 10^-4,ind)
+
     ind_length = length ./ 1000 # Length in meters
     pred_length = ind_length .* 0.05 # Largest possible pred-prey size ratio
     surface_irradiance = 300 # Need real value, in W m^-2
@@ -150,14 +143,8 @@ function visual_range_preys_init(arch,length,depth,ind)
     # Beam Attenuation coefficient
     c_lat = 4.87 .* a_lat # Huse and Fiksen (2010); per meter
     # Compute irradiance based on architecture
-    if arch == CPU()
-        i_td = surface_irradiance .* exp.(-0.1 .* depth)
-    else
-        z_cpu = depth # Assuming 'z' is already a Julia array
-        z_gpu = CuArray(z_cpu) # Convert 'z' to a CuArray
-        # Perform the exponential operation on the GPU
-        i_td = surface_irradiance .* CUDA.exp.(-0.1 .* z_gpu) 
-    end
+    i_td = surface_irradiance .* exp.(-0.1 .* depth)
+
     # Prey image area
     pred_image = 0.75 .* pred_length .* pred_width
     # Visual eye sensitivity
@@ -170,7 +157,7 @@ function visual_range_preys_init(arch,length,depth,ind)
     threshold = 0.1 # Non-visual detection range.
     indices = findall(x -> x < threshold, range)
     if !isempty(indices) > 0
-        range[indices] .= 0.1
+        range[indices] .= 0.01 #1 cm threshold
     end    
     return range
 end
