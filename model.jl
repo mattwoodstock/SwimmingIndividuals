@@ -1,4 +1,4 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
 using KernelAbstractions: @kernel, @index
@@ -37,7 +37,7 @@ maxN = 1 # Placeholder where the maximum number of individuals created is simply
 arch = CPU() #Architecture to use.
 t = 0.0 #Initial time
 n_iteration = parse(Int64,state[state.Name .== "nts", :Value][1]) #Number of model iterations (i.e., timesteps) to run
-dt = 60.0 #minutes per time step. Keep this at one.
+dt = 20.0 #minutes per time step. Keep this at one.
 n_iters = 365
 
 ## Create Output grid

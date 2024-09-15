@@ -3,7 +3,10 @@ function behavior(model, sp, ind, outputs)
     
     if behave_type == "dvm_strong"
         dvm_action(model, sp, ind)
-        decision(model, sp, ind,outputs)
+        not_migrating = findall(x -> x .<= 0.0,model.individuals.animals[sp].data.mig_status[ind])
+        if length(not_migrating) > 0
+            decision(model, sp, ind[not_migrating],outputs)
+        end
     elseif behave_type == "dvm_weak"
         max_fullness = 0.2 * model.individuals.animals[sp].data.biomass[ind]
         feed_trigger = model.individuals.animals[sp].data.gut_fullness[ind] / max_fullness
@@ -63,6 +66,10 @@ function decision(model, sp, ind, outputs)
     # Individual avoids predators if predators exist
     preds = predators(model, sp, ind)  #Create list of predators
     prey = preys(model, sp, ind)  #Create list of preys for all individuals in the species
+
+    #Calculate the prey energy landscape for each individual 
+    energy_landscape(model,sp,ind,prey)
+
     to_eat = findall(feed_trigger .<= val1)
     not_eat = findall(feed_trigger .> val1)
 
@@ -71,7 +78,6 @@ function decision(model, sp, ind, outputs)
 
     if length(to_eat) > 0
         time = eat(model, sp, eating,to_eat, prey, outputs)
-        time_remaining = findall(x -> x>0,time)
         predator_avoidance(model,time,eating,to_eat,preds,sp)
     end
 
@@ -97,7 +103,8 @@ function visual_range_preds_init(arch,length,depth,ind)
     end
     ind_length = length ./ 1000 # Length in meters
     pred_length = ind_length ./ 0.01 # Largest possible pred-prey size ratio
-    surface_irradiance = 300 # Need real value, in W m^-2
+
+    surface_irradiance = 100 # Need real value, in W m^-2
     pred_width = pred_length ./ 4
     rmax = ind_length .* 30 # The maximum visual range. Currently, this is 1 body length
     # Light attenuation coefficient
@@ -135,7 +142,7 @@ function visual_range_preys_init(length,depth,ind)
 
     ind_length = length ./ 1000 # Length in meters
     pred_length = ind_length .* 0.05 # Largest possible pred-prey size ratio
-    surface_irradiance = 300 # Need real value, in W m^-2
+    surface_irradiance = 100 # Need real value, in W m^-2
     pred_width = pred_length ./ 4
     rmax = ind_length .* 30 # The maximum visual range. Currently, this is 1 body length
     # Light attenuation coefficient
@@ -162,19 +169,15 @@ function visual_range_preys_init(length,depth,ind)
     return range
 end
 
-function visual_range_preds(model, sp, ind)
-    if model.arch == CPU()
-        salt = fill(30,length(ind)) # Needs to be in PSU
-        pred_contrast = fill(0.3,length(ind)) # Utne-Plam (1999)
-        eye_saturation = fill(4 * 10^-4,length(ind))
-    else
-        salt = CUDA.fill(30,length(ind)) # Needs to be in PSU
-        pred_contrast = CUDA.fill(0.3,length(ind)) # Utne-Plam (1999)
-        eye_saturation = CUDA.fill(4 * 10^-4,length(ind))
-    end
-    ind_length = model.individuals.animals[sp].data.length[ind] ./ 1000 # Length in meters
-    pred_length = ind_length ./ 0.01 # Largest possible pred-prey size ratio
-    surface_irradiance = 300 # Need real value, in W m^-2
+function visual_range_preys(model,length,depth,ind)
+
+    salt = fill(30,ind) # Needs to be in PSU
+    pred_contrast = fill(0.3,ind) # Utne-Plam (1999)
+    eye_saturation = fill(4 * 10^-4,ind)
+
+    ind_length = length ./ 1000 # Length in meters
+    pred_length = ind_length .* 0.05 # Largest possible pred-prey size ratio
+    surface_irradiance = ipar_curve(model.t) # Need real value, in W m^-2
     pred_width = pred_length ./ 4
     rmax = ind_length .* 30 # The maximum visual range. Currently, this is 1 body length
     # Light attenuation coefficient
@@ -182,10 +185,45 @@ function visual_range_preds(model, sp, ind)
     # Beam Attenuation coefficient
     c_lat = 4.87 .* a_lat # Huse and Fiksen (2010); per meter
     # Compute irradiance based on architecture
-    if model.arch == CPU()
-        i_td = surface_irradiance .* exp.(-0.1 .* model.individuals.animals[sp].data.z[ind])
+    i_td = surface_irradiance .* exp.(-0.1 .* depth)
+
+    # Prey image area
+    pred_image = 0.75 .* pred_length .* pred_width
+    # Visual eye sensitivity
+    eye_sensitivity = (rmax.^2) ./ (pred_image .* pred_contrast)
+    # Define f(x) and its derivative fp(x)
+    f(x) = x.^2 .* exp.(c_lat .* x) .- (pred_contrast .* pred_image .* eye_sensitivity .* (i_td ./ (eye_saturation .+ i_td)))
+    fp(x) = 2 .* x .* exp.(c_lat .* x) .+ x.^2 .* c_lat .* exp.(c_lat .* x)
+    # Call the Newton-Raphson method
+    range = newton_raphson(f, fp)
+    threshold = 0.1 # Non-visual detection range.
+    indices = findall(x -> x < threshold, range)
+    if !isempty(indices) > 0
+        range[indices] .= 0.01 #1 cm threshold
+    end    
+    return range
+end
+
+function visual_range_preds(model,length,depth,ind)
+    salt = fill(30,ind) # Needs to be in PSU
+    pred_contrast = fill(0.3,ind) # Utne-Plam (1999)
+    eye_saturation = fill(4 * 10^-4,ind)
+
+    ind_length = length ./ 1000 # Length in meters
+    pred_length = ind_length ./ 0.01 # Largest possible pred-prey size ratio
+
+    surface_irradiance = ipar_curve(model.t) # Need real value, in W m^-2
+    pred_width = pred_length ./ 4
+    rmax = ind_length .* 30 # The maximum visual range. Currently, this is 1 body length
+    # Light attenuation coefficient
+    a_lat = 0.64 .- 0.016 .* salt # Aksnes et al. 2009; per meter
+    # Beam Attenuation coefficient
+    c_lat = 4.87 .* a_lat # Huse and Fiksen (2010); per meter
+    # Compute irradiance based on architecture
+    if arch == CPU()
+        i_td = surface_irradiance .* exp.(-0.1 .* depth)
     else
-        z_cpu = model.individuals.animals[sp].data.z[ind] # Assuming 'z' is already a Julia array
+        z_cpu = depth # Assuming 'z' is already a Julia array
         z_gpu = CuArray(z_cpu) # Convert 'z' to a CuArray
         # Perform the exponential operation on the GPU
         i_td = surface_irradiance .* CUDA.exp.(-0.1 .* z_gpu) 
@@ -202,65 +240,6 @@ function visual_range_preds(model, sp, ind)
     # Visual range estimates may be much more complicated when considering bioluminescent organisms. Could incorporate this if we assigned each species a "luminous type"
     ## https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3886326/
     return x
-end
-
-function visual_range_preys(model,sp,ind)
-    ind_length = model.individuals.animals[sp].data.length[ind]/1000 # Length in meters
-    prey_length = ind_length * 0.05 #Largest possible pred-prey size ratio (mm)
-    salt = 30 #Needs to be in PSU
-    surface_irradiance = 300 #Need real value. in W m-2
-    prey_width = prey_length/4
-    rmax = ind_length * 30 #Currently 30 times the body length of the animal
-    prey_contrast = 0.3 #Utne-Plam (1999)   
-    eye_saturation = 4 * 10^-4
-    #Light attentuation coefficient
-    a_lat = 0.64 - 0.016 * salt #Aksnes et al. 2009; per meter
-    #Beam Attentuation coefficient
-    c_lat = 4.87*a_lat #Huse and Fiksen (2010); per meter
-    #Ambient irradiance at foraging depth
-    i_td = surface_irradiance*exp(-0.1 * model.individuals.animals[sp].data.z[ind]) #Currently only reflects surface; 
-    #Prey image area 
-    prey_image = 0.75*prey_length*prey_width
-    #Visual eye sensitivity
-    eye_sensitivity = (rmax^2)/(prey_image*prey_contrast)
-    #Equations for Visual Field
-    f(x) =  x^2 * exp(c_lat * x) - (prey_contrast * prey_image * eye_sensitivity * (i_td/(eye_saturation + i_td)))
-    fp(x) =  2 * x * exp(c_lat * x) + x^2 * c_lat * exp(c_lat * x)
-    x = newton_raphson(f,fp)
-    if x < 0.05
-        x = sqrt(prey_contrast * prey_image * eye_sensitivity * (i_td / (eye_saturation + i_td)))
-    end
-    return x
-end
-
-function visual_pool(model,pool,depth)
-    ind_length = mean(model.pools.pool[pool].characters.Min_Size[2][pool]:model.pools.pool[pool].characters.Max_Size[2][pool])/1000
-    prey_length = ind_length * 0.05 #Largest possible pred-prey size ratio (mm)
-    salt = 35 #Needs to be in PSU
-    surface_irradiance = 300 #Need real value. in W m-2
-    prey_width = prey_length/4
-    rmax = ind_length * 30 # The maximum visual range. Currently this is 30 x body length
-    prey_contrast = 0.3 #Utne-Plam (1999)   
-    eye_saturation = 4 * 10^-4
-    #Light attentuation coefficient
-    a_lat = 0.64 - 0.016 * salt #Aksnes et al. 2009; per meter
-    #Beam Attentuation coefficient
-    c_lat = 4.87*a_lat #Huse and Fiksen (2010); per meter
-    #Ambient irradiance at foraging depth
-    i_td = surface_irradiance*exp(-0.1 * depth) #Currently only reflects surface; 
-    #Prey image area 
-    prey_image = 0.75*prey_length*prey_width
-    #Visual eye sensitivity
-    eye_sensitivity = (rmax^2)/(prey_image*prey_contrast)
-    #Equations for Visual Field
-    f(x) =  x^2 * exp(c_lat * x) - (prey_contrast * prey_image * eye_sensitivity * (i_td/(eye_saturation + i_td)))
-    fp(x) =  2 * x * exp(c_lat * x) + x^2 * c_lat * exp(c_lat * x)
-    x = newton_raphson(f,fp)
-    if x < 0.05
-        x = sqrt(prey_contrast * prey_image * eye_sensitivity * (i_td / (eye_saturation + i_td)))
-    end
-    range = (1/2) * (4/3) * pi * x^3
-    return range
 end
 
 # Function for the cost function used to triangulate the best distance

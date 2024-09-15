@@ -3,7 +3,7 @@ function dvm_action(model, sp, ind)
     data = animal.data
     params = animal.p
     ΔT = params.t_resolution[2][sp]
-    swim_speed = 2.64 # Meters per minute following Bianchi and Mislan 2016. Want to make this size based.
+    swim_speed = 2.68 # Meters per minute. Size-based
     files = model.files
     z_dist_file_day = files[files.File .== "focal_z_dist_day", :Destination][1]
     z_dist_file_night = files[files.File .== "focal_z_dist_night", :Destination][1]
@@ -22,7 +22,7 @@ function dvm_action(model, sp, ind)
 
     # Create masks for each condition
     is_daytime = (6*60 <= model.t) && (model.t < 18*60)
-    is_nighttime = model.t >= 18*60
+    is_nighttime = (model.t >= 18*60) || (model.t < 6*60)
 
     mig_status_0 = findall(x -> x == 0.0, data.mig_status[ind])
     mig_status_neg1 = findall(x -> x == -1.0, data.mig_status[ind])
@@ -33,22 +33,25 @@ function dvm_action(model, sp, ind)
         # Daytime descent
         mig_inds = ind[mig_status_0]
         data.mig_status[mig_inds] .= 2
-        data.target_z[mig_inds] .= clamp.(get_target_z.(sp, Ref(z_day_dist)), 1, maxdepth)
+        data.target_z[mig_inds] .= clamp.(get_target_z.(sp, Ref(z_day_dist)), data.z[mig_inds], maxdepth)
         data.mig_rate[mig_inds] .= swim_speed
         data.z[mig_inds] .= min.(data.target_z[mig_inds], data.z[mig_inds] .+ data.mig_rate[mig_inds] .* ΔT)
         data.behavior[mig_inds] .= 2
         data.mig_status[mig_inds[data.z[mig_inds] .>= data.target_z[mig_inds]]] .= -1
+        data.active[mig_inds] .= ΔT
     end
 
     if is_nighttime && !isempty(mig_status_neg1)
         # Nighttime ascent
         mig_inds = ind[mig_status_neg1]
         data.mig_status[mig_inds] .= 1
-        data.target_z[mig_inds] .= clamp.(get_target_z.(sp, Ref(z_night_dist)), 1, maxdepth)
+        data.target_z[mig_inds] .= clamp.(get_target_z.(sp, Ref(z_night_dist)), 1, data.z[mig_inds])
         data.mig_rate[mig_inds] .= swim_speed
         data.z[mig_inds] .= max.(data.target_z[mig_inds], data.z[mig_inds] .- data.mig_rate[mig_inds] .* ΔT)
         data.behavior[mig_inds] .= 2
         data.mig_status[mig_inds[data.z[mig_inds] .== data.target_z[mig_inds]]] .= 0
+        data.active[mig_inds] .= ΔT
+
     end
 
     if !isempty(mig_status_1)
@@ -57,6 +60,8 @@ function dvm_action(model, sp, ind)
         target_z_asc = data.target_z[mig_inds]
         data.z[mig_inds] .= max.(target_z_asc, data.z[mig_inds] .- data.mig_rate[mig_inds] .* ΔT)
         data.mig_status[mig_inds[(data.z[mig_inds] .== target_z_asc) .| (model.t .== 21*60)]] .= 0
+        data.active[mig_inds] .= ΔT
+
     end
 
     if !isempty(mig_status_2)
@@ -65,6 +70,8 @@ function dvm_action(model, sp, ind)
         target_z_desc = data.target_z[mig_inds]
         data.z[mig_inds] .= min.(target_z_desc, data.z[mig_inds] .+ data.mig_rate[mig_inds] .* ΔT)
         data.mig_status[mig_inds[(data.z[mig_inds] .== target_z_desc) .| (model.t .== 9*60)]] .= -1
+        data.active[mig_inds] .= ΔT
+
     end
 
     # Update behavior for individuals not migrating
@@ -75,12 +82,11 @@ function dvm_action(model, sp, ind)
     data.pool_z[ind] .= ceil.(Int, data.z[ind] ./ (maxdepth / depthres))
 
     #Update vision
-    data.vis_prey[ind] = visual_range_preys_init(data.length[ind],data.z[ind],length(ind)) .* ΔT
-    data.vis_pred[ind] = visual_range_preds_init(arch,data.length[ind],data.z[ind],length(ind)) .* ΔT
+    data.vis_prey[ind] = visual_range_preys(model,data.length[ind],data.z[ind],length(ind)) .* ΔT
+    data.vis_pred[ind] = visual_range_preds(model,data.length[ind],data.z[ind],length(ind)) .* ΔT
 
     return nothing
 end
-
 function surface_dive(model, sp, ind)
     files = model.files
     grid_file = files[files.File .== "grid", :Destination][1]
@@ -302,63 +308,70 @@ function cost_function_prey(position, predator_matrix)
 end
 
 #Optimization function to find the ideal location for prey to go
-function predator_avoidance(model,time,ind,to_move,pred_list,sp)
+function predator_avoidance(model, time, ind, to_move, pred_list, sp)
+    # Precompute grid values
     files = model.files
-    grid_file = files[files.File .=="grid",:Destination][1]
-    grid = CSV.read(grid_file,DataFrame)
+    grid_file = files[files.File .=="grid", :Destination][1]
+    grid = CSV.read(grid_file, DataFrame)
+    
     depthres = grid[grid.Name .== "depthres", :Value][1]
     lonres = grid[grid.Name .== "lonres", :Value][1]
     latres = grid[grid.Name .== "latres", :Value][1]
     maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
     lonmax = grid[grid.Name .== "lonmax", :Value][1]
     lonmin = grid[grid.Name .== "lonmin", :Value][1]
     latmax = grid[grid.Name .== "latmax", :Value][1]
     latmin = grid[grid.Name .== "latmin", :Value][1]
 
-    n_ind = length(model.individuals.animals[sp].data.length[ind])
+    # Precompute some other values
     animal = model.individuals.animals[sp]
     animal_data = animal.data
     length_ind = animal_data.length[ind]
-    max_dist = model.individuals.animals[sp].p.Swim_velo[2][sp] * (length_ind / 1000) .* time
+    max_dist = model.individuals.animals[sp].p.Swim_velo[2][sp] .* (length_ind / 1000) .* time
 
-    Threads.@threads for ind_index in 1:n_ind
+    # Threads for parallel processing
+    Threads.@threads for ind_index in 1:length(ind)
         pred_list_item = pred_list.preds[to_move[ind_index]]
-        if isempty(pred_list_item)
-            continue
-        end
-
-        if model.individuals.animals[sp].data.ac[ind[ind_index]] == 0 #Animal was consumed in by another animal this time.
+        
+        # Skip if there are no predators or the animal was consumed
+        if isempty(pred_list_item) || model.individuals.animals[sp].data.ac[ind[ind_index]] == 0
+            model.individuals.animals[sp].data.behavior[ind[ind_index]] = 0
             continue
         end
 
         pred_info = pred_list_item[1]
-        predator_position = [pred_info.x,pred_info.y,pred_info.z]
-        position = [animal_data.x[ind[ind_index]],animal_data.y[ind[ind_index]],animal_data.z[ind[ind_index]]]
-        direction_vector = predator_position .- position
-        direction_magnitude = sqrt(sum(direction_vector.^2))
+        predator_position = SVector(pred_info.x, pred_info.y, pred_info.z)
+        position = SVector(animal_data.x[ind[ind_index]], animal_data.y[ind[ind_index]], animal_data.z[ind[ind_index]])
+        
+        # Calculate the direction and displacement
+        direction_vector = predator_position - position
+        direction_magnitude = norm(direction_vector)
+        
         if direction_magnitude == 0
             continue
-        else
-            unit_vector = direction_vector / direction_magnitude
-            displacement_vector = unit_vector .* max_dist[ind_index]
-            new_prey_position = position .+ displacement_vector
         end
+        
+        unit_vector = direction_vector / direction_magnitude
+        displacement_vector = unit_vector * max_dist[ind_index]
+        new_prey_position = position + displacement_vector
+        
+        # Apply bounds
+        x = clamp(new_prey_position[1], lonmin, lonmax)
+        y = clamp(new_prey_position[2], latmin, latmax)
+        z = clamp(new_prey_position[3], 1, maxdepth)
 
-        x = clamp(new_prey_position[1],lonmin,lonmax)
-        y = clamp(new_prey_position[2],latmin,latmax)
-        z = clamp(new_prey_position[3],1,maxdepth)
+        # Update animal's position
+        animal_data.x[ind[ind_index]] = x
+        animal_data.y[ind[ind_index]] = y
+        animal_data.z[ind[ind_index]] = z
+        
+        # Update pool indices
+        animal_data.pool_x[ind[ind_index]] = max(1, ceil(Int, (x - lonmin) / ((lonmax - lonmin) / lonres)))
+        animal_data.pool_y[ind[ind_index]] = max(1, ceil(Int, (y - latmin) / ((latmax - latmin) / latres)))
+        animal_data.pool_z[ind[ind_index]] = max(1, clamp(ceil(Int, z / (maxdepth / depthres)), 1, depthres))
 
-        model.individuals.animals[sp].data.x[ind[ind_index]] = x
-        model.individuals.animals[sp].data.y[ind[ind_index]] = y
-        model.individuals.animals[sp].data.z[ind[ind_index]] = z
-
-        model.individuals.animals[sp].data.pool_x[ind[ind_index]] = max(1,ceil(Int, model.individuals.animals[sp].data.x[ind[ind_index]] / ((lonmax - lonmin) / lonres)))
-        model.individuals.animals[sp].data.pool_y[ind[ind_index]] = max(1,ceil(Int, model.individuals.animals[sp].data.y[ind[ind_index]] / ((latmax - latmin) / latres)))
-        model.individuals.animals[sp].data.pool_z[ind[ind_index]] = max(1,ceil(Int, model.individuals.animals[sp].data.z[ind[ind_index]] / (maxdepth / depthres)))
-        model.individuals.animals[sp].data.pool_z[ind[ind_index]] = clamp(model.individuals.animals[sp].data.pool_z[ind[ind_index]],1,depthres)
-
-        model.individuals.animals[sp].data.active[ind[ind_index]] += time[ind_index]
+        # Update activity in minutes
+        animal_data.active[ind[ind_index]] += (time[ind_index]/60)
     end
 end
 

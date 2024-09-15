@@ -12,7 +12,6 @@ function TimeStep!(sim)
     print(model.t)
     print(":   ")
 
-    #println(model.abund)
     #Add the behavioral context for each species
     for (species_index, _) in enumerate(keys(model.individuals.animals))
         species = model.individuals.animals[species_index]
@@ -21,7 +20,6 @@ function TimeStep!(sim)
 
             # Calculate n_ind outside the GPU loop
             alive = findall(x -> x == 1.0, species.data.ac) #Number of individuals per species that are active
-            zs = findall(x -> x > 10,species.data.pool_z)
             model.abund[species_index] = length(alive)
             model.bioms[species_index] = sum(model.individuals.animals[species_index].data.biomass[alive])
             if length(alive) > 0
@@ -39,15 +37,16 @@ function TimeStep!(sim)
                     sda = specific_dynamic_action(model,species_index,egest,chunk_indices)
                     energy(model, species_index, sda, respire, egest, excrete,chunk_indices)
                     evacuate_gut(model, species_index, chunk_indices, ind_temp)
-                    starvation(model,species, species_index, chunk_indices, outputs)
+                    starvation(model,species, species_index, chunk_indices, outputs)                    
                 end
             end
             #reproduce(model,species_index,alive)
         end 
         species.data.daily_ration[alive] .+= species.data.ration[alive]
     end
-    alive = findall(x -> x == 1.0, model.individuals.animals[1].data.ac) #Number of individuals per species that are active
-    println(mean(model.individuals.animals[1].data.daily_ration[alive] ./ 5000 ./ model.individuals.animals[1].data.biomass[alive] .* 100))
+    alive = findall(x -> x == 1.0, model.individuals.animals[2].data.ac) #Number of individuals per species that are active
+    #println(mean(model.individuals.animals[20].data.daily_ration[alive] ./ 5000 ./ model.individuals.animals[20].data.biomass[alive] .* 100))
+    println(model.individuals.animals[2].data.behavior)
 
     #Non-focal species processing
     for (pool_index,animal_index) in enumerate(keys(model.pools.pool))
@@ -80,9 +79,9 @@ function TimeStep!(sim)
         model.individuals.animals[species_index].data.ration .= 0
         model.individuals.animals[species_index].data.active .= 0
         model.individuals.animals[species_index].data.consumed .= 0.0
-        model.individuals.animals[species_index].data.age .+= sim.ΔT/(1440*365)
+        model.individuals.animals[species_index].data.landscape .= 0.0
     end
-    for (pool_index,animal_index) in enumerate(keys(model.pools.pool))
-        model.pools.pool[pool_index].data.biomass .= model.pools.pool[pool_index].data.init_biomass
-    end
+
+    stop = now()
+    #println(stop-start)
 end

@@ -9,6 +9,11 @@ function generate_environment(files::DataFrame)
     return MarineEnvironment(temperature_var, z_t,chl_var)
 end
 
+function ipar_curve(time, peak_ipar=450, peak_time=12, width=4)
+    adj_time = time/60
+    return peak_ipar * exp(-((adj_time - peak_time)^2) / (2 * width^2))
+end
+
 function individual_temp(model,sp,ind,environment)
     files = model.files
     grid_file = files[files.File .=="grid",:Destination][1]

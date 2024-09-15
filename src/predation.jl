@@ -251,7 +251,7 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
             continue
         end
 
-        sorted_prey = sort(prey_list_item, by = x -> x.Biomass)
+        sorted_prey = sort(prey_list_item, by = x -> x.Distance)
 
         # Continue eating as long as there's time left and the gut is not full
         total_time = 0.0
@@ -282,11 +282,11 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
             # Move towards the closest prey
             move_time = move_predator(model, sp, ind, ind_index, prey_list_item, prey_index)  # Update this call if necessary
             total_time += move_time
-            model.individuals.animals[sp].data.ac[ind[ind_index]] += move_time
+            model.individuals.animals[sp].data.active[ind[ind_index]] += (move_time/60)
 
             # Check if we have enough time left
             if total_time > ddt[ind_index]
-                model.individuals.animals[sp].data.ac[ind[ind_index]] = ddt[ind_index]
+                model.individuals.animals[sp].data.active[ind[ind_index]] = (ddt[ind_index]/60)
                 break
             end
 
@@ -307,7 +307,7 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
                 max_cons = (ddt[ind_index]-total_time) / handling_time
 
                 min_prey_size = model.individuals.animals[sp].data.length[ind[ind_index]] * 0.01
-                max_prey_size = model.individuals.animals[sp].data.length[ind[ind_index]] * 0.1
+                max_prey_size = model.individuals.animals[sp].data.length[ind[ind_index]] * 0.2
 
                 ind_size = (max(model.pools.pool[prey_info.Sp].characters.Min_Size[2][prey_info.Sp],min_prey_size) + min(model.pools.pool[prey_info.Sp].characters.Max_Size[2][prey_info.Sp],max_prey_size))/2
 
@@ -357,7 +357,7 @@ function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
             continue
         end
         # Sort prey by distance initially
-        sorted_prey = sort(prey_list_item, by = x -> x.Biomass)
+        sorted_prey = sort(prey_list_item, by = x -> x.Distance)
         
         total_time = 0.0
         ration = 0.0

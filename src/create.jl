@@ -52,7 +52,7 @@ function construct_eDNA(arch::Architecture,params,max_particle)
 end
 
 function construct_plankton(arch::Architecture, params::Dict, maxN)
-    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), biomass = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), behavior = zeros(maxN),gut_fullness = zeros(maxN),cost = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), consumed = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),active = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN), vis_prey = zeros(maxN), vis_pred = zeros(maxN),mature = zeros(maxN),age = zeros(maxN))
+    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), biomass = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), behavior = zeros(maxN),gut_fullness = zeros(maxN),cost = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), consumed = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),active = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN), vis_prey = zeros(maxN), vis_pred = zeros(maxN),mature = zeros(maxN),landscape = zeros(maxN))
 
     data = replace_storage(array_type(arch), rawdata)
 
@@ -95,11 +95,7 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
     # Set plank data values
     current_b = 0
     ind = 0
-
-    k = 0.4
-    t0 = -0.5
-    Linf = plank.p.Max_Size[2][sp]
-
+    
     while current_b < target_b
         ind += 1
         if ind > length(plank.data.length)
@@ -129,7 +125,7 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
             plank.data.consumed[ind] = 0
             plank.data.active[ind] = 0
             plank.data.mature[ind] = min(1,plank.data.length[ind]/(0.5*(plank.p.Max_Size[2][sp])))
-            plank.data.age[ind] = t0 - (1/k)*log(1-plank.data.length[ind]/Linf)
+            plank.data.landscape[ind] = 0.0
 
         end
         current_b += plank.data.biomass[ind]
@@ -174,16 +170,18 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
     append!(plank.data.daily_ration, fill(0,to_append))
     append!(plank.data.ration, fill(0,to_append))
     append!(plank.data.mature, min.(1,plank.data.length[(2:ind)] ./ (0.5*(plank.p.Max_Size[2][sp]))))
-    append!(plank.data.age, t0 .- (1/k) .* log.(1 .- plank.data.length[(2:ind)] ./ Linf))
+    append!(plank.data.landscape, fill(0.0,to_append))
     return plank.data
 end
 
 function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
     z_night_file = files[files.File .== "nonfocal_z_dist_night", :Destination][1]
     grid_file = files[files.File .== "grid", :Destination][1]
+    state_file = files[files.File .== "state", :Destination][1]
 
     z_night_dist = CSV.read(z_night_file, DataFrame)
     grid = CSV.read(grid_file, DataFrame)
+    state = CSV.read(state_file,DataFrame)
 
     maxdepth = grid[grid.Name .== "depthmax", :Value][1]
     depthres = grid[grid.Name .== "depthres", :Value][1]
@@ -193,6 +191,7 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
     latmin = grid[grid.Name .== "latmin", :Value][1]
     lonres = grid[grid.Name .== "lonres", :Value][1]
     latres = grid[grid.Name .== "latres", :Value][1]
+    food_adj = parse(Float64,state[state.Name .== "food_exp",:Value][1])
 
     z_interval = maxdepth / depthres
 
@@ -212,6 +211,7 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
     #g per cubic meter.
     density = [sum(@view pdf_values[1][min_z[k]:max_z[k]])/sum(pdf_values[1]) .* group.characters.Total_density[2][sp] ./ z_interval for k in 1:g.Nz]
 
+    density = density .* food_adj
     #Randomly calculate the individuals
     ## Total biomass in grid cell as target
     ## Number of individuals 
@@ -219,7 +219,7 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
 
     patch_num = 0
     for k in 1:g.Nz
-        num_patches = 10 #Total number of patches per bin.
+        num_patches = 1000 #Total number of patches per bin.
         target_b = density[k][1] * cell_size
         b_remaining = target_b
         for i in 1:num_patches

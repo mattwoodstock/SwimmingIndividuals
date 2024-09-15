@@ -51,7 +51,6 @@ function new_patch_location(model,patch,ind)
     lon_chl_res = size(environment.chl,1)
     lat_chl_res = size(environment.chl,2)
 
-
     x = lonmin + rand() * ((lonmax - lonmin)*(x_part/lon_chl_res))
     y = latmin + rand() * (latmax - latmin)*(y_part/lat_chl_res)
 
