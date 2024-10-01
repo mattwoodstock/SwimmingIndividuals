@@ -30,8 +30,8 @@ end
 
 function predators(model, sp, ind)
     # Precompute constant values
-    min_pred_limit = 0.01
-    max_pred_limit = 0.2
+    min_pred_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
+    max_pred_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
     # Gather distances
     detection = model.individuals.animals[sp].data.vis_pred[ind]
     calculate_distances_pred(model,sp,ind,min_pred_limit,max_pred_limit,detection)
@@ -39,8 +39,8 @@ end
 
 function preys(model, sp, ind)
     # Precompute constant values
-    min_prey_limit = 0.01
-    max_prey_limit = 0.2
+    min_prey_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
+    max_prey_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
     # Gather distances
     detection = model.individuals.animals[sp].data.vis_prey[ind]
     prey = calculate_distances_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
@@ -50,8 +50,8 @@ end
 
 function patch_preys(model, sp, ind)
     # Precompute constant values
-    min_prey_limit = 0.01
-    max_prey_limit = 0.2
+    min_prey_limit = model.pools.pool[sp].characters.Min_Prey[2][sp]
+    max_prey_limit = model.pools.pool[sp].characters.Max_Prey[2][sp]
     # Gather distances
     detection = model.pools.pool[sp].data.vis_prey[ind]
     prey = calculate_distances_patch_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
@@ -59,7 +59,7 @@ function patch_preys(model, sp, ind)
 end
 
 function decision(model, sp, ind, outputs)  
-    max_fullness = 0.2 *model.individuals.animals[sp].data.biomass[ind]     
+    max_fullness = 0.2 * model.individuals.animals[sp].data.biomass[ind]     
     feed_trigger = model.individuals.animals[sp].data.gut_fullness[ind] ./ max_fullness
     val1 = rand(length(ind))
 
@@ -196,10 +196,10 @@ function visual_range_preys(model,length,depth,ind)
     fp(x) = 2 .* x .* exp.(c_lat .* x) .+ x.^2 .* c_lat .* exp.(c_lat .* x)
     # Call the Newton-Raphson method
     range = newton_raphson(f, fp)
-    threshold = 0.1 # Non-visual detection range.
+    threshold = 1 # Non-visual detection range.
     indices = findall(x -> x < threshold, range)
     if !isempty(indices) > 0
-        range[indices] .= 0.01 #1 cm threshold
+        range[indices] .= 1 #1 m threshold
     end    
     return range
 end

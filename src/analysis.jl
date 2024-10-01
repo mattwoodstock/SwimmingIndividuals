@@ -57,11 +57,11 @@ function timestep_results(sim)
     # Save the results periodically
     ts = Int(model.iteration)
     run = Int(sim.run)
-    filename = "Results2/Individual/IndividualResults_$run-$ts.csv"
+    filename = "results/Individual/IndividualResults_$run-$ts.csv"
     CSV.write(filename, df)
-    filename2 = "Results2/Population/PopulationResults_$run.jld"
+    filename2 = "results/Population/PopulationResults_$run.jld"
     save(filename2,"population",outputs.population_results)
-    filename3 = "Results2/Ecosystem/EcosystemResults$run-$ts.jld"
+    filename3 = "results/Ecosystem/EcosystemResults$run-$ts.jld"
     save(filename3,"ecosystem",outputs.consumption)
 end
 

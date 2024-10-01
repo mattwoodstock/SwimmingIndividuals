@@ -26,5 +26,5 @@ Species25,sp25,Distribution,100,0,0,100,0,0,1,0,0
 Species26,sp26,Distribution,100,0,0,100,0,0,1,0,0
 Species27,sp27,Distribution,100,0,0,100,0,0,1,0,0
 Species28,sp28,Distribution,100,0,0,100,0,0,1,0,0
-Species29,sp29,Distribution,100,0,0,100,0,0,1,0,0
-Species30,sp30,Distribution,100,0,0,100,0,0,1,0,0
+Pool4,sp29,Distribution,250,500,750,200,200,200,0.3,0.3,0.3
+

@@ -1,4 +1,4 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays, Profile
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
 using KernelAbstractions: @kernel, @index
@@ -37,8 +37,8 @@ maxN = 1 # Placeholder where the maximum number of individuals created is simply
 arch = CPU() #Architecture to use.
 t = 0.0 #Initial time
 n_iteration = parse(Int64,state[state.Name .== "nts", :Value][1]) #Number of model iterations (i.e., timesteps) to run
-dt = 20.0 #minutes per time step. Keep this at one.
-n_iters = 365
+dt = parse(Int16,state[state.Name .== "model_dt", :Value][1]) #minutes per time step. Keep this at one.
+n_iters = parse(Int16,state[state.Name .== "n_iter", :Value][1]) #Number of iterations to run
 
 ## Create Output grid
 g = RectilinearGrid(size=(grid[grid.Name.=="latres",:Value][1],grid[grid.Name.=="lonres",:Value][1],grid[grid.Name.=="depthres",:Value][1]), landmask = nothing, x = (grid[grid.Name.=="latmin",:Value][1], grid[grid.Name.=="latmax",:Value][1]), y = (grid[grid.Name.=="lonmin",:Value][1],grid[grid.Name.=="lonmax",:Value][1]), z = (0,-1*grid[grid.Name.=="depthmax",:Value][1]))
@@ -82,7 +82,6 @@ for iter in 1:n_iters
 
     # Run model. Currently this is very condensed, but I kept the code for when we work with environmental factors
     update!(sim)
-
     #reset_run(sim)
 end
 

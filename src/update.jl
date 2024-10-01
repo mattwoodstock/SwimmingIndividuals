@@ -10,13 +10,19 @@ function update!(sim::MarineSimulation; time_offset = (vels = false, PARF = fals
         start_ind = final_ind + 1
     end
     
-    CSV.write("Lengths.csv",Tables.table(sim.outputs.lengths))
-    CSV.write("Weights.csv",Tables.table(sim.outputs.weights))
+    CSV.write("results/Lengths.csv",Tables.table(sim.outputs.lengths))
+    CSV.write("results/Weights.csv",Tables.table(sim.outputs.weights))
 
 
     #Run model
     for i in 1:sim.iterations
-        TimeStep!(sim)
+        @profile TimeStep!(sim)
+
+        # Open a text file to write the profile results
+        open("profile_output.txt", "w") do file
+            Profile.print(file)
+        end
+        stop
     end
 end
 

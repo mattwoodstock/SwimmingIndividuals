@@ -27,38 +27,15 @@ function generate_pools(arch::Architecture, params::Dict, Npool, g::AbstractGrid
     return pools(groups)
 end
 
-function generate_particle(params::Dict,arch::Architecture,max_particle)
-    ## Can add more as more particles become necessary
-    eDNA = construct_eDNA(arch,params,max_particle)
-
-    return particles(eDNA)
-end
-
-function construct_eDNA(arch::Architecture,params,max_particle)
-    rawdata = StructArray(species = zeros(max_particle), ind = zeros(max_particle),x = zeros(max_particle),y = zeros(max_particle), z = zeros(max_particle), lifespan = zeros(max_particle)) 
-
-    data = replace_storage(array_type(arch),rawdata)
-
-    param_names=(:Shed_rate,:Decay_rate,:Type)
-
-    state = NamedTuple{param_names}(params)
-
-    #Set x,y,and z of all eDNA particles to equal -1 since they are not yet in the system.
-    data.x .= 5e6
-    data.y .= 5e6
-    data.z .= 5e6
-
-    return eDNA(data,state)
-end
-
 function construct_plankton(arch::Architecture, params::Dict, maxN)
     rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), biomass = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), behavior = zeros(maxN),gut_fullness = zeros(maxN),cost = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), consumed = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),active = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN), vis_prey = zeros(maxN), vis_pred = zeros(maxN),mature = zeros(maxN),landscape = zeros(maxN))
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval,:SpeciesShort,:LWR_b, :Surface_Interval,:Energy_density,:SpeciesLong, :LWR_a, :Max_Size, :t_resolution,  :Swim_velo, :Biomass,:Taxa, :Type)
+    param_names=(:Dive_Interval,:SpeciesShort,:Min_Prey,:Handling_Time,:LWR_b, :Surface_Interval,:Energy_density,:SpeciesLong, :LWR_a,:Max_Prey, :Max_Size, :t_resolution,  :Swim_velo, :Biomass,:Taxa, :Type)
 
     p = NamedTuple{param_names}(params)
+
     return plankton(data, p)
 end
 
@@ -67,7 +44,7 @@ function construct_pool(arch::Architecture, params::Dict, g,maxN)
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Trophic_Level, :LWR_b, :Total_density,:Growth,:Min_Size,:Energy_density,:LWR_a,:Avg_energy, :Group, :Max_Size,:Max_patch,:Type)
+    param_names=(:Trophic_Level,:Min_Prey,:Handling_Time, :LWR_b, :Total_density,:Growth,:Min_Size,:Energy_density,:LWR_a,:Daily_Ration,:Max_Prey, :Group, :Max_Size,:Swim_Velo,:Type)
 
     characters = NamedTuple{param_names}(params)
     return patch(data, characters)
@@ -217,9 +194,9 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
     ## Number of individuals 
     ## Calculate density
 
+    num_patches = parse(Int16,state[state.Name .== "num_patches",:Value][1]) #### User controlled
     patch_num = 0
     for k in 1:g.Nz
-        num_patches = 1000 #Total number of patches per bin.
         target_b = density[k][1] * cell_size
         b_remaining = target_b
         for i in 1:num_patches

@@ -83,8 +83,8 @@ function dvm_action(model, sp, ind)
 
     #Update vision
     data.vis_prey[ind] = visual_range_preys(model,data.length[ind],data.z[ind],length(ind)) .* ΔT
+    visual_range_preys(model,data.length[ind],data.z[ind],length(ind)) .* ΔT
     data.vis_pred[ind] = visual_range_preds(model,data.length[ind],data.z[ind],length(ind)) .* ΔT
-
     return nothing
 end
 function surface_dive(model, sp, ind)
@@ -334,7 +334,7 @@ function predator_avoidance(model, time, ind, to_move, pred_list, sp)
         pred_list_item = pred_list.preds[to_move[ind_index]]
         
         # Skip if there are no predators or the animal was consumed
-        if isempty(pred_list_item) || model.individuals.animals[sp].data.ac[ind[ind_index]] == 0
+        if isnothing(pred_list_item) || model.individuals.animals[sp].data.ac[ind[ind_index]] == 0
             model.individuals.animals[sp].data.behavior[ind[ind_index]] = 0
             continue
         end
@@ -444,72 +444,5 @@ function move_to_prey(model, sp, ind,eat_ind, time, prey_list)
             end
         end
     end
-end
-
-function move_pool(model,pool_index,ind)
-    files = model.files
-    grid_file = files[files.File .=="grid",:Destination][1]
-    grid = CSV.read(grid_file,DataFrame)
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonres = grid[grid.Name .== "lonres", :Value][1]
-    latres = grid[grid.Name .== "latres", :Value][1]
-    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonmax = grid[grid.Name .== "lonmax", :Value][1]
-    lonmin = grid[grid.Name .== "lonmin", :Value][1]
-    latmax = grid[grid.Name .== "latmax", :Value][1]
-    latmin = grid[grid.Name .== "latmin", :Value][1]
-
-
-    swim_speed = 1 .* (model.pools.pool[pool_index].data.length[ind] ./ 1000) .* model.dt
-    z_limit = 10
-    x = model.pools.pool[pool_index].data.x[ind]
-    y = model.pools.pool[pool_index].data.y[ind]
-    z = model.pools.pool[pool_index].data.z[ind]
-
-    theta = 2 .* π .* rand(length(ind))
-    phi = acos.(2 .* rand(length(ind)) .- 1)  # Uniform distribution in the z direction
-
-    dx = swim_speed .* sin.(phi) .* cos.(theta)
-    dy = swim_speed .* sin.(phi) .* sin.(theta)
-    dz = swim_speed .* cos.(phi)
-
-    dz = clamp(z .+ dz, z .- z_limit, z .+ z_limit) .- z
-
-    new_x = x .+ dx
-    small_lon = findall(x -> x < lonmin, new_x)
-    big_lon = findall(x -> x > lonmax, new_x)
-
-    if length(small_lon) > 0
-        new_x[small_lon] = new_x[small_lon] .+ (lonmax-lonmin)
-    end
-    if length(big_lon) > 0
-        new_x[big_lon] = new_x[big_lon] .- (lonmax-lonmin)
-    end
-
-    new_y = y .+ dy
-    small_lat = findall(x -> x < latmin, new_y)
-    big_lat = findall(x -> x > latmax, new_y)
-
-    if length(small_lat) > 0
-        new_x[small_lat] = new_x[small_lat] .+ (latmax-latmin)
-    end
-    if length(big_lat) > 0
-        new_x[big_lat] = new_x[big_lat] .- (latmax-latmin)
-    end
-
-    new_z = z .+ dz
-
-    new_z = clamp.(new_z,1,maxdepth)
-
-    model.pools.pool[pool_index].data.x[ind] = new_x
-    model.pools.pool[pool_index].data.y[ind] = new_y
-    model.pools.pool[pool_index].data.z[ind] = new_z
-
-    model.pools.pool[pool_index].data.pool_x[ind] = max.(1,ceil.(Int, new_x ./ ((lonmax - lonmin) / lonres)))
-    model.pools.pool[pool_index].data.pool_y[ind] = max.(1,ceil.(Int, new_y ./ ((latmax - latmin) / latres)))
-    model.pools.pool[pool_index].data.pool_z[ind] = max.(1,ceil.(Int, new_z ./ (maxdepth / depthres)))
-
-    return nothing
 end
 

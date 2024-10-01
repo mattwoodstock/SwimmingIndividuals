@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --partition=compute         # Queue selection
-#SBATCH --job-name=SSP245       # Job name
+#SBATCH --job-name=HD       # Job name
 #SBATCH --mail-type=ALL             # Mail events (BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=matthew.woodstock@whoi.edu  # Where to send mail
 #SBATCH --ntasks=1                  # Run on a single CPU
@@ -16,6 +16,6 @@ module load julia                  # Load the julia module
  
 echo "Running julia script for SwimmingIndividuals.jl"
  
-julia /vortexfs1/scratch/matthew.woodstock/SwimmingIndividuals/GoM/Scenarios/SSP245/model.jl
+julia /vortexfs1/scratch/matthew.woodstock/SwimmingIndividuals/GoM/Scenarios/Daily/Historical/model.jl
  
 date
