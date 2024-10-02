@@ -31,24 +31,14 @@ function TimeStep!(sim)
                     end_idx = min(chunk*chunk_size,n)
                     chunk_indices = alive[start_idx:end_idx]
                     behavior(model, species_index, chunk_indices, outputs)
-
                     ind_temp = individual_temp(model, species_index, chunk_indices, envi)
-                    respire = respiration(model, species_index, chunk_indices, ind_temp)
-                    egest, excrete = excretion(model, species_index,chunk_indices)
-                    sda = specific_dynamic_action(model,species_index,egest,chunk_indices)
-                    energy(model, species_index, sda, respire, egest, excrete,chunk_indices)
-                    evacuate_gut(model, species_index, chunk_indices, ind_temp)
-                    starvation(model,species, species_index, chunk_indices, outputs)                    
+                    energy(model, species_index, ind_temp,chunk_indices)
                 end
             end
             #reproduce(model,species_index,alive)
         end 
         species.data.daily_ration[alive] .+= species.data.ration[alive]
     end
-    alive = findall(x -> x == 1.0, model.individuals.animals[2].data.ac) #Number of individuals per species that are active
-    #println(mean(model.individuals.animals[20].data.daily_ration[alive] ./ 5000 ./ model.individuals.animals[20].data.biomass[alive] .* 100))
-    println(model.individuals.animals[2].data.behavior)
-
     #Non-focal species processing
     for (pool_index,animal_index) in enumerate(keys(model.pools.pool))
         n = length(model.pools.pool[pool_index].data.length)

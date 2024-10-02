@@ -111,27 +111,25 @@ function deg2rad(deg)
 end
 
 #Derive a NewtonRaphson equation
-function newton_raphson(f, fp)
-    max_iteration = 100
-    # Initial guess for r
-    r_prev = 1.0
-    
-    # Define tolerance for convergence
-    tolerance = 1e-6
-    
+function newton_raphson(f, fp, r_init=1.0, max_iteration=100, tolerance=1e-6)
+    r_prev = r_init
     iter = 1
-    # Perform Newton-Raphson iteration
-    while true
+    
+    while iter <= max_iteration
         f_val = f(r_prev)
         df_val = fp(r_prev)
         r_next = r_prev .- f_val ./ df_val
         difference = abs.(r_next .- r_prev)
-        if (all(difference .< tolerance)) | (iter == max_iteration)
-            return r_next
+        
+        if all(difference .< tolerance)
+            break
         end
+        
         r_prev = r_next
         iter += 1
     end
+    
+    return r_prev
 end
 
 #Create a multimodal distribution. May not need to be used in the model and should probably be used a priori.

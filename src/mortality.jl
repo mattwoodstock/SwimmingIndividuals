@@ -7,16 +7,6 @@ function predation_mortality(model::MarineModel,df,outputs)
     return nothing
 end
 
-function starvation(model,dead_sp, sp, i, outputs)
-    starve = findall(x -> x < 0,dead_sp.data.energy[i])
-    if model.iteration > model.spinup .& length(starve) > 0
-        dead_sp.data.ac[i[starve]] .= 0.0
-        dead_sp.data.behavior[i[starve]] .= 5
-        #outputs.production[model.iteration,sp] .+= model.individuals.animals[sp].data.weight[i] #For P/B iteration
-    end
-    return nothing
-end
-
 function reduce_pool(model,pool,ind,ration)
     model.pools.pool[pool].data.biomass[ind] -= ration[1]
 

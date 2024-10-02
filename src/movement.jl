@@ -82,9 +82,8 @@ function dvm_action(model, sp, ind)
     data.pool_z[ind] .= ceil.(Int, data.z[ind] ./ (maxdepth / depthres))
 
     #Update vision
-    data.vis_prey[ind] = visual_range_preys(model,data.length[ind],data.z[ind],length(ind)) .* ΔT
-    visual_range_preys(model,data.length[ind],data.z[ind],length(ind)) .* ΔT
-    data.vis_pred[ind] = visual_range_preds(model,data.length[ind],data.z[ind],length(ind)) .* ΔT
+    data.vis_prey[ind] = visual_range_prey(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
+    data.vis_pred[ind] = visual_range_pred(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
     return nothing
 end
 function surface_dive(model, sp, ind)
@@ -339,7 +338,7 @@ function predator_avoidance(model, time, ind, to_move, pred_list, sp)
             continue
         end
 
-        pred_info = pred_list_item[1]
+        pred_info = pred_list_item
         predator_position = SVector(pred_info.x, pred_info.y, pred_info.z)
         position = SVector(animal_data.x[ind[ind_index]], animal_data.y[ind[ind_index]], animal_data.z[ind[ind_index]])
         

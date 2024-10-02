@@ -86,8 +86,8 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
             plank.data.y[ind] = latmin + rand() * (latmax - latmin)
             plank.data.z[ind] = gaussmix(1, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])[1]
             plank.data.gut_fullness[ind] = rand() * 0.2 * plank.data.biomass[ind]
-            plank.data.vis_prey[ind] = visual_range_preys_init(plank.data.length[ind],plank.data.z[ind],1)[1] * plank.p.t_resolution[2][sp]
-            plank.data.vis_pred[ind] = visual_range_preds_init(arch,plank.data.length[ind],plank.data.z[ind],1)[1] * plank.p.t_resolution[2][sp]
+            plank.data.vis_prey[ind] = visual_range_preys_init(plank.data.length[ind],plank.data.z[ind],plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],1)[1] * plank.p.t_resolution[2][sp]
+            plank.data.vis_pred[ind] = visual_range_preds_init(plank.data.length[ind],plank.data.z[ind],plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],1)[1] * plank.p.t_resolution[2][sp]
             # Calculate pool indices
             plank.data.pool_x[ind] = max(1,ceil(Int, plank.data.x[ind] / ((lonmax - lonmin) / lonres)))
             plank.data.pool_y[ind] = max(1,ceil(Int, plank.data.y[ind] / ((latmax - latmin) / latres)))
@@ -127,8 +127,8 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
     append!(plank.data.y, y)
     append!(plank.data.z, z)
     append!(plank.data.gut_fullness, rand(to_append) .* 0.2 .* plank.data.biomass[(2:ind)])
-    append!(plank.data.vis_prey, visual_range_preys_init(plank.data.length[(2:ind)],z,to_append) .* plank.p.t_resolution[2][sp])
-    append!(plank.data.vis_pred, visual_range_preds_init(arch,plank.data.length[(2:ind)],z,to_append) .* plank.p.t_resolution[2][sp])
+    append!(plank.data.vis_prey, visual_range_preys_init(plank.data.length[(2:ind)],z,plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],to_append) .* plank.p.t_resolution[2][sp])
+    append!(plank.data.vis_pred, visual_range_preds_init(plank.data.length[(2:ind)],z,plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],to_append) .* plank.p.t_resolution[2][sp])
     append!(plank.data.pool_x, pool_x)
     append!(plank.data.pool_y, pool_y)
     append!(plank.data.pool_z, pool_z)
@@ -250,8 +250,8 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
                 push!(group.data.length, ind_size)
                 push!(group.data.length_sd, size_sd)
                 push!(group.data.ration, 0)
-                push!(group.data.vis_prey, visual_range_preys_init(ind_size,z,1)[1]*dt)
-                push!(group.data.vis_pred, visual_range_preds_init(arch,ind_size,z,1)[1]*dt)
+                push!(group.data.vis_prey, visual_range_preys_init(ind_size,z,group.characters.Min_Prey[2][sp],group.characters.Max_Prey[2][sp],1)[1]*dt)
+                push!(group.data.vis_pred, visual_range_preds_init(ind_size,z,group.characters.Min_Prey[2][sp],group.characters.Max_Prey[2][sp],1)[1]*dt)
             else
                 group.data.x[1] = x
                 group.data.y[1] = y
@@ -265,8 +265,8 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
                 group.data.init_biomass[1] = den
                 group.data.length[1] = ind_size
                 group.data.length_sd[1] = size_sd
-                group.data.vis_prey[1] = visual_range_preys_init(ind_size,z,1)[1]*dt
-                group.data.vis_pred[1] = visual_range_preds_init(arch,ind_size,z,1)[1]*dt
+                group.data.vis_prey[1] = visual_range_preys_init(ind_size,z,group.characters.Min_Prey[2][sp],group.characters.Max_Prey[2][sp],1)[1]*dt
+                group.data.vis_pred[1] = visual_range_preds_init(ind_size,z,group.characters.Min_Prey[2][sp],group.characters.Max_Prey[2][sp],1)[1]*dt
                 group.data.ration[1] = 0
             end
             b_remaining -= den

@@ -20,14 +20,16 @@ function timestep_results(sim)
     #Individual-scale
     for (species_index, animal_index) in enumerate(keys(model.individuals.animals))
         alive = findall(x -> x == 1.0, model.individuals.animals[species_index].data.ac) #Number of individuals per species that are active
+
+        #= Parameters necessary for population results
         pred_mort = findall(x -> x == 4.0, model.individuals.animals[species_index].data.behavior)
         starv_mort = findall(x -> x == 5.0, model.individuals.animals[species_index].data.behavior)
-
         population_array[species_index,1] = length(alive)
         population_array[species_index,2] = sum(model.individuals.animals[species_index].data.biomass[alive])
         population_array[species_index,3] = length(pred_mort)
         population_array[species_index,4] = length(starv_mort)
         population_array[species_index,5] = mean(model.individuals.animals[species_index].data.daily_ration[alive] ./ 5000 ./ model.individuals.animals[species_index].data.biomass[alive] .* 100)
+        =#
 
         specs = fill(species_index,length(alive))
         append!(Sp,specs)
@@ -59,10 +61,14 @@ function timestep_results(sim)
     run = Int(sim.run)
     filename = "results/Individual/IndividualResults_$run-$ts.csv"
     CSV.write(filename, df)
-    filename2 = "results/Population/PopulationResults_$run.jld"
-    save(filename2,"population",outputs.population_results)
-    filename3 = "results/Ecosystem/EcosystemResults$run-$ts.jld"
-    save(filename3,"ecosystem",outputs.consumption)
+
+    ## Uncomment for population results (Most can be aggregated from individual results and this code takes a long time)
+    #filename2 = "results/Population/PopulationResults_$run.jld"
+    #save(filename2,"population",outputs.population_results)
+
+    ## Uncomment for ecosystem results
+    #filename3 = "results/Ecosystem/EcosystemResults$run-$ts.jld"
+    #save(filename3,"ecosystem",outputs.consumption)
 end
 
 function energy_landscape(model,sp,ind,prey_list)
