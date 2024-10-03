@@ -8,23 +8,22 @@ function TimeStep!(sim)
     model.t += sim.ΔT
     model.t %= 1440  #Reset the day at midnight
 
-    chunk_size = 1000 #Process 1,000 individuals at a time.
+    chunk_size = convert(Int64,1000) #Process 1,000 individuals at a time.
     print(model.t)
     print(":   ")
 
     #Add the behavioral context for each species
     for (species_index, _) in enumerate(keys(model.individuals.animals))
-        species = model.individuals.animals[species_index]
-        t_resolution = species.p.t_resolution[2][species_index]
+        species_data = model.individuals.animals[species_index].data
+        species_chars = model.individuals.animals[species_index].p
+        t_resolution = species_chars.t_resolution[2][species_index]
         if model.t % t_resolution == 0
-
-            # Calculate n_ind outside the GPU loop
-            alive = findall(x -> x == 1.0, species.data.ac) #Number of individuals per species that are active
+            alive = findall(species_data.ac .== 1.0)
             model.abund[species_index] = length(alive)
-            model.bioms[species_index] = sum(model.individuals.animals[species_index].data.biomass[alive])
+            model.bioms[species_index] = sum(species_data.biomass[alive])
             if length(alive) > 0
                 #Divide into chunks for quicker processing and eliminating memory allocation at one time.
-                n = length(alive)
+                n = convert(Int64,length(alive))
                 num_chunks = ceil(Int,n/chunk_size)
                 for chunk in 1:num_chunks
                     start_idx = (chunk-1) * chunk_size + 1
@@ -37,11 +36,11 @@ function TimeStep!(sim)
             end
             #reproduce(model,species_index,alive)
         end 
-        species.data.daily_ration[alive] .+= species.data.ration[alive]
+        species_data.daily_ration[alive] .+= species_data.ration[alive]
     end
     #Non-focal species processing
     for (pool_index,animal_index) in enumerate(keys(model.pools.pool))
-        n = length(model.pools.pool[pool_index].data.length)
+        n = convert(Int64,length(model.pools.pool[pool_index].data.length))
         num_chunks = ceil(Int,n/chunk_size)
         for chunk in 1:num_chunks
             start_idx = (chunk-1) * chunk_size + 1
@@ -62,7 +61,6 @@ function TimeStep!(sim)
             model.individuals.animals[species_index].data.ac .= 1.0
             model.individuals.animals[species_index].data.behavior .= 1.0
         end
-        #reset(model) #Reset dead individiuals at the end of the day
     end
 
     for (species_index, _) in enumerate(keys(model.individuals.animals))

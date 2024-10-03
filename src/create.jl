@@ -1,10 +1,10 @@
-function generate_individuals(params::Dict, arch::Architecture, Nsp, B, maxN, g::AbstractGrid,files)
+function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, maxN::Int,depths::MarineDepths)
     plank_names = Symbol[]
     plank_data=[]
     for i in 1:Nsp
         name = Symbol("sp"*string(i))
         plank = construct_plankton(arch, params, maxN)
-        generate_plankton!(plank, B[i], g, arch,i, maxN,files)
+        generate_plankton!(plank, B[i],i,depths)
         push!(plank_names, name)
         push!(plank_data, plank)
     end
@@ -12,14 +12,14 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp, B, maxN, g:
     return individuals(planks)
 end
 
-function generate_pools(arch::Architecture, params::Dict, Npool, g::AbstractGrid,files,maxN,dt,environment)
+function generate_pools(arch::Architecture, params::Dict, Npool::Int, g::AbstractGrid,maxN::Int,dt::Int,environment::MarineEnvironment,depths::MarineDepths)
     pool_names = Symbol[]
     pool_data=[]
 
     for i in 1:Npool
         name = Symbol("pool"*string(i))
         pool = construct_pool(arch,params,g,maxN)
-        generate_pool(pool, g ,i, files,dt,environment)
+        generate_pool(pool,i,dt,environment,depths)
         push!(pool_names, name)
         push!(pool_data, pool)
     end
@@ -28,7 +28,7 @@ function generate_pools(arch::Architecture, params::Dict, Npool, g::AbstractGrid
 end
 
 function construct_plankton(arch::Architecture, params::Dict, maxN)
-    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),length = zeros(maxN), biomass = zeros(maxN), energy = zeros(maxN), target_z = zeros(maxN), mig_status = zeros(maxN), mig_rate = zeros(maxN), rmr = zeros(maxN), behavior = zeros(maxN),gut_fullness = zeros(maxN),cost = zeros(maxN),dives_remaining = zeros(maxN),interval = zeros(maxN), dive_capable = zeros(maxN), daily_ration = zeros(maxN), consumed = zeros(maxN), pool_x = zeros(maxN), pool_y = zeros(maxN), pool_z = zeros(maxN),active = zeros(maxN), ration = zeros(maxN), ac = zeros(maxN), vis_prey = zeros(maxN), vis_pred = zeros(maxN),mature = zeros(maxN),landscape = zeros(maxN))
+    rawdata = StructArray(x = zeros(Float64,maxN), y = zeros(Float64,maxN), z = zeros(Float64,maxN),length = zeros(Float64,maxN), biomass = zeros(Float64,maxN), energy = zeros(Float64,maxN), target_z = zeros(Float64,maxN), mig_status = zeros(Float64,maxN), mig_rate = zeros(Float64,maxN), rmr = zeros(Float64,maxN), behavior = zeros(Float64,maxN),gut_fullness = zeros(Float64,maxN),cost = zeros(Float64,maxN),dives_remaining = zeros(Float64,maxN),interval = zeros(Float64,maxN), dive_capable = zeros(Float64,maxN), daily_ration = zeros(Float64,maxN), consumed = zeros(Float64,maxN), pool_x = zeros(Float64,maxN), pool_y = zeros(Float64,maxN), pool_z = zeros(Float64,maxN),active = zeros(Float64,maxN), ration = zeros(Float64,maxN), ac = zeros(Float64,maxN), vis_prey = zeros(Float64,maxN), vis_pred = zeros(Float64,maxN),mature = zeros(Float64,maxN),landscape = zeros(Float64,maxN))
 
     data = replace_storage(array_type(arch), rawdata)
 
@@ -40,7 +40,7 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
 end
 
 function construct_pool(arch::Architecture, params::Dict, g,maxN)
-    rawdata = StructArray(x = zeros(maxN), y = zeros(maxN), z = zeros(maxN),abundance=zeros(maxN),volume = zeros(maxN),biomass = zeros(maxN),init_biomass= zeros(maxN), length = zeros(maxN),length_sd=zeros(maxN),vis_prey = zeros(maxN), vis_pred = zeros(maxN),ration = zeros(maxN),pool_x = zeros(maxN),pool_y = zeros(maxN),pool_z = zeros(maxN)) 
+    rawdata = StructArray(x = zeros(Float64,maxN), y = zeros(Float64,maxN), z = zeros(Float64,maxN),abundance=zeros(Float64,maxN),volume = zeros(Float64,maxN),biomass = zeros(Float64,maxN),init_biomass= zeros(Float64,maxN), length = zeros(Float64,maxN),length_sd=zeros(Float64,maxN),vis_prey = zeros(Float64,maxN), vis_pred = zeros(Float64,maxN),ration = zeros(Float64,maxN),pool_x = zeros(Float64,maxN),pool_y = zeros(Float64,maxN),pool_z = zeros(Float64,maxN)) 
 
     data = replace_storage(array_type(arch), rawdata)
 
@@ -50,22 +50,18 @@ function construct_pool(arch::Architecture, params::Dict, g,maxN)
     return patch(data, characters)
 end
 
-function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architecture,sp, maxN, files)
-    grid_file = files[files.File .=="grid",:Destination][1]
-    z_dist_file = files[files.File .=="focal_z_dist_night",:Destination][1]
+function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
+    grid = depths.grid
+    night_profs = depths.focal_night
 
-    grid = CSV.read(grid_file,DataFrame)
-    z_night_dist = CSV.read(z_dist_file,DataFrame)
-
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonres = grid[grid.Name .== "lonres", :Value][1]
-    latres = grid[grid.Name .== "latres", :Value][1]
-    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonmax = grid[grid.Name .== "lonmax", :Value][1]
-    lonmin = grid[grid.Name .== "lonmin", :Value][1]
-    latmax = grid[grid.Name .== "latmax", :Value][1]
-    latmin = grid[grid.Name .== "latmin", :Value][1]
+    depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
+    lonres = grid[findfirst(grid.Name .== "lonres"), :Value]
+    latres = grid[findfirst(grid.Name .== "latres"), :Value]
+    maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
+    lonmax = grid[findfirst(grid.Name .== "lonmax"), :Value]
+    lonmin = grid[findfirst(grid.Name .== "lonmin"), :Value]
+    latmax = grid[findfirst(grid.Name .== "latmax"), :Value]
+    latmin = grid[findfirst(grid.Name .== "latmin"), :Value]
 
     cell_size = ((latmax - latmin) / latres) * ((lonmax - lonmin) / lonres) # Square meters of grid cell
     target_b = B*cell_size #Total grams to create
@@ -84,7 +80,7 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
             plank.data.ac[ind] = 1.0
             plank.data.x[ind] = lonmin + rand() * (lonmax - lonmin)
             plank.data.y[ind] = latmin + rand() * (latmax - latmin)
-            plank.data.z[ind] = gaussmix(1, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])[1]
+            plank.data.z[ind] = gaussmix(1, night_profs[sp, "mu1"], night_profs[sp, "mu2"],night_profs[sp, "mu3"], night_profs[sp, "sigma1"],night_profs[sp, "sigma2"], night_profs[sp, "sigma3"],night_profs[sp, "lambda1"], night_profs[sp, "lambda2"])[1]
             plank.data.gut_fullness[ind] = rand() * 0.2 * plank.data.biomass[ind]
             plank.data.vis_prey[ind] = visual_range_preys_init(plank.data.length[ind],plank.data.z[ind],plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],1)[1] * plank.p.t_resolution[2][sp]
             plank.data.vis_pred[ind] = visual_range_preds_init(plank.data.length[ind],plank.data.z[ind],plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],1)[1] * plank.p.t_resolution[2][sp]
@@ -111,8 +107,8 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
 
     x = lonmin .+ rand(to_append) * (lonmax - lonmin)
     y = latmin .+ rand(to_append) * (latmax - latmin)
-    z = gaussmix(to_append, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],
-    z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])
+    z = gaussmix(to_append, night_profs[sp, "mu1"], night_profs[sp, "mu2"],night_profs[sp, "mu3"], night_profs[sp, "sigma1"],night_profs[sp, "sigma2"], night_profs[sp, "sigma3"],
+    night_profs[sp, "lambda1"], night_profs[sp, "lambda2"])
 
     x = clamp.(x,lonmin,lonmax)
     y = clamp.(y,latmin,latmax)
@@ -151,44 +147,37 @@ function generate_plankton!(plank, B::Float64, g::AbstractGrid, arch::Architectu
     return plank.data
 end
 
-function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
-    z_night_file = files[files.File .== "nonfocal_z_dist_night", :Destination][1]
-    grid_file = files[files.File .== "grid", :Destination][1]
-    state_file = files[files.File .== "state", :Destination][1]
+function generate_pool(group, sp::Int,dt::Int,environment::MarineEnvironment,depths::MarineDepths)
+    grid = depths.grid
+    night_profs = depths.patch_night
 
-    z_night_dist = CSV.read(z_night_file, DataFrame)
-    grid = CSV.read(grid_file, DataFrame)
-    state = CSV.read(state_file,DataFrame)
-
-    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonmax = grid[grid.Name .== "lonmax", :Value][1]
-    lonmin = grid[grid.Name .== "lonmin", :Value][1]
-    latmax = grid[grid.Name .== "latmax", :Value][1]
-    latmin = grid[grid.Name .== "latmin", :Value][1]
-    lonres = grid[grid.Name .== "lonres", :Value][1]
-    latres = grid[grid.Name .== "latres", :Value][1]
-    food_adj = parse(Float64,state[state.Name .== "food_exp",:Value][1])
+    depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
+    lonres = grid[findfirst(grid.Name .== "lonres"), :Value]
+    latres = grid[findfirst(grid.Name .== "latres"), :Value]
+    maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
+    lonmax = grid[findfirst(grid.Name .== "lonmax"), :Value]
+    lonmin = grid[findfirst(grid.Name .== "lonmin"), :Value]
+    latmax = grid[findfirst(grid.Name .== "latmax"), :Value]
+    latmin = grid[findfirst(grid.Name .== "latmin"), :Value]
 
     z_interval = maxdepth / depthres
 
     horiz_cell_size = ((latmax - latmin) / latres) * ((lonmax - lonmin) / lonres) # Square meters of grid cell
-    cell_size = horiz_cell_size * (maxdepth / depthres) # Cubic meters of water in each grid cell
+    cell_size = horiz_cell_size * z_interval # Cubic meters of water in each grid cell
 
-    means = [z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"], z_night_dist[sp, "mu3"]]
-    stds = [z_night_dist[sp, "sigma1"], z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"]]
-    weights = [z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"], z_night_dist[sp, "lambda3"]]
+    means = [night_profs[sp, "mu1"], night_profs[sp, "mu2"], night_profs[sp, "mu3"]]
+    stds = [night_profs[sp, "sigma1"], night_profs[sp, "sigma2"], night_profs[sp, "sigma3"]]
+    weights = [night_profs[sp, "lambda1"], night_profs[sp, "lambda2"], night_profs[sp, "lambda3"]]
 
     x_values = 0:maxdepth
     pdf_values = multimodal_distribution.(Ref(x_values), means, stds, weights)
     
-    min_z = round.(Int, z_interval .* (1:g.Nz) .- z_interval .+ 1)
-    max_z = round.(Int, z_interval .* (1:g.Nz) .+ 1)
+    min_z = round.(Int, z_interval .* (1:depthres) .- z_interval .+ 1)
+    max_z = round.(Int, z_interval .* (1:depthres) .+ 1)
 
     #g per cubic meter.
-    density = [sum(@view pdf_values[1][min_z[k]:max_z[k]])/sum(pdf_values[1]) .* group.characters.Total_density[2][sp] ./ z_interval for k in 1:g.Nz]
+    density = [sum(@view pdf_values[1][min_z[k]:max_z[k]])/sum(pdf_values[1]) .* group.characters.Total_density[2][sp] ./ z_interval for k in 1:depthres]
 
-    density = density .* food_adj
     #Randomly calculate the individuals
     ## Total biomass in grid cell as target
     ## Number of individuals 
@@ -196,7 +185,7 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
 
     num_patches = parse(Int16,state[state.Name .== "num_patches",:Value][1]) #### User controlled
     patch_num = 0
-    for k in 1:g.Nz
+    for k in 1:depthres
         target_b = density[k][1] * cell_size
         b_remaining = target_b
         for i in 1:num_patches
@@ -218,9 +207,7 @@ function generate_pool(group, g::AbstractGrid, sp, files,dt,environment)
                 patch_inds = BigInt(inds)
             else
                 patch_inds = Int64(inds)
-            end  
-            ind_volume = (4/3) * pi * ((ind_size/1000)/2)^3
-            
+            end            
             total_volume = sphere_volume(ind_size, patch_inds)
 
             x_part, y_part = smart_placement(environment.chl,1,1)
@@ -368,65 +355,21 @@ function reproduce(model,sp,ind)
     end
 end
 
-function reset(model::MarineModel)
-    files = model.files
-    grid_file = files[files.File .=="grid",:Destination][1]
-    z_night_dist_file = files[files.File .=="focal_z_dist_night",:Destination][1]
-    z_day_dist_file = files[files.File .=="focal_z_dist_day",:Destination][1]
+function generate_depths(files)
+    focal_file_day = files[files.File .== "focal_z_dist_day", :Destination][1]
+    focal_file_night = files[files.File .== "focal_z_dist_night", :Destination][1]
 
-    grid = CSV.read(grid_file,DataFrame)
-    z_night_dist = CSV.read(z_night_dist_file,DataFrame)
-    z_day_dist = CSV.read(z_day_dist_file,DataFrame)
+    focal_day = CSV.read(focal_file_day, DataFrame)
+    focal_night = CSV.read(focal_file_night, DataFrame)
 
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonres = grid[grid.Name .== "lonres", :Value][1]
-    latres = grid[grid.Name .== "latres", :Value][1]
-    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonmax = grid[grid.Name .== "lonmax", :Value][1]
-    lonmin = grid[grid.Name .== "lonmin", :Value][1]
-    latmax = grid[grid.Name .== "latmax", :Value][1]
-    latmin = grid[grid.Name .== "latmin", :Value][1]
+    patch_file_day = files[files.File .== "nonfocal_z_dist_day", :Destination][1]
+    patch_file_night = files[files.File .== "nonfocal_z_dist_night", :Destination][1]
 
-    #Replace dead individuals and necessary components at the end of the day.
-    for (species_index,animal_index) in enumerate(keys(model.individuals.animals))
-        species = model.individuals.animals[species_index]
-        n_ind = length(model.individuals.animals[species_index].data.length) #Number of individuals per species
+    patch_day = CSV.read(patch_file_day, DataFrame)
+    patch_night = CSV.read(patch_file_night, DataFrame)
 
-        model.individuals.animals[species_index].data.ration .= 0 #Reset timestep ration for next one.
-        for j in 1:n_ind
-            if species.data.ac[j] == 0.0 #Need to replace individual
-                species.data.ac[j] = 1.0
+    grid_file = files[files.File .== "grid",:Destination][1]
+    grid = CSV.read(grid_file, DataFrame)
 
-                species.data.x[j] = lonmin + rand() * (lonmax-lonmin)
-                species.data.y[j] = latmin + rand() * (latmax-latmin)
-
-                species.data.length[j] = rand() .* (species.p.Max_Size[2][species_index])
-                species.data.biomass[j]  = species.p.LWR_a[2][species_index] .* (species.data.length[j] ./ 10) .^ species.p.LWR_b[2][species_index]  # Bm
-                species.data.gut_fullness[j] = rand() * 0.2 * species.data.biomass[j] #Proportion of gut that is full. Start with a random value between empty and 3% of predator diet.
-                species.data.interval[j] = rand() * species.p.Surface_Interval[2][species_index]
-
-                if 6*60 <= model.t < 18*60
-                    species.data.z[j] = gaussmix(1,z_day_dist[species_index,"mu1"],z_day_dist[species_index,"mu2"],z_day_dist[species_index,"mu3"],z_day_dist[species_index,"sigma1"],z_day_dist[species_index,"sigma2"],z_day_dist[species_index,"sigma3"],z_day_dist[species_index,"lambda1"],z_day_dist[species_index,"lambda2"])[1]
-                else
-                    species.data.z[j] = gaussmix(1,z_night_dist[species_index,"mu1"],z_night_dist[species_index,"mu2"],z_night_dist[species_index,"mu3"],z_night_dist[species_index,"sigma1"],z_night_dist[species_index,"sigma2"],z_night_dist[species_index,"sigma3"],z_night_dist[species_index,"lambda1"],z_night_dist[species_index,"lambda2"])[1]
-                end
-                species.data.x[j] = clamp(species.data.x[j],lonmin,lonmax)
-                species.data.y[j] = clamp(species.data.y[j],latmin,latmax)
-                species.data.z[j] = clamp(species.data.z[j],1,maxdepth)
-
-                species.data.pool_x[j] = Int(ceil(species.data.x[j]/((lonmax-lonmin)/lonres),digits = 0))  
-                species.data.pool_y[j] = Int(ceil(species.data.y[j]/((latmax-latmin)/latres),digits = 0))  
-                species.data.pool_z[j] = Int(ceil(species.data.z[j]/(maxdepth/depthres),digits=0))
-
-                species.data.pool_z[j] = clamp(species.data.pool_z[j],1,depthres)
-
-                species.data.energy[j] = species.data.biomass[j] * species.p.Energy_density[2][species_index]* 0.2   # Initial reserve energy = Rmax
-
-                species.data.gut_fullness[j] = rand() * 0.2 *species.data.biomass[j] #Proportion of gut that is full. Start with a random value.
-                species.data.daily_ration[j] = 0
-                species.data.ration[j] = 0
-            end
-        end
-    end
+    MarineDepths(focal_day,focal_night,patch_day,patch_night,grid)
 end

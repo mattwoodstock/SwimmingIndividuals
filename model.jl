@@ -36,8 +36,8 @@ Nall = Nsp + Npool #Number of all groups
 maxN = 1 # Placeholder where the maximum number of individuals created is simply the maximum abundance
 arch = CPU() #Architecture to use.
 t = 0.0 #Initial time
-n_iteration = parse(Int64,state[state.Name .== "nts", :Value][1]) #Number of model iterations (i.e., timesteps) to run
-dt = parse(Int16,state[state.Name .== "model_dt", :Value][1]) #minutes per time step. Keep this at one.
+n_iteration = parse(Int,state[state.Name .== "nts", :Value][1]) #Number of model iterations (i.e., timesteps) to run
+dt = parse(Int,state[state.Name .== "model_dt", :Value][1]) #minutes per time step. Keep this at one.
 n_iters = parse(Int16,state[state.Name .== "n_iter", :Value][1]) #Number of iterations to run
 
 ## Create Output grid
@@ -56,19 +56,22 @@ cell_size = ((latmax-latmin)/latres) * ((lonmax-lonmin)/lonres) * (maxdepth/dept
 #Create environment struct
 envi = generate_environment(files)
 
+#Create Depth Struct and Carry Through Grid
+depths = generate_depths(files)
+
 for iter in 1:n_iters
     B = trait[:Biomass][1:Nsp] #Vector of IBM abundances for all species
 
     ## Create individuals
     ### Focal species
-    inds = generate_individuals(trait, arch, Nsp, B, maxN, g::AbstractGrid, files)
+    inds = generate_individuals(trait, arch, Nsp, B, maxN,depths)
 
     ### Nonfocal species/groups
-    pooled = generate_pools(arch, pool_trait, Npool, g::AbstractGrid, files,maxN,dt,envi)
+    pooled = generate_pools(arch, pool_trait, Npool, g::AbstractGrid,maxN,dt,envi,depths)
     ## Create model object
     init_abund = fill(0,Nsp)
 
-    model = MarineModel(arch,envi, t, 0,dt, inds, pooled,maxN, Nsp, Npool, B,init_abund, g, files, output_dt, cell_size,spinup)
+    model = MarineModel(arch,envi,depths, t, 0,dt, inds, pooled,maxN, Nsp, Npool, B,init_abund, g, files, output_dt, cell_size,spinup)
 
     for i in 1:Nsp
         model.abund[i] = length(model.individuals.animals[i].data.x)

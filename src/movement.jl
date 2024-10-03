@@ -3,34 +3,23 @@ function dvm_action(model, sp, ind)
     data = animal.data
     params = animal.p
     ΔT = params.t_resolution[2][sp]
-    swim_speed = 2.68 # Meters per minute. Size-based
-    files = model.files
-    z_dist_file_day = files[files.File .== "focal_z_dist_day", :Destination][1]
-    z_dist_file_night = files[files.File .== "focal_z_dist_night", :Destination][1]
-    grid_file = files[files.File .== "grid", :Destination][1]
-    z_day_dist = CSV.read(z_dist_file_day, DataFrame)
-    z_night_dist = CSV.read(z_dist_file_night, DataFrame)
-
-    grid = CSV.read(grid_file, DataFrame)
-    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-
-    # Function to get target_z based on distribution
-    function get_target_z(sp, dist)
-        return gaussmix(1, dist[sp, "mu1"], dist[sp, "mu2"], dist[sp, "mu3"], dist[sp, "sigma1"], dist[sp, "sigma2"], dist[sp, "sigma3"], dist[sp, "lambda1"], dist[sp, "lambda2"])[1]
-    end
+    swim_speed = 2.68 # Meters per minute. Current from Bianchi and Mislan 2016
 
     # Create masks for each condition
     is_daytime = (6*60 <= model.t) && (model.t < 18*60)
     is_nighttime = (model.t >= 18*60) || (model.t < 6*60)
 
-    mig_status_0 = findall(x -> x == 0.0, data.mig_status[ind])
-    mig_status_neg1 = findall(x -> x == -1.0, data.mig_status[ind])
-    mig_status_1 = findall(x -> x == 1.0, data.mig_status[ind])
-    mig_status_2 = findall(x -> x == 2.0, data.mig_status[ind])
+    mig_status_0 = findall(data.mig_status[ind] .== 0.0)
+    mig_status_neg1 = findall(data.mig_status[ind] .== -1.0)
+    mig_status_1 = findall(data.mig_status[ind] .== 1.0)
+    mig_status_2 = findall(data.mig_status[ind] .== 2.0)
 
     if is_daytime && !isempty(mig_status_0)
         # Daytime descent
+        grid = model.depths.grid
+        maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
+        depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
+        z_day_dist = model.depths.focal_day 
         mig_inds = ind[mig_status_0]
         data.mig_status[mig_inds] .= 2
         data.target_z[mig_inds] .= clamp.(get_target_z.(sp, Ref(z_day_dist)), data.z[mig_inds], maxdepth)
@@ -39,10 +28,19 @@ function dvm_action(model, sp, ind)
         data.behavior[mig_inds] .= 2
         data.mig_status[mig_inds[data.z[mig_inds] .>= data.target_z[mig_inds]]] .= -1
         data.active[mig_inds] .= ΔT
+        # Update pool_z
+        data.pool_z[ind] .= ceil.(Int, data.z[ind] ./ (maxdepth / depthres))
+        #Update vision
+        data.vis_prey[ind] = visual_range_prey(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
+        data.vis_pred[ind] = visual_range_pred(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
     end
 
     if is_nighttime && !isempty(mig_status_neg1)
         # Nighttime ascent
+        z_night_dist = model.depths.focal_night
+        grid = model.depths.grid
+        maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
+        depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
         mig_inds = ind[mig_status_neg1]
         data.mig_status[mig_inds] .= 1
         data.target_z[mig_inds] .= clamp.(get_target_z.(sp, Ref(z_night_dist)), 1, data.z[mig_inds])
@@ -51,7 +49,11 @@ function dvm_action(model, sp, ind)
         data.behavior[mig_inds] .= 2
         data.mig_status[mig_inds[data.z[mig_inds] .== data.target_z[mig_inds]]] .= 0
         data.active[mig_inds] .= ΔT
-
+        # Update pool_z
+        data.pool_z[ind] .= ceil.(Int, data.z[ind] ./ (maxdepth / depthres))
+        #Update vision
+        data.vis_prey[ind] = visual_range_prey(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
+        data.vis_pred[ind] = visual_range_pred(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
     end
 
     if !isempty(mig_status_1)
@@ -61,7 +63,11 @@ function dvm_action(model, sp, ind)
         data.z[mig_inds] .= max.(target_z_asc, data.z[mig_inds] .- data.mig_rate[mig_inds] .* ΔT)
         data.mig_status[mig_inds[(data.z[mig_inds] .== target_z_asc) .| (model.t .== 21*60)]] .= 0
         data.active[mig_inds] .= ΔT
-
+        # Update pool_z
+        data.pool_z[ind] .= ceil.(Int, data.z[ind] ./ (maxdepth / depthres))
+        #Update vision
+        data.vis_prey[ind] = visual_range_prey(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
+        data.vis_pred[ind] = visual_range_pred(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
     end
 
     if !isempty(mig_status_2)
@@ -71,19 +77,12 @@ function dvm_action(model, sp, ind)
         data.z[mig_inds] .= min.(target_z_desc, data.z[mig_inds] .+ data.mig_rate[mig_inds] .* ΔT)
         data.mig_status[mig_inds[(data.z[mig_inds] .== target_z_desc) .| (model.t .== 9*60)]] .= -1
         data.active[mig_inds] .= ΔT
-
+        # Update pool_z
+        data.pool_z[ind] .= ceil.(Int, data.z[ind] ./ (maxdepth / depthres))
+        #Update vision
+        data.vis_prey[ind] = visual_range_prey(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
+        data.vis_pred[ind] = visual_range_pred(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
     end
-
-    # Update behavior for individuals not migrating
-    data.behavior[ind[data.mig_status[ind] .== 0]] .= 1
-    data.behavior[ind[data.mig_status[ind] .== -1]] .= 0
-
-    # Update pool_z
-    data.pool_z[ind] .= ceil.(Int, data.z[ind] ./ (maxdepth / depthres))
-
-    #Update vision
-    data.vis_prey[ind] = visual_range_prey(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
-    data.vis_pred[ind] = visual_range_pred(model,data.length[ind],data.z[ind],sp,length(ind)) .* ΔT
     return nothing
 end
 function surface_dive(model, sp, ind)
@@ -339,6 +338,7 @@ function predator_avoidance(model, time, ind, to_move, pred_list, sp)
         end
 
         pred_info = pred_list_item
+        println(pred_info)
         predator_position = SVector(pred_info.x, pred_info.y, pred_info.z)
         position = SVector(animal_data.x[ind[ind_index]], animal_data.y[ind[ind_index]], animal_data.z[ind[ind_index]])
         

@@ -18,15 +18,6 @@ struct pools
     pool::NamedTuple
 end
 
-mutable struct eDNA
-    data::AbstractArray
-    state::NamedTuple
-end
-
-struct particles
-    eDNA::eDNA
-end
-
 struct PredatorInfo
     x::Float64
     y::Float64
@@ -61,10 +52,19 @@ mutable struct MarineEnvironment
     chl::Array
 end
 
+mutable struct MarineDepths
+    focal_day::DataFrame
+    focal_night::DataFrame 
+    patch_day::DataFrame
+    patch_night::DataFrame
+    grid::DataFrame
+end
+
 ##### Model struct
 mutable struct MarineModel
     arch::Architecture          # architecture on which models will run
     environment::MarineEnvironment
+    depths::MarineDepths        #Depth Profiles for all species
     t::Float64                  # time in minute
     iteration::Int64            # model interation
     dt::Float64                 # Patch Resolution
@@ -105,33 +105,6 @@ function gaussmix(n,m1, m2, m3, s1, s2, s3, l1, l2)
     return z
 end
 
-#Convert degrees to radians
-function deg2rad(deg)
-    return deg * π / 180
-end
-
-#Derive a NewtonRaphson equation
-function newton_raphson(f, fp, r_init=1.0, max_iteration=100, tolerance=1e-6)
-    r_prev = r_init
-    iter = 1
-    
-    while iter <= max_iteration
-        f_val = f(r_prev)
-        df_val = fp(r_prev)
-        r_next = r_prev .- f_val ./ df_val
-        difference = abs.(r_next .- r_prev)
-        
-        if all(difference .< tolerance)
-            break
-        end
-        
-        r_prev = r_next
-        iter += 1
-    end
-    
-    return r_prev
-end
-
 #Create a multimodal distribution. May not need to be used in the model and should probably be used a priori.
 function multimodal_distribution(x, means, stds, weights)
     if length(means) != length(stds) != length(weights) || length(means) < 1
@@ -170,36 +143,6 @@ function sample_normal(minimum_value, maximum_value; num_samples = 1000, std=0.1
     # Generate an array of samples from a normal distribution
     samples = rand(Normal(mean_value, std), num_samples)
     return samples
-end
-
-function degrees_to_meters(lat, lon)
-    # Earth's radius in meters
-    R = 6371000.0
-
-    # Convert degrees to radians
-    lat_rad = lat * π / 180
-    lon_rad = lon * π / 180
-
-    # Calculate the coordinates in meters
-    lat_meters = R * lat_rad
-    lon_meters = R * lon_rad * cos(lat_rad)
-
-    return lat_meters, lon_meters
-end
-
-function meters_to_degrees(lat_meters, lon_meters)
-    # Earth's radius in meters
-    R = 6371000.0
-
-    # Convert meters to radians
-    lat_rad = lat_meters / R
-    lon_rad = lon_meters / (R * cos(lat_rad))
-
-    # Convert radians to degrees
-    lat_deg = lat_rad * 180 / π
-    lon_deg = lon_rad * 180 / π
-
-    return lat_deg, lon_deg
 end
 
 function logistic(x, k, c)
@@ -298,4 +241,9 @@ function sphere_volume(length::Float64, num_individuals)::Float64
     # Calculate the volume of the sphere
     sphere_volume = 4/3 * π * radius^3
     return sphere_volume
+end
+
+# Function to get target_z based on distribution
+function get_target_z(sp, dist)
+    return gaussmix(1, dist[sp, "mu1"], dist[sp, "mu2"], dist[sp, "mu3"], dist[sp, "sigma1"], dist[sp, "sigma2"], dist[sp, "sigma3"], dist[sp, "lambda1"], dist[sp, "lambda2"])[1]
 end
