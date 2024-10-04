@@ -13,7 +13,6 @@ function timestep_results(sim)
     energy = []
     cost = []
     behavior = []
-    landscape = []
     rmr = []
     active = []
 
@@ -42,13 +41,12 @@ function timestep_results(sim)
         append!(energy,model.individuals.animals[species_index].data.energy[alive])
         append!(cost,model.individuals.animals[species_index].data.cost[alive])
         append!(behavior,model.individuals.animals[species_index].data.behavior[alive])
-        append!(landscape,model.individuals.animals[species_index].data.landscape[alive])
         append!(rmr,model.individuals.animals[species_index].data.rmr[alive])
         append!(active,model.individuals.animals[species_index].data.active[alive])
 
     end
-    individual_array = hcat(Sp,Ind,x,y,z,lengths,ration,energy,cost,behavior,landscape,rmr,active)
-    column_names = ["Species", "Individual", "X", "Y", "Z", "Length", "Ration", "Energy", "Cost", "Behavior","Landscape","RMR","Active"]
+    individual_array = hcat(Sp,Ind,x,y,z,lengths,ration,energy,cost,behavior,rmr,active)
+    column_names = ["Species", "Individual", "X", "Y", "Z", "Length", "Ration", "Energy", "Cost", "Behavior","RMR","Active"]
     df = DataFrame(individual_array, Symbol.(column_names))
 
     if model.iteration == 1
@@ -69,15 +67,4 @@ function timestep_results(sim)
     ## Uncomment for ecosystem results
     #filename3 = "results/Ecosystem/EcosystemResults$run-$ts.jld"
     #save(filename3,"ecosystem",outputs.consumption)
-end
-
-function energy_landscape(model,sp,ind,prey_list)
-    species_data = model.individuals.animals[sp].data
-
-    Threads.@threads for ind_index in 1:length(ind)
-        n_prey = length(prey_list.preys[ind_index])
-        for i in 1:n_prey
-            species_data.landscape[ind[ind_index]] += prey_list.preys[ind_index][i].Biomass
-        end
-    end
 end

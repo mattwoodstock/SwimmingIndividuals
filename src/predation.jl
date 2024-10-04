@@ -5,68 +5,32 @@ function calculate_distances_prey(model::MarineModel, sp, inds, min_prey, max_pr
     sp_y_inds = sp_data.y[inds]
     sp_z_inds = sp_data.z[inds]
 
-    ind_names = Symbol[]
-    ind_data = Vector{PreyInfo}[]  # Preallocate the array of PreyInfo vectors
+    # This will store the collected PreyInfo for all individuals
+    prey_infos_all = PreyInfo[]  # Initialize a single vector to store all prey information
 
-    
-    function add_prey(prey_type, prey_data, ind, indices, abundances, sp)
-        dx = sp_x_inds[ind] .- prey_data.x[indices]
-        dy = sp_y_inds[ind] .- prey_data.y[indices]
-        dz = sp_z_inds[ind] .- prey_data.z[indices]
-        dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
-        within_detection = findall(dist .<= detection[ind])
-
-        prey_infos = PreyInfo[]  # Initialize with an empty vector
-        for i in within_detection
-            prey_info = PreyInfo(prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], prey_data.length[indices[i]], abundances, dist[i])
-            push!(prey_infos, prey_info)
-        end
-        return prey_infos
-    end
-
-    function add_patch_prey(prey_type, prey_data, ind, indices, abundances, pool_index)
-        dx = sp_x_inds[ind] .- prey_data.x[indices]
-        dy = sp_y_inds[ind] .- prey_data.y[indices]
-        dz = sp_z_inds[ind] .- prey_data.z[indices]
-        dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
-        if prey_type == 2
-            dist = max.(0, dist .- (3 .* prey_data.volume[indices] ./ (4 * π)).^(1 / 3))
-        end
-        within_detection = findall(dist .<= detection[ind])
-        prey_infos = PreyInfo[]  # Initialize with an empty vector
-        for i in within_detection
-            prey_info = PreyInfo(prey_type, pool_index, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], prey_data.length[indices[i]], abundances[i], dist[i])
-            push!(prey_infos, prey_info)
-        end
-        return prey_infos
-    end
-
-    # Process each individual in `inds` using broadcasting
-    ind_data = map(enumerate(inds)) do (j_index, j_value)
+    # Process each individual in `inds`
+    for (j_index, j_value) in enumerate(inds)
         min_prey_size = sp_length_inds[j_index] * min_prey
         max_prey_size = sp_length_inds[j_index] * max_prey
-        name = Symbol("Ind" * string(j_value))
 
-        prey = PreyInfo[]  # Initialize with an empty vector
         # Process individual animals
         for (species_index, animal) in enumerate(model.individuals.animals)
             species_data = animal.data
             size_range = (species_data.length .>= min_prey_size) .& (species_data.length .<= max_prey_size)
             index1 = findall(size_range)
-            prey = vcat(prey, add_prey(1, species_data, j_index, index1, 1, species_index))
+            prey_infos_all = vcat(prey_infos_all, add_prey(1, sp_data,species_data, j_index, index1, 1, species_index,detection))
         end
+
         # Process pool animals
         for (pool_index, animal) in enumerate(model.pools.pool)
             pool_data = animal.data
             size_range = (pool_data.length .>= min_prey_size) .& (pool_data.length .<= max_prey_size)
             index1 = findall(size_range)
-            prey = vcat(prey, add_patch_prey(2, pool_data, j_index,index1, pool_data.abundance, pool_index))
+            prey_infos_all = vcat(prey_infos_all, add_prey(2, sp_data,pool_data, j_index, index1, pool_data.abundance, pool_index,detection))
         end
-        push!(ind_names, name)
-        prey
     end
-    preys = NamedTuple{Tuple(ind_names)}(ind_data)
-    return AllPreys(preys)
+    # Return the collected prey information as AllPreys
+    return prey_infos_all
 end
 
 function calculate_distances_patch_prey(model::MarineModel, sp, inds, min_prey, max_prey, detection)
@@ -76,66 +40,32 @@ function calculate_distances_patch_prey(model::MarineModel, sp, inds, min_prey, 
     sp_y_inds = sp_data.y[inds]
     sp_z_inds = sp_data.z[inds]
 
-    ind_names = Symbol[]
-    ind_data = Vector{PreyInfo}[]  # Preallocate the array of PreyInfo vectors
+    # This will store the collected PreyInfo for all individuals
+    prey_infos_all = PreyInfo[]  # Initialize a single vector to store all prey information
 
-    Threads.@threads for j in 1:length(inds)
-        min_prey_size = sp_length_inds[j] * min_prey
-        max_prey_size = sp_length_inds[j] * max_prey
-        name = Symbol("Ind" * string(j))
-
-        prey = PreyInfo[]  # Initialize with an empty vector
-
-        function add_patches(prey_type, sp_data, prey_data, ind, indices, abundances, sp)
-            dx = sp_x_inds[ind] .- prey_data.x[indices]
-            dy = sp_y_inds[ind] .- prey_data.y[indices]
-            dz = sp_z_inds[ind] .- prey_data.z[indices]
-            dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
-            if prey_type == 1
-               dist = max.(0, dist .- (3 .* sp_data.volume[ind] ./ (4 * π)).^(1 / 3))
-            else
-                dist = max.(0, dist .- (3 .* prey_data.volume[indices] ./ (4 * π)).^(1 / 3) .- (3 .* sp_data.volume[ind] ./ (4 * π)))
-            end
-            within_detection = findall(dist .<= detection[ind])
-            for i in 1:length(within_detection)
-                prey_info = prey_type == 2 ?
-                PreyInfo(prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], prey_data.length[indices[i]], abundances[indices[i]], dist[within_detection[i]]) :
-                PreyInfo(prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], prey_data.length[indices[i]], abundances, dist[within_detection[i]])
-                push!(prey, prey_info)
-            end
-        end
+    # Process each individual in `inds`
+    for (j_index, j_value) in enumerate(inds)
+        min_prey_size = sp_length_inds[j_index] * min_prey
+        max_prey_size = sp_length_inds[j_index] * max_prey
 
         # Process individual animals
         for (species_index, animal) in enumerate(model.individuals.animals)
             species_data = animal.data
-            lengths = species_data.length
-            size_range = (lengths.>= min_prey_size) .& (lengths .<= max_prey_size)
-
+            size_range = (species_data.length .>= min_prey_size) .& (species_data.length .<= max_prey_size)
             index1 = findall(size_range)
-            if !isempty(index1)
-                add_patches(1, sp_data, species_data, j, index1, 1, species_index)
-            end
+            prey_infos_all = vcat(prey_infos_all, add_prey(1, sp_data,species_data, j_index, index1, 1, species_index,detection))
         end
 
         # Process pool animals
         for (pool_index, animal) in enumerate(model.pools.pool)
             pool_data = animal.data
-            lengths = pool_data.length
-
-            size_range = (lengths.>= min_prey_size) .& (lengths .<= max_prey_size)
-
+            size_range = (pool_data.length .>= min_prey_size) .& (pool_data.length .<= max_prey_size)
             index1 = findall(size_range)
-            if !isempty(index1)
-                add_patches(2, sp_data, pool_data, j, index1, pool_data.abundance, pool_index)
-            end
+            prey_infos_all = vcat(prey_infos_all, add_prey(2, sp_data,pool_data, j_index, index1, pool_data.abundance, pool_index,detection))
         end
-
-        push!(ind_names, name)
-        push!(ind_data, prey)
     end
-
-    preys = NamedTuple{Tuple(ind_names)}(ind_data)
-    return AllPreys(preys)
+    # Return the collected prey information as AllPreys
+    return prey_infos_all
 end
 
 function calculate_distances_pred(model::MarineModel, sp, inds, min_pred, max_pred, detection)
@@ -145,60 +75,32 @@ function calculate_distances_pred(model::MarineModel, sp, inds, min_pred, max_pr
     sp_y_inds = sp_data.y[inds]
     sp_z_inds = sp_data.z[inds]
 
-    ind_names = Symbol[]
-    ind_data = Vector{Union{Nothing, PredatorInfo}}[]  # Use Union to handle missing values
+    # This will store the collected PreyInfo for all individuals
+    pred_infos_all = PredatorInfo[]  # Initialize a single vector to store all prey information
 
-    function add_pred(pred_data, ind, indices, min_dist)
-        dx = sp_x_inds[ind] .- pred_data.x[indices]
-        dy = sp_y_inds[ind] .- pred_data.y[indices]
-        dz = sp_z_inds[ind] .- pred_data.z[indices]
-        dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
-        within_detection = findall(dist .<= detection[ind])
-
-        closest_predator = nothing  # Initialize as nothing (no predator found)
-        closest_dist = Inf  # Set initial closest distance to infinity
-
-        for i in within_detection
-            if dist[i] < closest_dist  # Check if this predator is closer
-                closest_dist = dist[i]
-                closest_predator = PredatorInfo(pred_data.x[indices[i]], pred_data.y[indices[i]], pred_data.z[indices[i]], dist[i])
-            end
-        end
-
-        return closest_predator  # Return only the closest predator
-    end
-
-    # Process each individual in `inds` using broadcasting
-    ind_data = map(enumerate(inds)) do (j_index, j_value)
-        name = Symbol("Ind" * string(j_value))
-        closest_pred = nothing  # Initialize closest predator as nothing
+    # Process each individual in `inds`
+    for (j_index, j_value) in enumerate(inds)
+        min_pred_size = sp_length_inds[j_index] / max_pred
+        max_pred_size = sp_length_inds[j_index] / min_pred
 
         # Process individual animals
         for (species_index, animal) in enumerate(model.individuals.animals)
             species_data = animal.data
-            size_range = (sp_length_inds[j_index] / max_pred .<= species_data.length .<= sp_length_inds[j_index] / min_pred)
+            size_range = (species_data.length .>= min_pred_size) .& (species_data.length .<= max_pred_size)
             index1 = findall(size_range)
-
-            # Get the closest predator for this individual
-            closest_pred = add_pred(species_data, j_index, index1, closest_pred === nothing ? Inf : closest_pred.Distance)
+            pred_infos_all = vcat(pred_infos_all, add_prey(1, sp_data,species_data, j_index, index1, 1, species_index,detection))
         end
 
         # Process pool animals
         for (pool_index, animal) in enumerate(model.pools.pool)
             pool_data = animal.data
-            size_range = (sp_length_inds[j_index] / max_pred .<= pool_data.length .<= sp_length_inds[j_index] / min_pred)
+            size_range = (pool_data.length .>= min_pred_size) .& (pool_data.length .<= max_pred_size)
             index1 = findall(size_range)
-
-            # Get the closest predator for this individual
-            closest_pred = add_pred(pool_data, j_index, index1, closest_pred === nothing ? Inf : closest_pred.Distance)
+            pred_infos_all = vcat(pred_infos_all, add_prey(2, sp_data,pool_data, j_index, index1, pool_data.abundance, pool_index,detection))
         end
-
-        push!(ind_names, name)
-        closest_pred  # Return only the closest predator
     end
-
-    preds = NamedTuple{Tuple(ind_names)}(ind_data)
-    return AllPreds(preds)
+    # Return the collected prey information as AllPreys
+    return pred_infos_all
 end
 
 function detect_prey(model::MarineModel,sp,ind)
@@ -219,13 +121,22 @@ end
 function move_predator(model, sp, inds, index, prey_df,prey_ind)
     swim_velo = model.individuals.animals[sp].p.Swim_velo[2][sp] * model.individuals.animals[sp].data.length[inds[index]] / 1000
 
-    # Handling time and swimming time
-    time_to_prey = prey_df[prey_ind].Distance / swim_velo
+    if isa(prey_df,PreyInfo)
+        # Handling time and swimming time
+        time_to_prey = prey_df.Distance / swim_velo
+        # Update predator
+        model.individuals.animals[sp].data.x[inds[index]] = prey_df.x
+        model.individuals.animals[sp].data.y[inds[index]] = prey_df.y
+        model.individuals.animals[sp].data.z[inds[index]] = prey_df.z
+    else
+        # Handling time and swimming time
+        time_to_prey = prey_df[prey_ind].Distance / swim_velo
+        # Update predator
+        model.individuals.animals[sp].data.x[inds[index]] = prey_df[prey_ind].x
+        model.individuals.animals[sp].data.y[inds[index]] = prey_df[prey_ind].y
+        model.individuals.animals[sp].data.z[inds[index]] = prey_df[prey_ind].z
+    end
 
-    # Update predator
-    model.individuals.animals[sp].data.x[inds[index]] = prey_df[prey_ind].x
-    model.individuals.animals[sp].data.y[inds[index]] = prey_df[prey_ind].y
-    model.individuals.animals[sp].data.z[inds[index]] = prey_df[prey_ind].z
     return time_to_prey
 end
 
@@ -255,18 +166,22 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
     max_dist = model.individuals.animals[sp].p.Swim_velo[2][sp] * (length_ind / 1000) .* ddt
     # Loop through each prey list
     Threads.@threads for ind_index in 1:n_ind
+        prey_list_item = filter(p -> p.Predator == to_eat[ind_index], prey_list)
 
-        prey_list_item = prey_list.preys[to_eat[ind_index]]
+        # Check if prey_list_item is a single PreyInfo or a collection
 
-        if isempty(prey_list_item)
+        if !isa(prey_list_item, PreyInfo) #Is a collection
+            if isempty(prey_list_item) #Collection is empty
+                continue  # Skip if the collection is empty
+            end
+            @inbounds sorted_prey = sort!(prey_list_item, by = x -> x.Distance)
+        else #Is a single item
+            sorted_prey = [prey_list_item]
+        end
+
+        if model.individuals.animals[sp].data.ac[ind[ind_index]] == 0 #Animal was consumed by another animal during this timestep and should be skipped.
             continue
         end
-        
-        if model.individuals.animals[sp].data.ac[ind[ind_index]] == 0 #Animal was consumed in by another animal this time.
-            continue
-        end
-
-        sorted_prey = sort(prey_list_item, by = x -> x.Distance)
 
         # Continue eating as long as there's time left and the gut is not full
         total_time = 0.0
@@ -373,7 +288,7 @@ function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
             continue
         end
         # Sort prey by distance initially
-        sorted_prey = sort(prey_list_item, by = x -> x.Distance)
+        sorted_prey = sort!(prey_list_item, by = x -> x.Distance)
         
         total_time = 0.0
         ration = 0.0

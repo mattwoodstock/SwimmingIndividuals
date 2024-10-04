@@ -67,9 +67,6 @@ function decision(model, sp, ind, outputs)
     preds = predators(model, sp, ind)  #Create list of predators
     prey = preys(model, sp, ind)  #Create list of preys for all individuals in the species
 
-    #Calculate the prey energy landscape for each individual 
-    energy_landscape(model,sp,ind,prey)
-
     to_eat = findall(feed_trigger .<= val1)
     not_eat = findall(feed_trigger .> val1)
 
@@ -87,8 +84,8 @@ function decision(model, sp, ind, outputs)
     end 
     
     #Clear these as they are no longer necessary and take up memory.
-    prey.preys = NamedTuple()
-    preds.preds = NamedTuple()
+    prey = Vector{PreyInfo}
+    preds = Vector{PredatorInfo}
 end
 
 function visual_range_preds_init(length,depth,min_pred,max_pred,ind)

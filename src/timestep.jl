@@ -46,7 +46,7 @@ function TimeStep!(sim)
             start_idx = (chunk-1) * chunk_size + 1
             end_idx = min(chunk*chunk_size,n)
             chunk_indices = start_idx:end_idx
-            pool_predation(model,pool_index,chunk_indices,outputs)
+            #pool_predation(model,pool_index,chunk_indices,outputs)
         end
     end
 

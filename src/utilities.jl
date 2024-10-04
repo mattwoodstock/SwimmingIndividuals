@@ -19,13 +19,7 @@ struct pools
 end
 
 struct PredatorInfo
-    x::Float64
-    y::Float64
-    z::Float64
-    Distance::Float64
-end
-
-struct PreyInfo
+    Prey::Int
     Type::Int
     Sp::Int
     Ind::Int
@@ -38,12 +32,18 @@ struct PreyInfo
     Distance::Float64
 end
 
-mutable struct AllPreds
-    preds::NamedTuple
-end
-
-mutable struct AllPreys
-    preys::NamedTuple
+struct PreyInfo
+    Predator::Int
+    Type::Int
+    Sp::Int
+    Ind::Int
+    x::Float64
+    y::Float64
+    z::Float64
+    Biomass::Float64
+    Length::Float64
+    Inds::Float64
+    Distance::Float64
 end
 
 mutable struct MarineEnvironment
@@ -246,4 +246,43 @@ end
 # Function to get target_z based on distribution
 function get_target_z(sp, dist)
     return gaussmix(1, dist[sp, "mu1"], dist[sp, "mu2"], dist[sp, "mu3"], dist[sp, "sigma1"], dist[sp, "sigma2"], dist[sp, "sigma3"], dist[sp, "lambda1"], dist[sp, "lambda2"])[1]
+end
+
+function add_prey(prey_type,sp_data, prey_data, ind, indices, abundances, sp,detection)
+    dx = sp_data.x[ind] .- prey_data.x[indices]
+    dy = sp_data.y[ind] .- prey_data.y[indices]
+    dz = sp_data.z[ind] .- prey_data.z[indices]
+    dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
+    within_detection = findall(dist .<= detection[ind])
+
+    prey_infos = PreyInfo[]  # Initialize a vector to store prey info for this individual
+    for i in within_detection
+        if prey_type == 1
+            prey_info = PreyInfo(ind,prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], prey_data.length[indices[i]], abundances, dist[i])
+        else
+            prey_info = PreyInfo(ind,prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], prey_data.length[indices[i]], abundances[indices[i]], dist[i])
+        end
+    end
+    return prey_infos
+end
+
+function add_pred(sp_data,pred_data, ind, indices, min_dist,detection)
+    dx = sp_data.x[ind] .- pred_data.x[indices]
+    dy = sp_data.y[ind] .- pred_data.y[indices]
+    dz = sp_data.z[ind] .- pred_data.z[indices]
+
+    dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
+    within_detection = findall(dist .<= detection[ind])
+
+    closest_predator = nothing  # Initialize as nothing (no predator found)
+    closest_dist = min_dist  # Set initial closest distance to infinity
+
+    for i in within_detection
+        if dist[i] < closest_dist  # Check if this predator is closer
+            closest_dist = dist[i]
+            closest_predator = PredatorInfo(ind,pred_data.x[indices[i]], pred_data.y[indices[i]], pred_data.z[indices[i]], dist[i])
+        end
+    end
+
+    return closest_predator  # Return only the closest predator
 end

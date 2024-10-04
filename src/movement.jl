@@ -329,16 +329,14 @@ function predator_avoidance(model, time, ind, to_move, pred_list, sp)
 
     # Threads for parallel processing
     Threads.@threads for ind_index in 1:length(ind)
-        pred_list_item = pred_list.preds[to_move[ind_index]]
-        
+        pred_list_item = filter(p -> p.Prey == to_move[ind_index], pred_list)        
         # Skip if there are no predators or the animal was consumed
-        if isnothing(pred_list_item) || model.individuals.animals[sp].data.ac[ind[ind_index]] == 0
+        if isnothing(pred_list_item) || model.individuals.animals[sp].data.ac[ind[ind_index]] == 0 || isempty(pred_list_item)
             model.individuals.animals[sp].data.behavior[ind[ind_index]] = 0
             continue
         end
 
         pred_info = pred_list_item
-        println(pred_info)
         predator_position = SVector(pred_info.x, pred_info.y, pred_info.z)
         position = SVector(animal_data.x[ind[ind_index]], animal_data.y[ind[ind_index]], animal_data.z[ind[ind_index]])
         
