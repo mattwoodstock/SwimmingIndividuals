@@ -58,6 +58,10 @@ function dvm_action(model, sp, ind)
 
     if !isempty(mig_status_1)
         # Continue ascending
+        grid = model.depths.grid
+        maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
+        depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
+
         mig_inds = ind[mig_status_1]
         target_z_asc = data.target_z[mig_inds]
         data.z[mig_inds] .= max.(target_z_asc, data.z[mig_inds] .- data.mig_rate[mig_inds] .* ΔT)
@@ -72,6 +76,10 @@ function dvm_action(model, sp, ind)
 
     if !isempty(mig_status_2)
         # Continue descending
+        grid = model.depths.grid
+        maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
+        depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
+
         mig_inds = ind[mig_status_2]
         target_z_desc = data.target_z[mig_inds]
         data.z[mig_inds] .= min.(target_z_desc, data.z[mig_inds] .+ data.mig_rate[mig_inds] .* ΔT)

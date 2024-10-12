@@ -1,8 +1,8 @@
 Name,Value,Description
 latmin,0,Minimum Latitude
-latmax,100,Maximum Latitude
+latmax,1000000,Maximum Latitude
 lonmin,0,Minimum Longitude
-lonmax,100,Maximum Longitude
+lonmax,1000000,Maximum Longitude
 depthmax,1000,Maximum Depth (insert positive value)
 latres,1,Number of latitude grid cells
 lonres,1,Number of Longitude Grid Cells

@@ -1,18 +1,17 @@
 function update!(sim::MarineSimulation; time_offset = (vels = false, PARF = false, temp = false))
     #Run model
     for i in 1:sim.iterations
-        @profile TimeStep!(sim)
+        TimeStep!(sim)
 
         # Open a text file to write the profile results
-        open("profile_output.txt", "w") do file
-            Profile.print(file)
-        end
-        ProfileView.view()
-        stop
+        #open("profile_output.txt", "w") do file
+        #    Profile.print(file)
+        #end
+        #ProfileView.view()
     end
 end
 
-function reset_run(sim)
+function reset_run(sim::MarineSimulation)
     model = sim.model
     
     for (species_index, _) in enumerate(keys(model.individuals.animals))

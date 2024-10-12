@@ -1,4 +1,4 @@
-function behavior(model, sp, ind, outputs)
+function behavior(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}, outputs::MarineOutputs)
     behave_type = model.individuals.animals[sp].p.Type[2][sp]  # A variable that determines the behavioral type of an animal
     
     if behave_type == "dvm_strong"
@@ -28,7 +28,7 @@ function behavior(model, sp, ind, outputs)
     return nothing
 end
 
-function predators(model, sp, ind)
+function predators(model::MarineModel, sp::Int, ind::Vector{Int64})
     # Precompute constant values
     min_pred_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
     max_pred_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
@@ -37,7 +37,7 @@ function predators(model, sp, ind)
     calculate_distances_pred(model,sp,ind,min_pred_limit,max_pred_limit,detection)
 end
 
-function preys(model, sp, ind)
+function preys(model::MarineModel, sp::Int, ind::Vector{Int64})
     # Precompute constant values
     min_prey_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
     max_prey_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
@@ -48,7 +48,7 @@ function preys(model, sp, ind)
     return prey
 end
 
-function patch_preys(model, sp, ind)
+function patch_preys(model::MarineModel, sp::Int, ind::Vector{Int64})
     # Precompute constant values
     min_prey_limit = model.pools.pool[sp].characters.Min_Prey[2][sp]
     max_prey_limit = model.pools.pool[sp].characters.Max_Prey[2][sp]
@@ -58,7 +58,7 @@ function patch_preys(model, sp, ind)
     return prey
 end
 
-function decision(model, sp, ind, outputs)  
+function decision(model::MarineModel, sp::Int, ind::Vector{Int64}, outputs::MarineOutputs)  
     max_fullness = 0.2 * model.individuals.animals[sp].data.biomass[ind]     
     feed_trigger = model.individuals.animals[sp].data.gut_fullness[ind] ./ max_fullness
     val1 = rand(length(ind))

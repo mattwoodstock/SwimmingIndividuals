@@ -14,7 +14,7 @@ function ipar_curve(time, peak_ipar=450, peak_time=12, width=4)
     return peak_ipar * exp(-((adj_time - peak_time)^2) / (2 * width^2))
 end
 
-function individual_temp(model,sp,ind,environment)
+function individual_temp(model::MarineModel,sp::Int,ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true},environment::MarineEnvironment)
     files = model.files
     grid_file = files[files.File .=="grid",:Destination][1]
     grid = CSV.read(grid_file,DataFrame)

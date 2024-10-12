@@ -261,7 +261,7 @@ function generate_pool(group, sp::Int,dt::Int,environment::MarineEnvironment,dep
     end
 end
 
-function pool_growth(model)
+function pool_growth(model::MarineModel)
     # Function that controls the growth of a population back to its carrying capacity
     for (pool_index, animal) in enumerate(model.pools.pool)
         growth_rate = animal.characters.Growth[2][pool_index] / (1440/model.dt)  # Daily growth rate adjusted to per minute

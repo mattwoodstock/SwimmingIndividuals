@@ -1,4 +1,4 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays, Profile, ProfileView
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays, Profile, ProfileView,Cthulhu
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
 using KernelAbstractions: @kernel, @index

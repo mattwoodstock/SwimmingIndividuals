@@ -1,4 +1,4 @@
-function timestep_results(sim)
+function timestep_results(sim::MarineSimulation)
     model = sim.model
     outputs = sim.outputs
     population_array = zeros(model.n_species,5) #2D array to append to the Population-Scale Information

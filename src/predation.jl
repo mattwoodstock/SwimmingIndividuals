@@ -272,7 +272,7 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
 end
 
 function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
-    n_ind = length(prey_list.preys)
+    n_ind = length(ind)
     ddt = fill(model.dt * 60.0, n_ind)  # Seconds
     animal = model.pools.pool[sp]
     animal_data = animal.data
@@ -282,7 +282,7 @@ function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
     max_dist = animal.characters.Swim_Velo[2][sp] * (length_ind / 1000) .* ddt #Meters that can be swam.
 
     Threads.@threads for ind_index in 1:n_ind
-        prey_list_item = prey_list.preys[ind_index]
+        prey_list_item = filter(p -> p.Predator == ind_index, prey_list)
 
         if isempty(prey_list_item)
             continue
@@ -368,7 +368,7 @@ function pool_predation(model, pool,inds,outputs)
     if length(ind) > 0
         prey = patch_preys(model,pool,inds[ind])
         patches_eat(model,pool,inds,prey,outputs)
-        prey.preys = NamedTuple()
+        prey = Vector{PreyInfo}
     end
 end
 

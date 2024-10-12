@@ -1,4 +1,4 @@
-function energy(model, sp, temp, ind)
+function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true})
     # Extract animal data and parameters
     animal = model.individuals.animals[sp]
     animal_data = animal.data
