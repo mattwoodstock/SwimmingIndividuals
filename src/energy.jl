@@ -68,8 +68,17 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, ind::SubArra
     can_grow = animal_data.length[ind] .< animal_chars.Max_Size[2][sp]
     growing_inds = have_excess .& can_grow
 
-    animal_data.biomass[ind[growing_inds]] .+= (excess[growing_inds] .* growth_prop[growing_inds]) ./ animal_ed
+    growth_energy = excess[growing_inds] .* growth_prop[growing_inds]
+
+    animal_data.biomass[ind[growing_inds]] .+= growth_energy ./ animal_ed
     animal_data.length[ind[growing_inds]] .= ((animal_data.biomass[ind[growing_inds]] ./ animal_chars.LWR_a[2][sp]) .^ (1 / animal_chars.LWR_b[2][sp])) .* 10
+
+    #Reproduction
+    is_mature = animal_data.mature[ind] == 1.0
+    can_repro = have_excess .& is_mature
+    repro_energy = max.(0,excess[growing_inds] .* (1 .- growth_prop[growing_inds]))
+
+    reproduce(model,sp,ind[can_repro],repro_energy)
 
     #starvation
     starve = findall(x -> x < 0,animal_data.energy[ind])
@@ -77,5 +86,9 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, ind::SubArra
         animal_data.ac[ind[starve]] .= 0.0
         animal_data.behavior[ind[starve]] .= 5
     end
+
+    ## Reset Energy for animals that had excess
+    animal_data.energy[ind[have_excess]] .= r_max
+
     nothing
 end

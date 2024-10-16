@@ -286,3 +286,22 @@ function add_pred(sp_data,pred_data, ind, indices, min_dist,detection)
 
     return closest_predator  # Return only the closest predator
 end
+
+function generate_depths(files)
+    focal_file_day = files[files.File .== "focal_z_dist_day", :Destination][1]
+    focal_file_night = files[files.File .== "focal_z_dist_night", :Destination][1]
+
+    focal_day = CSV.read(focal_file_day, DataFrame)
+    focal_night = CSV.read(focal_file_night, DataFrame)
+
+    patch_file_day = files[files.File .== "nonfocal_z_dist_day", :Destination][1]
+    patch_file_night = files[files.File .== "nonfocal_z_dist_night", :Destination][1]
+
+    patch_day = CSV.read(patch_file_day, DataFrame)
+    patch_night = CSV.read(patch_file_night, DataFrame)
+
+    grid_file = files[files.File .== "grid",:Destination][1]
+    grid = CSV.read(grid_file, DataFrame)
+
+    MarineDepths(focal_day,focal_night,patch_day,patch_night,grid)
+end

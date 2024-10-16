@@ -39,7 +39,6 @@ function TimeStep!(sim::MarineSimulation)
         end 
         species_data.daily_ration[alive] .+= species_data.ration[alive]
     end
-    println("done spec")
     #Non-focal species processing
     for spec in 1:pool   
         n::Int64 = length(model.pools.pool[spec].data.length)
@@ -51,14 +50,15 @@ function TimeStep!(sim::MarineSimulation)
             pool_predation(model,spec,chunk_indices,outputs)
         end
     end
-    println("done pool")
 
     if (model.t % model.output_dt == 0) & (model.iteration > model.spinup) #Only output results after the spinup is done.
         timestep_results(sim) #Assign and output
     end 
-    pool_growth(model) #Grow pool individuals back to carrying capacity (initial biomass)  
-    println("done analysis")
 
+    pool_growth(model) #Grow pool individuals back to carrying capacity (initial biomass)  
+    model.pools.pool[pool + 1].data.age .+= sim.ΔT #Larval animals grow by the timestep
+    recruit(model)
+    
     if model.t == 0 #Reset day at midnight
         for spec in 1:species   
             model.individuals.animals[spec].data.daily_ration::Vector{Float64} .= 0.0
