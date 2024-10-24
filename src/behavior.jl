@@ -59,13 +59,16 @@ function patch_preys(model::MarineModel, sp::Int, ind::Vector{Int64})
 end
 
 function decision(model::MarineModel, sp::Int, ind::Vector{Int64}, outputs::MarineOutputs)  
-    max_fullness = 0.2 * model.individuals.animals[sp].data.biomass[ind]     
-    feed_trigger = model.individuals.animals[sp].data.gut_fullness[ind] ./ max_fullness
+    sp_dat = model.individuals.animals[sp].data
+    sp_char = model.individuals.animals[sp].p
+
+    max_fullness::Vector{Float64} = 0.2 * sp_dat.biomass[ind]     
+    feed_trigger::Vector{Float64} = sp_dat.gut_fullness[ind] ./ max_fullness
     val1 = rand(length(ind))
 
     # Individual avoids predators if predators exist
-    preds = predators(model, sp, ind)  #Create list of predators
-    prey = preys(model, sp, ind)  #Create list of preys for all individuals in the species
+    preds::Vector{PredatorInfo} = predators(model, sp, ind)  #Create list of predators
+    prey::Vector{PreyInfo} = preys(model, sp, ind)  #Create list of preys for all individuals in the species
 
     to_eat = findall(feed_trigger .<= val1)
     not_eat = findall(feed_trigger .> val1)
@@ -74,18 +77,18 @@ function decision(model::MarineModel, sp::Int, ind::Vector{Int64}, outputs::Mari
     not_eating = ind[not_eat]
 
     if length(to_eat) > 0
-        time = eat(model, sp, eating,to_eat, prey, outputs)
+        time::Vector{Float64} = eat(model, sp, eating,to_eat, prey, outputs)
         predator_avoidance(model,time,eating,to_eat,preds,sp)
     end
 
     if length(not_eating) > 0
-        time = fill(model.individuals.animals[sp].p.t_resolution[2][sp] * 60,length(not_eating))
+        time = fill(sp_char.t_resolution[2][sp] * 60,length(not_eating))
         predator_avoidance(model,time,not_eating,not_eat,preds,sp)
     end 
     
     #Clear these as they are no longer necessary and take up memory.
-    prey = Vector{PreyInfo}
-    preds = Vector{PredatorInfo}
+    prey = Vector{PreyInfo}()
+    preds = Vector{PredatorInfo}()
 end
 
 function visual_range_preds_init(length,depth,min_pred,max_pred,ind)

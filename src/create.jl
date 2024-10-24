@@ -2,6 +2,7 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, max
     plank_names = Symbol[]
     plank_data=[]
     for i in 1:Nsp
+        println(i)
         name = Symbol("sp"*string(i))
         plank = construct_plankton(arch, params, maxN)
         generate_plankton!(plank, B[i],i,depths)
@@ -16,7 +17,7 @@ function generate_pools(arch::Architecture, params::Dict, Npool::Int, g::Abstrac
     pool_names = Symbol[]
     pool_data=[]
 
-    for i in 1:Npool
+    for i in 1:(Npool+1)
         name = Symbol("pool"*string(i))
         pool = construct_pool(arch,params,g,maxN)
         generate_pool(pool,i,dt,environment,depths)
@@ -32,7 +33,7 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval, :Sex_Ratio,:SpeciesShort,:Min_Prey,:Handling_Time,:LWR_b, :Surface_Interval,:Energy_density,:SpeciesLong, :LWR_a, :Larval_Size,:Max_Prey, :Max_Size, :t_resolution,  :Swim_velo, :Biomass,:Taxa, :Larval_Duration, :Type, :Hatch_Survival)
+    param_names=(:Dive_Interval, :Sex_Ratio,:SpeciesShort,:Min_Prey,:Handling_Time,:LWR_b, :Surface_Interval,:Energy_density,:SpeciesLong, :LWR_a, :Larval_Size, :Hatch_Survival,:Max_Prey, :Max_Size, :t_resolution,  :Swim_velo, :Biomass,:Taxa, :Larval_Duration, :Type)
 
     p = NamedTuple{param_names}(params)
     return plankton(data, p)
@@ -289,14 +290,14 @@ function reproduce(model,sp,ind,energy)
     latmax = grid[findfirst(grid.Name .== "latmax"), :Value]
     latmin = grid[findfirst(grid.Name .== "latmin"), :Value]
 
-    egg_volume = 0.15 .* sp_dat.biomass[ind[energy]] .^ 0.14 #From Barneche et al. 2018
+    egg_volume = 0.15 .* sp_dat.biomass[ind] .^ 0.14 #From Barneche et al. 2018
     egg_energy = 2.15 .* egg_volume .^ 0.77
 
     num_eggs = max.(0,Int.(ceil.(energy / egg_energy .* sp_char.Sex_Ratio[2][sp] .* sp_char.Hatch_Survival[2][sp])))
 
-    parent_x = sp_dat.x[ind[energy]]
-    parent_y = sp_dat.y[ind[energy]]
-    parent_z = sp_dat.z[ind[energy]]
+    parent_x = sp_dat.x[ind]
+    parent_y = sp_dat.y[ind]
+    parent_z = sp_dat.z[ind]
 
     to_replace = findall(x -> x == 0,model.pools.pool[model.n_pool+1].data.active)
     

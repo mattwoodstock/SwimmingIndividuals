@@ -62,23 +62,32 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, ind::SubArra
     animal_data.energy[ind] .= min.(r_max, animal_data.energy[ind])
 
     excess = max.(0, animal_data.energy[ind] .- r_max)
-    have_excess = excess .> 0
+    have_excess = findall(x -> x > 0,excess)
     growth_prop = 1 .- (animal_data.length[ind] ./ animal.p.Max_Size[2][sp])
 
-    can_grow = animal_data.length[ind] .< animal_chars.Max_Size[2][sp]
-    growing_inds = have_excess .& can_grow
+    can_grow = findall(x -> x < animal_chars.Max_Size[2][sp],animal_data.length[ind])
 
-    growth_energy = excess[growing_inds] .* growth_prop[growing_inds]
+    growing_inds = intersect(have_excess, can_grow)
 
-    animal_data.biomass[ind[growing_inds]] .+= growth_energy ./ animal_ed
-    animal_data.length[ind[growing_inds]] .= ((animal_data.biomass[ind[growing_inds]] ./ animal_chars.LWR_a[2][sp]) .^ (1 / animal_chars.LWR_b[2][sp])) .* 10
+    if length(growing_inds) > 0
+        growth_energy = excess[growing_inds] .* growth_prop[growing_inds]
 
+        animal_data.biomass[ind[growing_inds]] .+= growth_energy ./ animal_ed
+        animal_data.length[ind[growing_inds]] .= ((animal_data.biomass[ind[growing_inds]] ./ animal_chars.LWR_a[2][sp]) .^ (1 / animal_chars.LWR_b[2][sp])) .* 10
+    end
     #Reproduction
-    is_mature = animal_data.mature[ind] == 1.0
-    can_repro = have_excess .& is_mature
-    repro_energy = max.(0,excess[growing_inds] .* (1 .- growth_prop[growing_inds]))
+    is_mature = findall(x -> x == 1.0,animal_data.mature[ind])
+    can_repro = intersect(have_excess,is_mature)
 
-    reproduce(model,sp,ind[can_repro],repro_energy)
+    if length(can_grow) > 0
+        repro_energy = max.(0,excess[growing_inds] .* (1 .- growth_prop[growing_inds]))
+    else
+        repro_energy = excess[have_excess]
+    end
+
+    if length(can_repro) > 0
+        reproduce(model,sp,ind[can_repro],repro_energy)
+    end
 
     #starvation
     starve = findall(x -> x < 0,animal_data.energy[ind])
@@ -88,7 +97,9 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, ind::SubArra
     end
 
     ## Reset Energy for animals that had excess
-    animal_data.energy[ind[have_excess]] .= r_max
+    if length(have_excess) > 0
+        animal_data.energy[ind[have_excess]] .= r_max
+    end
 
     nothing
 end

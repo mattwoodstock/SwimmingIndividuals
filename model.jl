@@ -1,4 +1,4 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays, Profile, ProfileView,Cthulhu
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays, Profile, ProfileView, Cthulhu
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
 using KernelAbstractions: @kernel, @index
@@ -61,7 +61,7 @@ depths = generate_depths(files)
 
 for iter in 1:n_iters
     B = trait[:Biomass][1:Nsp] #Vector of IBM abundances for all species
-
+  
     ## Create individuals
     ### Focal species
     inds = generate_individuals(trait, arch, Nsp, B, maxN,depths)
@@ -87,10 +87,3 @@ for iter in 1:n_iters
     update!(sim)
     #reset_run(sim)
 end
-
-#Full results
-#results!(model,outputs)
-
-#Create plots
-#food_web_plot(outputs,model,dt)
-#plot_depths(sim)

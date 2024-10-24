@@ -2,7 +2,7 @@ Name,Value,Description
 architecture,CPU,Can either be CPU or GPU
 numspec,5,Number of Modeled Species
 nts,72,Number of Time Steps (minutes) model and spinup
-numpool,28,Number of Pooled Groups
+numpool,27,Number of Pooled Groups
 output_dt,20,Interval between Timestep Outputs
 num_patches,100,Number of patches per grid cell
 food_exp,1,Food Limitation Adjuster for Experiments
