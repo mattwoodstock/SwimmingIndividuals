@@ -1,4 +1,4 @@
-function calculate_distances_prey(model::MarineModel, sp, inds, min_prey, max_prey, detection)
+function calculate_distances_prey(model::MarineModel, sp::Int64, inds::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}, min_prey::Float64, max_prey::Float64, detection::Vector{Float64})
     sp_data = model.individuals.animals[sp].data
     sp_length_inds = sp_data.length[inds]
     sp_x_inds = sp_data.x[inds]
@@ -33,7 +33,7 @@ function calculate_distances_prey(model::MarineModel, sp, inds, min_prey, max_pr
     return prey_infos_all
 end
 
-function calculate_distances_patch_prey(model::MarineModel, sp, inds, min_prey, max_prey, detection)
+function calculate_distances_patch_prey(model::MarineModel, sp::Int64, inds::Vector{Int64}, min_prey::Float64, max_prey::Float64, detection::Vector{Float64})
     sp_data = model.pools.pool[sp].data
     sp_length_inds = sp_data.length[inds]
     sp_x_inds = sp_data.x[inds]
@@ -68,12 +68,12 @@ function calculate_distances_patch_prey(model::MarineModel, sp, inds, min_prey, 
     return prey_infos_all
 end
 
-function calculate_distances_pred(model::MarineModel, sp, inds, min_pred, max_pred, detection)
+function calculate_distances_pred(model::MarineModel, sp::Int64, inds::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}, min_pred::Float64, max_pred::Float64, detection::Vector{Float64})
     sp_data = model.individuals.animals[sp].data
-    sp_length_inds = sp_data.length[inds]
-    sp_x_inds = sp_data.x[inds]
-    sp_y_inds = sp_data.y[inds]
-    sp_z_inds = sp_data.z[inds]
+    sp_length_inds::Vector{Float64} = sp_data.length[inds]
+    sp_x_inds::Vector{Float64} = sp_data.x[inds]
+    sp_y_inds::Vector{Float64} = sp_data.y[inds]
+    sp_z_inds::Vector{Float64} = sp_data.z[inds]
 
     # This will store the collected PreyInfo for all individuals
     pred_infos_all = PredatorInfo[]  # Initialize a single vector to store all prey information
@@ -362,14 +362,18 @@ function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
     return ddt
 end
 
-function pool_predation(model, pool,inds,outputs)
-    ind = findall(x -> x > 0, model.pools.pool[pool].data.biomass[inds])
-    ##Create Prey list
-    if length(ind) > 0
-        prey = patch_preys(model,pool,inds[ind])
-        patches_eat(model,pool,inds,prey,outputs)
-        prey = Vector{PreyInfo}
+function pool_predation(model::MarineModel, pool::Int64, inds, outputs::MarineOutputs)
+    biomass_values = model.pools.pool[pool].data.biomass[inds]::Vector{Float64}  # Enforce Vector{Float64} type
+    ind = findall(x -> x > 0, biomass_values)
+    
+    if !isempty(ind)
+        prey = patch_preys(model, pool, inds[ind])  # Generate prey based on selected indices
+        patches_eat(model, pool, inds, prey, outputs)
+        return prey
     end
+
+    return Vector{PreyInfo}()
 end
+
 
 

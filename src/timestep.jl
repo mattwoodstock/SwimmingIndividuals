@@ -31,16 +31,13 @@ function TimeStep!(sim::MarineSimulation)
                     end_idx = min(chunk*chunk_size,n)
                     chunk_indices = view(alive,start_idx:end_idx)
                     behavior(model, spec, chunk_indices, outputs)
-                    @code_warntype ind_temp::Vector{Float64} = individual_temp(model, spec, chunk_indices, envi)
-                    stop
+                    ind_temp::Vector{Float64} = individual_temp(model, spec, chunk_indices, envi)
                     energy(model, spec, ind_temp,chunk_indices)
                 end
             end
-            #reproduce(model,spec,alive)
         end 
         species_data.daily_ration[alive] .+= species_data.ration[alive]
     end
-
     #Non-focal species processing. Note the "Larval Pool" does not eat
     for spec in 1:pool   
         n::Int64 = length(model.pools.pool[spec].data.length)
@@ -59,7 +56,8 @@ function TimeStep!(sim::MarineSimulation)
 
     pool_growth(model) #Grow pool individuals back to carrying capacity (initial biomass)  
     model.pools.pool[pool + 1].data.age .+= sim.ΔT #Larval animals grow by the timestep
-    recruit(model)
+
+    recruit(model) #Larva of age 
     
     if model.t == 0 #Reset day at midnight
         for spec in 1:species   
@@ -76,3 +74,4 @@ function TimeStep!(sim::MarineSimulation)
         model.individuals.animals[spec].data.landscape::Vector{Float64} .= 0.0
     end
 end
+

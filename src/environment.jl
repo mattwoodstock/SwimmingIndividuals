@@ -30,7 +30,7 @@ function individual_temp(model::MarineModel,sp::Int,ind::SubArray{Int64, 1, Vect
     y =  model.individuals.animals[sp].data.y[ind] / (latmax-latmin) * size(sub_temp)[2]
     z = model.individuals.animals[sp].data.z[ind]
 
-    ind_val = trilinear_interpolation_irregular_z(sub_temp,x,y,z,environment.temp_z)
+    ind_val::Vector{Float64} = trilinear_interpolation_irregular_z(sub_temp,x,y,z,environment.temp_z)
     return ind_val
 end
 

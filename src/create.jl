@@ -2,7 +2,6 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, max
     plank_names = Symbol[]
     plank_data=[]
     for i in 1:Nsp
-        println(i)
         name = Symbol("sp"*string(i))
         plank = construct_plankton(arch, params, maxN)
         generate_plankton!(plank, B[i],i,depths)
@@ -33,7 +32,7 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval, :Sex_Ratio,:SpeciesShort,:Min_Prey,:Handling_Time,:LWR_b, :Surface_Interval,:Energy_density,:SpeciesLong, :LWR_a, :Larval_Size, :Hatch_Survival,:Max_Prey, :Max_Size, :t_resolution,  :Swim_velo, :Biomass,:Taxa, :Larval_Duration, :Type)
+    param_names=(:Dive_Interval, :Sex_Ratio,:SpeciesShort,:Min_Prey,:Handling_Time,:LWR_b, :Surface_Interval,:Energy_density,:SpeciesLong, :LWR_a, :Larval_Size, :Hatch_Survival,:Max_Prey, :Max_Size, :t_resolution, :MR_type,  :Swim_velo, :Biomass,:Taxa, :Larval_Duration, :Type)
 
     p = NamedTuple{param_names}(params)
     return plankton(data, p)
@@ -97,7 +96,7 @@ function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
             plank.data.cost[ind] = 0
             plank.data.consumed[ind] = 0
             plank.data.active[ind] = 0
-            plank.data.mature[ind] = min(1,plank.data.length[ind]/(0.5*(plank.p.Max_Size[2][sp])))
+            plank.data.mature[ind] = 0.0 #All animals are immature and will become mature once it is necessary. Does not affect model processes/results.
             plank.data.landscape[ind] = 0.0
 
         end
@@ -343,169 +342,136 @@ function reproduce(model,sp,ind,energy)
     end
 end
 
-function recruit(model)
+function recruit(model::MarineModel)
     larvae = model.pools.pool[model.n_pool + 1].data
-    grid = model.depths.grid
-    depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
-    lonres = grid[findfirst(grid.Name .== "lonres"), :Value]
-    latres = grid[findfirst(grid.Name .== "latres"), :Value]
-    maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
-    lonmax = grid[findfirst(grid.Name .== "lonmax"), :Value]
-    lonmin = grid[findfirst(grid.Name .== "lonmin"), :Value]
-    latmax = grid[findfirst(grid.Name .== "latmax"), :Value]
-    latmin = grid[findfirst(grid.Name .== "latmin"), :Value]
 
     for sp in 1:model.n_species
         sp_dat = model.individuals.animals[sp].data
         sp_char = model.individuals.animals[sp].p
-        spec_larvae = findall(x -> x == sp,larvae.focal)
-        of_age = findall(x -> x >= sp_char.Larval_Duration[2][sp],larvae[spec_larvae])
+        spec_larvae = findall(x -> x == sp, larvae.focal)
+        of_age = findall(x -> x >= sp_char.Larval_Duration[2][sp], larvae[spec_larvae])
 
-        if length(of_age) > 0 ## There are larvae to create
-            for i in 1:length(of_age)
-                currently_dead = findall(x -> x == 0.0,sp_dat.active) ##Species animals that are currently dead
-                num_create = larvae.abundance[spec_larvae[of_age[i]]]
-                if length(currently_dead) > 0 #Can replace 
-                    if num_create > length(currently_dead) #Can only replace some and need to create more 
-                        to_replace = length(currently_dead)
-                        to_make = num_create - length(currently_dead)
-                        for j in 1:to_replace #Add data to specific index 
-                            sp_dat.x[currently_dead[j]] = larvae.x[spec_larvae[of_age[i]]]
-                            sp_dat.y[currently_dead[j]] = larvae.y[spec_larvae[of_age[i]]]
-                            sp_dat.z[currently_dead[j]] = larvae.z[spec_larvae[of_age[i]]]
-                            sp_dat.length[currently_dead[j]] = sp_char.Larval_Size[2][sp]
-                            new_biomass = sp_char.LWR_a[2][sp] * (sp_char.Larval_Size[2][sp]/10) ^ sp_char.LWR_b[2][sp]
-                            sp_dat.biomass[currently_dead[j]] = new_biomass
-                            sp_dat.energy[currently_dead[j]] = new_biomass * plank.p.Energy_density[2][sp] * 0.2
-                            sp_dat.target_z[currently_dead[j]] = larvae.z[spec_larvae[of_age[i]]]
-                            sp_dat.mig_status[currently_dead[j]] = 0.0
-                            sp_dat.mig_rate[currently_dead[j]] = 0.0
-                            sp_dat.rmr[currently_dead[j]] = 0.0
-                            sp_dat.behavior[currently_dead[j]] = 1.0
-                            sp_dat.gut_fullness[currently_dead[j]] = rand() * 0.2 * new_biomass
-                            sp_dat.cost[currently_dead[j]] = 0.0
-                            sp_dat.dives_remaining[currently_dead[j]] = 0.0
-                            sp_dat.dive_capable[currently_dead[j]] = 1.0
-                            sp_dat.daily_ration[currently_dead[j]] = 0.0
-                            sp_dat.consumed[currently_dead[j]] = 0.0
-                            sp_dat.active[currently_dead[j]] = 0.0
-                            sp_dat.pool_x[currently_dead[j]] = max(1,ceil(Int,x / ((lonmax - lonmin) / lonres)))
-                            sp_dat.pool_y[currently_dead[j]] = max(1,ceil(Int,y / ((latmax - latmin) / latres)))
-                            sp_dat.pool_z[currently_dead[j]] = max(1,ceil(Int, larvae.z[sp_char[of_age[i]]] / (maxdepth / depthres)))
-                            sp_dat.ration[currently_dead[j]] = 0.0
-                            sp_dat.ac[currently_dead[j]] = 1.0
-                            sp_dat.vis_prey[currently_dead[j]] = visual_range_preys_init(sp_char.Larval_Size[2][sp],larvae.z[spec_larvae[of_age[i]]],sp_char.Min_Prey[2][sp],sp_char.Max_Prey[2][sp],1)[1] * sp_char.t_resolution[2][sp]
-                            sp_dat.vis_pred[currently_dead[j]] = visual_range_preds_init(sp_char.Larval_Size[2][sp],spec_larvae.z[sp_char[of_age[i]]],sp_char.Min_Prey[2][sp],sp_char.Max_Prey[2][sp],1)[1] * sp_char.t_resolution[2][sp]
-                            sp_dat.mature[currently_dead[j]] = 0.0
-                            sp_dat.landscape[currently_dead[j]] = 0.0
-                        end
-                        ## Find a way to rep() in R
-                        append!(sp_dat.x,fill(larvae.x[spec_larvae[of_age[i]]],to_make))
-                        append!(sp_dat.y,fill(larvae.y[spec_larvae[of_age[i]]],to_make))
-                        append!(sp_dat.z,fill(larvae.z[spec_larvae[of_age[i]]],to_make))
-                        append!(sp_dat.length,fill(sp_char.Larval_Size[2][sp],to_make))
-                        new_biomass = sp_char.LWR_a[2][sp] * (sp_char.Larval_Size[2][sp]/10) ^ sp_char.LWR_b[2][sp]
-                        append!(sp_dat.biomass,fill(new_biomass,to_make))
-                        new_energy = new_biomass * plank.p.Energy_density[2][sp] * 0.2
-                        append!(sp_dat.energy,fill(new_energy,to_make))
-                        append!(sp_dat.target_z,fill(larvae.z[sp_char[of_age[i]]],to_make))
-                        append!(sp_dat.mig_status,fill(0.0,to_make))
-                        append!(sp_dat.mig_rate,fill(0.0,to_make))
-                        append!(sp_dat.rmr,fill(0.0,to_make))
-                        append!(sp_dat.behavior,fill(1.0,to_make))
-                        new_fullness = rand(to_make) * 0.2 * new_biomass
-                        append!(sp_dat.gut_fullness,new_fullness)
-                        append!(sp_dat.cost,fill(0.0,to_make))
-                        append!(sp_dat.dives_remaining,fill(0.0,to_make))
-                        append!(sp_dat.dive_capable,fill(1.0,to_make))
-                        append!(sp_dat.daily_ration,fill(0.0,to_make))
-                        append!(sp_dat.consumed,fill(0.0,to_make))
-                        append!(sp_dat.active,fill(0.0,to_make))
-                        new_pool_x = max(1,ceil(Int,x / ((lonmax - lonmin) / lonres)))
-                        new_pool_y = max(1,ceil(Int,y / ((latmax - latmin) / latres)))
-                        new_pool_z = max(1,ceil(Int, larvae.z[sp_char[of_age[i]]] / (maxdepth / depthres)))
-                        append!(sp_dat.pool_x,fill(new_pool_x,to_make))
-                        append!(sp_dat.pool_y,fill(new_pool_y,to_make))
-                        append!(sp_dat.pool_z,fill(new_pool_z,to_make))
-                        append!(sp_dat.ration,fill(0.0,to_make))
-                        append!(sp_dat.ac,fill(1.0,to_make))
-                        new_vis_prey = visual_range_preys_init(sp_char.Larval_Size[2][sp],larvae.z[spec_larvae[of_age[i]]],sp_char.Min_Prey[2][sp],sp_char.Max_Prey[2][sp],1)[1] * sp_char.t_resolution[2][sp]
-                        new_vis_pred = visual_range_preds_init(sp_char.Larval_Size[2][sp],larvae.z[spec_larvae[of_age[i]]],sp_char.Min_Prey[2][sp],sp_char.Max_Prey[2][sp],1)[1] * sp_char.t_resolution[2][sp]
-                        append!(sp_dat.vis_prey,fill(new_vis_prey,to_make))
-                        append!(sp_dat.vis_pred,fill(new_vis_pred,to_make))
-                        append!(sp_dat.mature,fill(1.0,to_make))
-                        append!(sp_dat.landscape,fill(1.0,to_make))
-                    else #Can replace all individuals
-                        for j in 1:num_create #Add data to specific index 
-                            sp_dat.x[currently_dead[j]] = larvae.x[spec_larvae[of_age[i]]]
-                            sp_dat.y[currently_dead[j]] = larvae.y[spec_larvae[of_age[i]]]
-                            sp_dat.z[currently_dead[j]] = larvae.z[spec_larvae[of_age[i]]]
-                            sp_dat.length[currently_dead[j]] = sp_char.Larval_Size[2][sp]
-                            new_biomass = sp_char.LWR_a[2][sp] * (sp_char.Larval_Size[2][sp]/10) ^ sp_char.LWR_b[2][sp]
-                            sp_dat.biomass[currently_dead[j]] = new_biomass
-                            sp_dat.energy[currently_dead[j]] = new_biomass * plank.p.Energy_density[2][sp] * 0.2
-                            sp_dat.target_z[currently_dead[j]] = larvae.z[spec_larvae[of_age[i]]]
-                            sp_dat.mig_status[currently_dead[j]] = 0.0
-                            sp_dat.mig_rate[currently_dead[j]] = 0.0
-                            sp_dat.rmr[currently_dead[j]] = 0.0
-                            sp_dat.behavior[currently_dead[j]] = 1.0
-                            sp_dat.gut_fullness[currently_dead[j]] = rand() * 0.2 * new_biomass
-                            sp_dat.cost[currently_dead[j]] = 0.0
-                            sp_dat.dives_remaining[currently_dead[j]] = 0.0
-                            sp_dat.dive_capable[currently_dead[j]] = 1.0
-                            sp_dat.daily_ration[currently_dead[j]] = 0.0
-                            sp_dat.consumed[currently_dead[j]] = 0.0
-                            sp_dat.active[currently_dead[j]] = 0.0
-                            sp_dat.pool_x[currently_dead[j]] = max(1,ceil(Int,x / ((lonmax - lonmin) / lonres)))
-                            sp_dat.pool_y[currently_dead[j]] = max(1,ceil(Int,y / ((latmax - latmin) / latres)))
-                            sp_dat.pool_z[currently_dead[j]] = max(1,ceil(Int, larvae.z[spec_larvae[of_age[i]]] / (maxdepth / depthres)))
-                            sp_dat.ration[currently_dead[j]] = 0.0
-                            sp_dat.ac[currently_dead[j]] = 1.0
-                            sp_dat.vis_prey[currently_dead[j]] = visual_range_preys_init(sp_char.Larval_Size[2][sp],larvae.z[spec_larvae[of_age[i]]],sp_char.Min_Prey[2][sp],sp_char.Max_Prey[2][sp],1)[1] * sp_char.t_resolution[2][sp]
-                            sp_dat.vis_pred[currently_dead[j]] = visual_range_preds_init(sp_char.Larval_Size[2][sp],larvae.z[spec_larvae[of_age[i]]],sp_char.Min_Prey[2][sp],sp_char.Max_Prey[2][sp],1)[1] * sp_char.t_resolution[2][sp]
-                            sp_dat.mature[currently_dead[j]] = 0.0
-                            sp_dat.landscape[currently_dead[j]] = 0.0
-                        end
-                    end
-                else #Need to create all individuals
-                    append!(sp_dat.x,fill(larvae.x[spec_larvae[of_age[i]]],to_make))
-                    append!(sp_dat.y,fill(larvae.y[spec_larvae[of_age[i]]],to_make))
-                    append!(sp_dat.z,fill(larvae.z[spec_larvae[of_age[i]]],to_make))
-                    append!(sp_dat.length,fill(sp_char.Larval_Size[2][sp],to_make))
-                    new_biomass = sp_char.LWR_a[2][sp] * (sp_char.Larval_Size[2][sp]/10) ^ sp_char.LWR_b[2][sp]
-                    append!(sp_dat.biomass,fill(new_biomass,to_make))
-                    new_energy = new_biomass * plank.p.Energy_density[2][sp] * 0.2
-                    append!(sp_dat.energy,fill(new_energy,to_make))
-                    append!(sp_dat.mig_status,fill(0.0,to_make))
-                    append!(sp_dat.mig_rate,fill(0.0,to_make))
-                    append!(sp_dat.rmr,fill(0.0,to_make))
-                    append!(sp_dat.behavior,fill(1.0,to_make))
-                    new_fullness = rand(to_make) * 0.2 * new_biomass
-                    append!(sp_dat.gut_fullness,new_fullness)
-                    append!(sp_dat.cost,fill(0.0,to_make))
-                    append!(sp_dat.dives_remaining,fill(0.0,to_make))
-                    append!(sp_dat.dive_capable,fill(1.0,to_make))
-                    append!(sp_dat.daily_ration,fill(0.0,to_make))
-                    append!(sp_dat.consumed,fill(0.0,to_make))
-                    append!(sp_dat.active,fill(0.0,to_make))
-                    new_pool_x = max(1,ceil(Int,x / ((lonmax - lonmin) / lonres)))
-                    new_pool_y = max(1,ceil(Int,y / ((latmax - latmin) / latres)))
-                    new_pool_z = max(1,ceil(Int, larvae.z[spec_larvae[of_age[i]]] / (maxdepth / depthres)))
-                    append!(sp_dat.pool_x,fill(new_pool_x,to_make))
-                    append!(sp_dat.pool_y,fill(new_pool_y,to_make))
-                    append!(sp_dat.pool_z,fill(new_pool_z,to_make))
-                    ## Find a way to rep() in R
-                    append!(sp_dat.ration,fill(0.0,to_make))
-                    append!(sp_dat.ac,fill(1.0,to_make))
-                    new_vis_prey = visual_range_preys_init(sp_char.Larval_Size[2][sp],larvae.z[spec_larvae[of_age[i]]],sp_char.Min_Prey[2][sp],sp_char.Max_Prey[2][sp],1)[1] * sp_char.t_resolution[2][sp]
-                    new_vis_pred = visual_range_preds_init(sp_char.Larval_Size[2][sp],larvae.z[spec_larvae[of_age[i]]],sp_char.Min_Prey[2][sp],sp_char.Max_Prey[2][sp],1)[1] * sp_char.t_resolution[2][sp]
-                    append!(sp_dat.vis_prey,fill(new_vis_prey,to_make))
-                    append!(sp_dat.vis_pred,fill(new_vis_pred,to_make))
-                    append!(sp_dat.mature,fill(1.0,to_make))
-                    append!(sp_dat.landscape,fill(1.0,to_make))
-                    append!(sp_dat.target_z,fill(larvae.z[spec_larvae[of_age[i]]],to_make))
-                end
+        if isempty(of_age)
+            continue # Skip if no larvae of this age
+        end
+
+        num_create = larvae.abundance[spec_larvae[of_age]]
+        currently_dead = findall(x -> x == 0.0, sp_dat.ac) # Species animals that are currently dead
+
+        if !isempty(currently_dead)
+            to_replace = min(length(currently_dead), num_create)
+            for j in 1:to_replace
+                update_individual!(sp_dat, larvae, spec_larvae[of_age], sp_char, currently_dead[j], j)
             end
+            if num_create > to_replace
+                to_make = num_create - to_replace
+                create_new_individuals!(sp_dat, larvae, spec_larvae[of_age], sp_char, to_make)
+            end
+        else
+            create_new_individuals!(sp_dat, larvae, spec_larvae[of_age], sp_char, num_create)
         end
     end
 end
+
+function update_individual!(sp_dat, larvae, spec_larvae, sp_char, idx, age_index)
+    grid = model.depths.grid
+    depthres::Int64 = grid[findfirst(grid.Name .== "depthres"), :Value]
+    lonres::Int64 = grid[findfirst(grid.Name .== "lonres"), :Value]
+    latres::Int64 = grid[findfirst(grid.Name .== "latres"), :Value]
+    maxdepth::Int64 = grid[findfirst(grid.Name .== "depthmax"), :Value]
+    lonmax::Int64 = grid[findfirst(grid.Name .== "lonmax"), :Value]
+    lonmin::Int64 = grid[findfirst(grid.Name .== "lonmin"), :Value]
+    latmax::Int64 = grid[findfirst(grid.Name .== "latmax"), :Value]
+    latmin::Int64 = grid[findfirst(grid.Name .== "latmin"), :Value]
+    
+    sp_dat.x[idx] = larvae.x[spec_larvae[age_index]]
+    sp_dat.y[idx] = larvae.y[spec_larvae[age_index]]
+    sp_dat.z[idx] = larvae.z[spec_larvae[age_index]]
+    sp_dat.length[idx] = sp_char.Larval_Size[2][sp]
+    new_biomass = sp_char.LWR_a[2][sp] * (sp_char.Larval_Size[2][sp]/10) ^ sp_char.LWR_b[2][sp]
+    sp_dat.biomass[idx] = new_biomass
+    sp_dat.energy[idx] = new_biomass * plank.p.Energy_density[2][sp] * 0.2
+    sp_dat.target_z[idx] = larvae.z[spec_larvae[age_index]]
+
+    # Additional initialization
+    sp_dat.mig_status[idx] = 0.0
+    sp_dat.mig_rate[idx] = 0.0
+    sp_dat.rmr[idx] = 0.0
+    sp_dat.behavior[idx] = 1.0
+    sp_dat.active[idx] = 0.0
+    sp_dat.gut_fullness[idx] = rand() * 0.2 * new_biomass
+    sp_dat.cost[idx] = 0.0
+    sp_dat.dives_remaining[idx] = 0.0
+    sp_dat.dive_capable[idx] = 1.0
+    sp_dat.daily_ration[idx] = 0.0
+    sp_dat.consumed[idx] = 0.0
+    sp_dat.pool_x[idx] = max(1, ceil(Int, sp_dat.x[idx] / ((lonmax - lonmin) / lonres)))
+    sp_dat.pool_y[idx] = max(1, ceil(Int, sp_dat.y[idx] / ((latmax - latmin) / latres)))
+    sp_dat.pool_z[idx] = max(1, ceil(Int, sp_dat.z[idx] / (maxdepth / depthres)))
+    sp_dat.ration[idx] = 0.0
+    sp_dat.ac[idx] = 1.0
+    sp_dat.vis_prey[idx] = visual_range_prey(sp_char.Larval_Size[2][sp], sp_dat.z[idx], sp_char.Min_Prey[2][sp], sp_char.Max_Prey[2][sp], 1)[1] * sp_char.t_resolution[2][sp]
+    sp_dat.vis_pred[idx] = visual_range_pred(sp_char.Larval_Size[2][sp], sp_dat.z[idx], sp_char.Min_Prey[2][sp], sp_char.Max_Prey[2][sp], 1)[1] * sp_char.t_resolution[2][sp]
+    sp_dat.mature[idx] = 0.0
+    sp_dat.landscape[idx] = 0.0
+end
+
+function create_new_individuals!(sp_dat, larvae, spec_larvae, sp_char, num_new)
+    grid = model.depths.grid
+    depthres::Int64 = grid[findfirst(grid.Name .== "depthres"), :Value]
+    lonres::Int64 = grid[findfirst(grid.Name .== "lonres"), :Value]
+    latres::Int64 = grid[findfirst(grid.Name .== "latres"), :Value]
+    maxdepth::Int64 = grid[findfirst(grid.Name .== "depthmax"), :Value]
+    lonmax::Int64 = grid[findfirst(grid.Name .== "lonmax"), :Value]
+    lonmin::Int64 = grid[findfirst(grid.Name .== "lonmin"), :Value]
+    latmax::Int64 = grid[findfirst(grid.Name .== "latmax"), :Value]
+    latmin::Int64 = grid[findfirst(grid.Name .== "latmin"), :Value]
+    
+    # Preallocate new data
+    push!(sp_dat.x, fill(larvae.x[spec_larvae], num_new)...)
+    push!(sp_dat.y, fill(larvae.y[spec_larvae], num_new)...)
+    push!(sp_dat.z, fill(larvae.z[spec_larvae], num_new)...)
+    push!(sp_dat.length, fill(sp_char.Larval_Size[2][sp], num_new)...)
+
+    new_biomass = sp_char.LWR_a[2][sp] * (sp_char.Larval_Size[2][sp]/10) ^ sp_char.LWR_b[2][sp]
+    new_energy = new_biomass * plank.p.Energy_density[2][sp] * 0.2
+
+    push!(sp_dat.biomass, fill(new_biomass, num_new)...)
+    push!(sp_dat.energy, fill(new_energy, num_new)...)
+
+    sp_dat.target_z = append!(sp_dat.target_z, fill(larvae.z[spec_larvae], num_new)...)
+    sp_dat.mig_status = append!(sp_dat.mig_status, fill(0.0, num_new)...)
+    sp_dat.mig_rate = append!(sp_dat.mig_rate, fill(0.0, num_new)...)
+    sp_dat.rmr = append!(sp_dat.rmr, fill(0.0, num_new)...)
+    sp_dat.behavior = append!(sp_dat.behavior, fill(1.0, num_new)...)
+
+    new_fullness = rand(num_new) * 0.2 * new_biomass
+    push!(sp_dat.gut_fullness, new_fullness...)
+    push!(sp_dat.cost, fill(0.0, num_new)...)
+    push!(sp_dat.dives_remaining, fill(0.0, num_new)...)
+    push!(sp_dat.dive_capable, fill(1.0, num_new)...)
+    push!(sp_dat.daily_ration, fill(0.0, num_new)...)
+    push!(sp_dat.consumed, fill(0.0, num_new)...)
+    push!(sp_dat.active, fill(0.0, num_new)...)
+
+    # Calculate new pools
+    new_pool_x = max(1, ceil(Int, sp_dat.x[end] / ((lonmax - lonmin) / lonres)))
+    new_pool_y = max(1, ceil(Int, sp_dat.y[end] / ((latmax - latmin) / latres)))
+    new_pool_z = max(1, ceil(Int, sp_dat.z[end] / (maxdepth / depthres)))
+
+    push!(sp_dat.pool_x, fill(new_pool_x, num_new)...)
+    push!(sp_dat.pool_y, fill(new_pool_y, num_new)...)
+    push!(sp_dat.pool_z, fill(new_pool_z, num_new)...)
+
+    push!(sp_dat.ration, fill(0.0, num_new)...)
+    push!(sp_dat.ac, fill(1.0, num_new)...)
+
+    new_vis_prey = visual_range_prey(sp_char.Larval_Size[2][sp], sp_dat.z[end], sp_char.Min_Prey[2][sp], sp_char.Max_Prey[2][sp], 1)[1] * sp_char.t_resolution[2][sp]
+    new_vis_pred = visual_range_pred(sp_char.Larval_Size[2][sp], sp_dat.z[end], sp_char.Min_Prey[2][sp], sp_char.Max_Prey[2][sp], 1)[1] * sp_char.t_resolution[2][sp]
+
+    push!(sp_dat.vis_prey, fill(new_vis_prey, num_new)...)
+    push!(sp_dat.vis_pred, fill(new_vis_pred, num_new)...)
+    push!(sp_dat.mature, fill(0.0, num_new)...)
+    push!(sp_dat.landscape, fill(0.0, num_new)...)
+end
+

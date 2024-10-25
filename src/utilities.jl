@@ -266,27 +266,6 @@ function add_prey(prey_type,sp_data, prey_data, ind, indices, abundances, sp,det
     return prey_infos
 end
 
-function add_pred(sp_data,pred_data, ind, indices, min_dist,detection)
-    dx = sp_data.x[ind] .- pred_data.x[indices]
-    dy = sp_data.y[ind] .- pred_data.y[indices]
-    dz = sp_data.z[ind] .- pred_data.z[indices]
-
-    dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
-    within_detection = findall(dist .<= detection[ind])
-
-    closest_predator = nothing  # Initialize as nothing (no predator found)
-    closest_dist = min_dist  # Set initial closest distance to infinity
-
-    for i in within_detection
-        if dist[i] < closest_dist  # Check if this predator is closer
-            closest_dist = dist[i]
-            closest_predator = PredatorInfo(ind,pred_data.x[indices[i]], pred_data.y[indices[i]], pred_data.z[indices[i]], dist[i])
-        end
-    end
-
-    return closest_predator  # Return only the closest predator
-end
-
 function generate_depths(files)
     focal_file_day = files[files.File .== "focal_z_dist_day", :Destination][1]
     focal_file_night = files[files.File .== "focal_z_dist_night", :Destination][1]

@@ -28,7 +28,7 @@ function behavior(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{In
     return nothing
 end
 
-function predators(model::MarineModel, sp::Int, ind::Vector{Int64})
+function predators(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true})
     # Precompute constant values
     min_pred_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
     max_pred_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
@@ -37,7 +37,7 @@ function predators(model::MarineModel, sp::Int, ind::Vector{Int64})
     calculate_distances_pred(model,sp,ind,min_pred_limit,max_pred_limit,detection)
 end
 
-function preys(model::MarineModel, sp::Int, ind::Vector{Int64})
+function preys(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true})
     # Precompute constant values
     min_prey_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
     max_prey_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
@@ -58,7 +58,7 @@ function patch_preys(model::MarineModel, sp::Int, ind::Vector{Int64})
     return prey
 end
 
-function decision(model::MarineModel, sp::Int, ind::Vector{Int64}, outputs::MarineOutputs)  
+function decision(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}, outputs::MarineOutputs)  
     sp_dat = model.individuals.animals[sp].data
     sp_char = model.individuals.animals[sp].p
 
