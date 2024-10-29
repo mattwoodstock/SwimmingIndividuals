@@ -254,7 +254,6 @@ function add_prey(prey_type,sp_data, prey_data, ind, indices, abundances, sp,det
     dz = sp_data.z[ind] .- prey_data.z[indices]
     dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
     within_detection = findall(dist .<= detection[ind])
-
     prey_infos = PreyInfo[]  # Initialize a vector to store prey info for this individual
     for i in within_detection
         if prey_type == 1

@@ -64,6 +64,7 @@ function TimeStep!(sim::MarineSimulation)
             model.individuals.animals[spec].data.daily_ration::Vector{Float64} .= 0.0
             model.individuals.animals[spec].data.ac::Vector{Float64} .= 1.0
             model.individuals.animals[spec].data.behavior::Vector{Float64} .= 1.0
+            model.individuals.animals[spec].data.dives_remaining::Vector{Float64} .= 0.0
         end
     end
 

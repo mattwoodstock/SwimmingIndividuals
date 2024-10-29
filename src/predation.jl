@@ -164,6 +164,7 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
     handling_time = model.individuals.animals[sp].p.Handling_Time[2][sp]
 
     max_dist = model.individuals.animals[sp].p.Swim_velo[2][sp] * (length_ind / 1000) .* ddt
+
     # Loop through each prey list
     Threads.@threads for ind_index in 1:n_ind
         prey_list_item = filter(p -> p.Predator == to_eat[ind_index], prey_list)
@@ -182,6 +183,7 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
         if model.individuals.animals[sp].data.ac[ind[ind_index]] == 0 #Animal was consumed by another animal during this timestep and should be skipped.
             continue
         end
+
 
         # Continue eating as long as there's time left and the gut is not full
         total_time = 0.0

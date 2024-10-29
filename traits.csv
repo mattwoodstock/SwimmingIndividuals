@@ -1,6 +1,6 @@
-﻿SpeciesLong,SpeciesShort,Type,Taxa,MR_type,Biomass,Max_Size,LWR_a,LWR_b,Swim_velo,Surface_Interval,Dive_Interval,Min_Prey,Max_Prey,Energy_density,Handling_Time,Sex_Ratio,Larval_Size,Larval_Duration,Hatch_Survival,t_resolution
-Species1,sp1,non_mig,cetacean,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,0.01,0.2,5000,60,0.5,3,3,0.01,20
-Species2,sp2,non_mig,cetacean,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,0.01,0.2,5000,60,0.5,3,3,0.01,20
-Species3,sp3,non_mig,cetacean,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,0.01,0.2,5000,60,0.5,3,3,0.01,20
-Species4,sp4,non_mig,cetacean,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,0.01,0.2,5000,60,0.5,3,3,0.01,20
-Species5,sp5,non_mig,cetacean,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,0.01,0.2,5000,60,0.5,3,3,0.01,20
+﻿SpeciesLong,SpeciesShort,Type,Taxa,MR_type,Biomass,Max_Size,LWR_a,LWR_b,Swim_velo,Surface_Interval,Dive_Interval,Dive_Min,Dive_Max,Min_Prey,Max_Prey,Energy_density,Handling_Time,Sex_Ratio,Larval_Size,Larval_Duration,Hatch_Survival,t_resolution
+Species1,sp1,non_mig,fish,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,200,400,0.01,0.2,5000,60,0.5,3,3,0.01,20
+Species2,sp2,non_mig,fish,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,200,400,0.01,0.2,5000,60,0.5,3,3,0.01,20
+Species3,sp3,non_mig,fish,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,200,400,0.01,0.2,5000,60,0.5,3,3,0.01,20
+Species4,sp4,non_mig,fish,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,200,400,0.01,0.2,5000,60,0.5,3,3,0.01,20
+Species5,sp5,non_mig,fish,cetacean,0.001,3000,1.00E-02,3,0.5,30,30,200,400,0.01,0.2,5000,60,0.5,3,3,0.01,20

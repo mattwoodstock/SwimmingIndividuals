@@ -32,7 +32,7 @@ function construct_plankton(arch::Architecture, params::Dict, maxN)
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval, :Sex_Ratio,:SpeciesShort,:Min_Prey,:Handling_Time,:LWR_b, :Surface_Interval,:Energy_density,:SpeciesLong, :LWR_a, :Larval_Size, :Hatch_Survival,:Max_Prey, :Max_Size, :t_resolution, :MR_type,  :Swim_velo, :Biomass,:Taxa, :Larval_Duration, :Type)
+    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:SpeciesLong, :LWR_a, :Larval_Size,:Max_Prey, :Max_Size, :Dive_Max, :t_resolution,:Taxa, :Larval_Duration, :Sex_Ratio,:SpeciesShort, :Dive_Min,:Handling_Time,:Energy_density, :Hatch_Survival, :MR_type,  :Swim_velo, :Biomass, :Type)
 
     p = NamedTuple{param_names}(params)
     return plankton(data, p)
@@ -137,7 +137,8 @@ function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
     append!(plank.data.mig_status, fill(0,to_append))
     append!(plank.data.mig_rate, fill(0,to_append))
     append!(plank.data.rmr, fill(0,to_append))
-    append!(plank.data.dives_remaining, fill(0,to_append))
+    possible_dives = 1440 / (plank.p.Surface_Interval[2][sp] + plank.p.Dive_Interval[2][sp])
+    append!(plank.data.dives_remaining, fill(possible_dives,to_append))
     append!(plank.data.interval, fill(0,to_append))
     append!(plank.data.daily_ration, fill(0,to_append))
     append!(plank.data.ration, fill(0,to_append))
@@ -401,7 +402,9 @@ function update_individual!(sp_dat, larvae, spec_larvae, sp_char, idx, age_index
     sp_dat.active[idx] = 0.0
     sp_dat.gut_fullness[idx] = rand() * 0.2 * new_biomass
     sp_dat.cost[idx] = 0.0
-    sp_dat.dives_remaining[idx] = 0.0
+    possible_dives = 1440 / (plank.p.Surface_Interval[2][sp] + plank.p.Dive_Interval[2][sp])
+
+    sp_dat.dives_remaining[idx] = possible_dives
     sp_dat.dive_capable[idx] = 1.0
     sp_dat.daily_ration[idx] = 0.0
     sp_dat.consumed[idx] = 0.0
@@ -448,7 +451,8 @@ function create_new_individuals!(sp_dat, larvae, spec_larvae, sp_char, num_new)
     new_fullness = rand(num_new) * 0.2 * new_biomass
     push!(sp_dat.gut_fullness, new_fullness...)
     push!(sp_dat.cost, fill(0.0, num_new)...)
-    push!(sp_dat.dives_remaining, fill(0.0, num_new)...)
+    possible_dives = 1440 / (plank.p.Surface_Interval[2][sp] + plank.p.Dive_Interval[2][sp])
+    push!(sp_dat.dives_remaining, fill(possible_dives, num_new)...)
     push!(sp_dat.dive_capable, fill(1.0, num_new)...)
     push!(sp_dat.daily_ration, fill(0.0, num_new)...)
     push!(sp_dat.consumed, fill(0.0, num_new)...)

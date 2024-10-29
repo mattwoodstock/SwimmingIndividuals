@@ -18,9 +18,8 @@ function behavior(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{In
             dvm_action(model, sp, ind)  # Animal either migrates or continues what it should do
             decision(model, sp, ind, outputs)
         end
-    elseif behave_type in ("surface_diver", "pelagic_diver")
-        dive_func = behave_type == "surface_diver" ? surface_dive : pelagic_dive
-        dive_func(model, sp, ind)  # Function of energy density and dive characteristics to start dive
+    elseif behave_type == "pelagic_diver"
+        dive_action(model, sp, ind)  # Function of energy density and dive characteristics to start dive
         decision(model, sp, ind, outputs)
     elseif behave_type == "non_mig"
         decision(model, sp, ind, outputs)
@@ -44,7 +43,6 @@ function preys(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64
     # Gather distances
     detection = model.individuals.animals[sp].data.vis_prey[ind]
     prey = calculate_distances_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
-
     return prey
 end
 
@@ -185,24 +183,4 @@ function visual_range_prey(model,length,depth,sp,ind)
     # Visual range as a function of body size and light
     r = max.(1,ind_length .* sqrt.(I_z ./ (pred_contrast .* eye_sensitivity .* prey_size_factor)))
     return r
-end
-
-# Function for the cost function used to triangulate the best distance
-function cost_function_prey(prey_location, preds)
-    total_distance = sum(norm(prey_location .- predator) for predator in preds)
-    return -total_distance
-end
-
-#Optimization function to find the ideal location for prey to go
-function optimize_prey_location(model,sp,ind,preds)
-    initial_guess = [model.individuals.animals[sp].data.x[ind],model.individuals.animals[sp].data.y[ind],model.individuals.animals[sp].data.z[ind]] # Initial guess for prey location
-
-    max_distance = model.individuals.animals[sp].p.Swim_velo[2][sp] * model.individuals.animals[sp].data.length[ind] * 60 * model.individuals.animals[sp].p.t_resolution[2][sp] # Calculate maximum swim velocity the animal could move.
-
-    lower_bound = initial_guess .- max_distance   # Lower bound for prey location
-    upper_bound = initial_guess .+ max_distance   # Upper bound for prey location
-
-    result = optimize(p -> cost_function_prey(p, preds), lower_bound, upper_bound, initial_guess)
-
-    return Optim.minimizer(result)
 end

@@ -93,224 +93,107 @@ function dvm_action(model, sp, ind)
     end
     return nothing
 end
-function surface_dive(model, sp, ind)
-    files = model.files
-    grid_file = files[files.File .== "grid", :Destination][1]
-    grid = CSV.read(grid_file, DataFrame)
-    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonres = grid[grid.Name .== "lonres", :Value][1]
-    latres = grid[grid.Name .== "latres", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonmax = grid[grid.Name .== "lonmax", :Value][1]
-    lonmin = grid[grid.Name .== "lonmin", :Value][1]
-    latmax = grid[grid.Name .== "latmax", :Value][1]
-    latmin = grid[grid.Name .== "latmin", :Value][1]
 
-    for i in ind[1]:ind[1]
-        animal = model.individuals.animals[sp].data
-        animal_p = model.individuals.animals[sp].p
-        # Define behavioral parameters
-        surface_interval = animal_p.Surface_Interval[2][sp]
-        foraging_interval = animal_p.Dive_Interval[2][sp]
-        dive_velocity = (animal.length[ind[i]]/1000) * 60 # meters per minute
-
-        # Time resolution
-        ΔT = animal_p.t_resolution[2][sp]
-        # Progress the animal through the stages
-        if animal.mig_status[ind[i]] == 0
-            # Surface interval
-
-            animal.interval[ind[i]] += ΔT
-            max_fullness = 0.2 * animal.biomass[ind[i]]
-            dive_trigger = animal.gut_fullness[ind[i]] / max_fullness
-            dist = logistic(dive_trigger, 5, 0.5)
-            #Add probability here to start diving
-
-            if animal.interval[ind[i]] >= surface_interval && rand() > dist
-                # Reset interval timer and move to the next stage (diving)
-                animal.interval[ind[i]] = 0
-                animal.mig_status[ind[i]] = 1
-                # Randomly select dive depth
-                animal.target_z[ind[i]] = sample_normal(animal_p.Dive_depth_min[2][sp], animal_p.Dive_depth_max[2][sp], std=20)[rand(1:end)]
-            end
-
-        elseif animal.mig_status[ind[i]] == 1
-            # Continue diving
-
-            #Change depth
-            if animal.z[ind[i]] >= animal.target_z[ind[i]]
-                # Reset active time and move to the next stage (foraging interval)
-                animal.mig_status[ind[i]] = -1
-            end
-
-        elseif animal.mig_status[ind[i]] == -1
-            # Foraging interval
-
-            if animal.interval[ind[i]] >= foraging_interval
-                # Reset interval timer and move to the next stage (ascending)
-                animal.interval[ind[i]] = 0
-                animal.mig_status[ind[i]] = 2
-            else
-                animal.interval[ind[i]] += ΔT
-            end
-
-        elseif animal.mig_status[ind[i]] == 2
-            # Ascending
-
-            if animal.z[ind[i]] <= 1
-                # Reset active time and move to the next cycle (back to surface interval)
-                animal.interval[ind[i]] = 0
-                animal.mig_status[ind[i]] = 0
-
-                # Increment dive count for the day
-                animal.dives_remaining[ind[i]] -= 1
-            end
-        end
-
-        # Check if the dive count for the day exceeds the maximum limit
-        if animal.dives_remaining[ind[i]] <= 0
-            # Prevent further diving
-            animal.mig_status[ind[i]] = 0
-        end
-
-        # Update the position of the animal based on the dive velocity
-        if animal.mig_status[ind[i]] == 1
-            animal.z[ind[i]] = min(animal.target_z[ind[i]], animal.z[ind[i]] + dive_velocity * ΔT)
-        elseif animal.mig_status[ind[i]] == 2
-            animal.z[ind[i]] = max(1, animal.z[ind[i]] - dive_velocity * ΔT)
-        end
-        model.individuals.animals[sp].data.pool_z[ind[i]] = ceil(Int, model.individuals.animals[sp].data.z[ind[i]] / (maxdepth / depthres))
-
-    end
-
-    return nothing
-end
-
-function pelagic_dive(model, sp, ind)
+function dive_action(model, sp, inds)
+    ##Need to refine active time
 
     files = model.files
     grid_file = files[files.File .== "grid", :Destination][1]
     grid = CSV.read(grid_file, DataFrame)
+    
+
+    # Read grid and resolution data
     maxdepth = grid[grid.Name .== "depthmax", :Value][1]
     depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonres = grid[grid.Name .== "lonres", :Value][1]
-    latres = grid[grid.Name .== "latres", :Value][1]
-    depthres = grid[grid.Name .== "depthres", :Value][1]
-    lonmax = grid[grid.Name .== "lonmax", :Value][1]
-    lonmin = grid[grid.Name .== "lonmin", :Value][1]
-    latmax = grid[grid.Name .== "latmax", :Value][1]
-    latmin = grid[grid.Name .== "latmin", :Value][1]
 
-    z_dist_file_day = files[files.File .== "focal_z_dist_day", :Destination][1]
-    z_dist_file_night = files[files.File .== "focal_z_dist_night", :Destination][1]
-    z_day_dist = CSV.read(z_dist_file_day, DataFrame)
-    z_night_dist = CSV.read(z_dist_file_night, DataFrame)
+    animal_data = model.individuals.animals[sp].data
+    animal_p = model.individuals.animals[sp].p
+    
+    # Define behavioral parameters
+    surface_interval = animal_p.Surface_Interval[2][sp]
+    foraging_interval = animal_p.Dive_Interval[2][sp]
+    dive_velocity = animal_p.Swim_velo[2][sp] .* (animal_data.length[inds] ./ 1000) .* 60  # meters per minute
+    ΔT = animal_p.t_resolution[2][sp]
+    
+    is_nighttime = (model.t >= 18*60) || (model.t < 6*60)
 
-    for i in ind[1]:ind[1]
-        animal = model.individuals.animals[sp].data
-        animal_p = model.individuals.animals[sp].p
-        # Define behavioral parameters
-        surface_interval = animal_p.Surface_Interval[2][sp]
-        foraging_interval = animal_p.Dive_Interval[2][sp]
-        dive_velocity = (animal.length[ind[i]]/1000) * 60 # meters per minute
+    # Array of migration statuses for all individuals
+    mig_status = animal_data.mig_status[inds]
+    interval = animal_data.interval[inds]
+    gut_fullness = animal_data.gut_fullness[inds]
+    biomass = animal_data.biomass[inds]
+    target_z = animal_data.target_z[inds]
+    z = animal_data.z[inds]
+    dives_remaining = animal_data.dives_remaining[inds]
+    active = animal_data.active[inds]
+    spent = fill(0.0,length(inds))
 
-        # Time resolution
-        ΔT = animal_p.t_resolution[2][sp]
+    # Surface interval logic for individuals in `mig_status == 0`
+    surface_inds = findall(mig_status .== 0)
+    max_fullness = 0.2 .* biomass[surface_inds]
+    dive_trigger = gut_fullness[surface_inds] ./ max_fullness
+    dive_probability = logistic.(dive_trigger, 5, 0.5)
 
-        # Progress the animal through the stages
-        if animal.mig_status[ind[i]] == 0
-            # Surface interval
-            animal.interval[ind[i]] += ΔT
-            max_fullness = 0.2 * animal.biomass[ind[i]]
-            dive_trigger = animal.gut_fullness[ind[i]] / max_fullness
-            dist = logistic(dive_trigger, 5, 0.5)
-            #Add probability here to start diving
+    to_dive = (interval[surface_inds] .>= surface_interval) .&& (rand(length(surface_inds)) .> dive_probability) .&& (dives_remaining[surface_inds] .> 0)
+    interval[surface_inds] .= ifelse.(to_dive, 0, interval[surface_inds] .+ ΔT)
+    mig_status[surface_inds[to_dive]] .= 1
+    target_z[surface_inds[to_dive]] .= sample_normal(animal_p.Dive_Min[2][sp], animal_p.Dive_Max[2][sp], std=20)[rand(1:end, length(surface_inds[to_dive]))]
+    active[surface_inds[to_dive]] .+= ΔT
+    spent[surface_inds[to_dive]] .= 1.0
 
+    # Diving logic for individuals in `mig_status == 1`
+    dive_inds = findall(mig_status .== 1 .&& spent .== 0.0)
+    z[dive_inds] .= min.(target_z[dive_inds], z[dive_inds] .+ dive_velocity[dive_inds] .* ΔT)
+    active[dive_inds] .+= ΔT
+    mig_status[dive_inds[z[dive_inds] .>= target_z[dive_inds]]] .= -1
+    spent[dive_inds] .= 1.0
 
-            if animal.interval[ind[i]] >= surface_interval && rand() > dist
-                # Reset interval timer and move to the next stage (diving)
-                animal.interval[ind[i]] = 0
-                animal.mig_status[ind[i]] = 1
-                # Randomly select dive depth
-                animal.target_z[ind[i]] = -50
-                while animal.z[ind[i]] < animal.target_z[ind[i]]
-                    if (6*60 <= model.t < 18*60)
-                        animal.target_z[ind[i]] = gaussmix(1, z_day_dist[sp, "mu1"], z_day_dist[sp, "mu2"],z_day_dist[sp, "mu3"], z_day_dist[sp, "sigma1"],z_day_dist[sp, "sigma2"], z_day_dist[sp, "sigma3"],z_day_dist[sp, "lambda1"], z_day_dist[sp, "lambda2"])[1]
-                    else
-                        animal.target_z[ind[i]] = gaussmix(1, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])[1]
-                    end
-                end
-            end
+    # Foraging interval logic for individuals in `mig_status == -1`
+    forage_inds = findall(mig_status .== -1 .&& spent .== 0.0)
+    interval[forage_inds] .+= ΔT
+    to_ascend = interval[forage_inds] .>= foraging_interval
+    interval[forage_inds[to_ascend]] .= 0
+    mig_status[forage_inds[to_ascend]] .= 2
+    spent[forage_inds] .= 1.0
 
-        elseif animal.mig_status[ind[i]] == 1
-            # Continue diving
+    # Ascending logic for individuals in `mig_status == 2`
+    ascent_inds = findall(mig_status .== 2 .&& spent .== 0.0)
 
-            #Change depth
-            if animal.z[ind[i]] >= animal.target_z[ind[i]]
-                # Reset active time and move to the next stage (foraging interval)
-                animal.mig_status[ind[i]] = -1
-            end
-
-        elseif animal.mig_status[ind[i]] == -1
-            # Foraging interval
-            animal.interval[ind[i]] += ΔT
-
-            if animal.interval[ind[i]] >= foraging_interval
-                # Reset interval timer and move to the next stage (ascending)
-                animal.interval[ind[i]] = 0
-                animal.mig_status[ind[i]] = 2
-
-                animal.target_z[ind[i]] = 5e6
-                while animal.z[ind[i]] > animal.target_z[ind[i]]
-                    if (6*60 <= model.t < 18*60)
-                        animal.target_z[ind[i]] = gaussmix(1, z_day_dist[sp, "mu1"], z_day_dist[sp, "mu2"],z_day_dist[sp, "mu3"], z_day_dist[sp, "sigma1"],z_day_dist[sp, "sigma2"], z_day_dist[sp, "sigma3"],z_day_dist[sp, "lambda1"], z_day_dist[sp, "lambda2"])[1]
-                    else
-                        animal.target_z[ind[i]] = gaussmix(1, z_night_dist[sp, "mu1"], z_night_dist[sp, "mu2"],z_night_dist[sp, "mu3"], z_night_dist[sp, "sigma1"],z_night_dist[sp, "sigma2"], z_night_dist[sp, "sigma3"],z_night_dist[sp, "lambda1"], z_night_dist[sp, "lambda2"])[1]
-                    end
-                end
-            end
-
-        elseif animal.mig_status[ind[i]] == 2
-            # Ascending
-
-            if animal.z[ind[i]] <= animal.target_z[ind[i]]
-                # Reset active time and move to the next cycle (back to surface interval)
-                animal.interval[ind[i]] = 0
-                animal.mig_status[ind[i]] = 0
-
-                # Increment dive count for the day
-                animal.dives_remaining[ind[i]] -= 1
-            end
-        end
-
-        # Check if the dive count for the day exceeds the maximum limit
-        if animal.dives_remaining[ind[i]] <= 0
-            # Prevent further diving
-            animal.mig_status[ind[i]] = 0
-        end
-
-        # Update the position of the animal based on the dive velocity
-        if animal.mig_status[ind[i]] == 1
-            animal.z[ind[i]] = min(animal.target_z[ind[i]], animal.z[ind[i]] + dive_velocity * ΔT)
-        elseif animal.mig_status[ind[i]] == 2
-            animal.z[ind[i]] = max(animal.target_z[ind[i]], animal.z[ind[i]] - dive_velocity * ΔT)
-        end
-        model.individuals.animals[sp].data.pool_z[ind[i]] = ceil(Int, model.individuals.animals[sp].data.z[ind[i]] / (maxdepth / depthres))
-
-        model.individuals.animals[sp].data.pool_z[ind[i]] = clamp(model.individuals.animals[sp].data.pool_z[ind[i]],1,depthres)
-
+    if is_nighttime
+        night_profs = model.depths.focal_night
+        target_z[ascent_inds] .= gaussmix(length(ascent_inds),night_profs[sp, "mu1"], night_profs[sp, "mu2"], night_profs[sp, "mu3"],night_profs[sp, "sigma1"], night_profs[sp, "sigma2"], night_profs[sp, "sigma3"],night_profs[sp, "lambda1"], night_profs[sp, "lambda2"])
+    else
+        day_profs = model.depths.focal_day
+        target_z[ascent_inds] .= gaussmix(length(ascent_inds),day_profs[sp, "mu1"], day_profs[sp, "mu2"], day_profs[sp, "mu3"],day_profs[sp, "sigma1"], day_profs[sp, "sigma2"], day_profs[sp, "sigma3"],day_profs[sp, "lambda1"], day_profs[sp, "lambda2"])
     end
 
+    z[ascent_inds] .= max.(1,target_z[ascent_inds], z[ascent_inds] .- dive_velocity[ascent_inds] .* ΔT)
+    active[ascent_inds] .+= ΔT
+    mig_status[ascent_inds[z[ascent_inds] .<= 1]] .= 0
+    dives_remaining[ascent_inds[z[ascent_inds] .<= 1]] .-= 1
+
+    # Prevent further diving for individuals that have exhausted their daily dives
+    max_dives_reached = findall(dives_remaining .<= 0)
+    mig_status[max_dives_reached] .= 0
+
+    # Update depth index for grid resolution
+    pool_z = ceil.(Int, z ./ (maxdepth / depthres))
+    animal_data.pool_z[inds] .= pool_z
+
+    # Update fields in `animal_data`
+    animal_data.interval[inds] .= interval
+    animal_data.mig_status[inds] .= mig_status
+    animal_data.target_z[inds] .= target_z
+    animal_data.z[inds] .= z
+    animal_data.dives_remaining[inds] .= dives_remaining
+    animal_data.active[inds] .= active
     return nothing
 end
 
-function cost_function_prey(position, predator_matrix)
-    sum_distance = 0.0
-    for predator in eachrow(predator_matrix)
-        sum_distance += norm(position .- Vector(predator))
-    end
-    return -sum_distance  # We maximize distance, hence the negative
+# Function for the cost function used to triangulate the best distance
+function cost_function_prey(prey_location, preds)
+    total_distance = sum(norm(prey_location .- predator) for predator in preds)
+    return -total_distance
 end
 
 #Optimization function to find the ideal location for prey to go
