@@ -23,6 +23,7 @@ function generate_pools(arch::Architecture, params::Dict, Npool::Int, g::Abstrac
         push!(pool_names, name)
         push!(pool_data, pool)
     end
+
     groups = NamedTuple{Tuple(pool_names)}(pool_data)
     return pools(groups)
 end
@@ -84,8 +85,8 @@ function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
             plank.data.vis_prey[ind] = visual_range_preys_init(plank.data.length[ind],plank.data.z[ind],plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],1)[1] * plank.p.t_resolution[2][sp]
             plank.data.vis_pred[ind] = visual_range_preds_init(plank.data.length[ind],plank.data.z[ind],plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],1)[1] * plank.p.t_resolution[2][sp]
             # Calculate pool indices
-            plank.data.pool_x[ind] = max(1,ceil(Int, plank.data.x[ind] / ((lonmax - lonmin) / lonres)))
-            plank.data.pool_y[ind] = max(1,ceil(Int, plank.data.y[ind] / ((latmax - latmin) / latres)))
+            plank.data.pool_x[ind] = clamp(ceil(Int, plank.data.x[ind] / ((lonmax - lonmin) / lonres)), 1, lonres)
+            plank.data.pool_y[ind] = clamp(ceil(Int, plank.data.y[ind] / ((latmax - latmin) / latres)), 1, latres)
             plank.data.pool_z[ind] = max(1,ceil(Int, plank.data.z[ind] / (maxdepth / depthres)))
             plank.data.pool_z[ind] = clamp(plank.data.pool_z[ind],1,depthres)
 
@@ -113,8 +114,8 @@ function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
     y = clamp.(y,latmin,latmax)
     z = clamp.(z,1,maxdepth)
 
-    pool_x = max.(1,ceil.(Int,x ./ ((lonmax - lonmin) / lonres)))
-    pool_y = max.(1,ceil.(Int,y ./ ((latmax - latmin) / latres)))
+    pool_x = clamp.(ceil.(Int, x / ((lonmax - lonmin) / lonres)), 1, lonres)
+    pool_y = clamp.(ceil.(Int, y / ((latmax - latmin) / latres)), 1, latres)
     pool_z = max.(1,ceil.(Int,z ./ (maxdepth/depthres)))
     pool_z = clamp.(pool_z,1,depthres)
     append!(plank.data.ac, fill(1.0,to_append))
@@ -144,6 +145,24 @@ function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
     append!(plank.data.ration, fill(0,to_append))
     append!(plank.data.mature, min.(1,plank.data.length[(2:ind)] ./ (0.5*(plank.p.Max_Size[2][sp]))))
     append!(plank.data.landscape, fill(0.0,to_append))
+
+    
+    index = findall(x -> x> 1, Int.(plank.data.pool_x))
+    if length(index) > 0
+        println(plank.data.x[index])
+
+        println(plank.data.pool_x[index])
+        error("More than 1 pool_x")
+    end
+
+    index = findall(x -> x> 1, Int.(plank.data.pool_y))
+    if length(index) > 0
+        println(plank.data.y[index])
+
+        println(plank.data.pool_y[index])
+
+        error("More than 1 pool_y")
+    end
     return plank.data
 end
 
@@ -263,7 +282,7 @@ end
 
 function pool_growth(model::MarineModel)
     # Function that controls the growth of a population back to its carrying capacity
-    for (pool_index, animal) in enumerate(model.pools.pool)
+    for pool_index in 1:model.n_pool
         growth_rate = animal.characters.Growth[2][pool_index] / (1440/model.dt)  # Daily growth rate adjusted to per minute
         for i in 1:length(animal.data.x)
             population = animal.data.biomass[i]
@@ -309,7 +328,7 @@ function reproduce(model,sp,ind,energy)
             larval_dat.z[to_replace[i]] = parent_z[i]
             larval_dat.abundance[to_replace[i]] = num_eggs[i]
             larval_dat.length[to_replace[i]] = rand() * sp_char.Larval_Size[2][sp]
-            larval_dat.biomass[to_replace[i]] = sp_char.LWR_a[2][sp] * (larval_dat.length[to_replace[i]]/10) ^ sp_char.LWR_b[2][sp]
+            larval_dat.init_biomass[to_replace[i]] = sp_char.LWR_a[2][sp] * (larval_dat.length[to_replace[i]]/10) ^ sp_char.LWR_b[2][sp]
             larval_dat.biomass[to_replace[i]] = larval_dat.init_biomass[to_replace[i]]
             larval_dat.vis_prey[to_replace[i]] = 0.0
             larval_dat.vis_pred[to_replace[i]] = 0.0
@@ -340,6 +359,11 @@ function reproduce(model,sp,ind,energy)
             push!(larval_dat.age, 0.0)
             push!(larval_dat.active, 1.0)
         end
+    end
+    println("bebe")
+    println(larval_dat.biomass)
+    if any(isnan, larval_dat.biomass)
+        error("NaN detected in model.individuals.animals[sp].data.x[ind]")
     end
 end
 

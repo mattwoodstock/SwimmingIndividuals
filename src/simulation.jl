@@ -17,6 +17,7 @@ mutable struct MarineOutputs
     lengths::Vector{Float64}
     weights::Vector{Float64}
     consumption::Array{Float64,5}
+    encounters::Array{Float64,5}
     population_results::Array{Float64,3}
 end
 

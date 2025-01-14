@@ -41,6 +41,7 @@ struct PreyInfo
     y::Float64
     z::Float64
     Biomass::Float64
+    Energy::Float64
     Length::Float64
     Inds::Float64
     Distance::Float64
@@ -248,21 +249,48 @@ function get_target_z(sp, dist)
     return gaussmix(1, dist[sp, "mu1"], dist[sp, "mu2"], dist[sp, "mu3"], dist[sp, "sigma1"], dist[sp, "sigma2"], dist[sp, "sigma3"], dist[sp, "lambda1"], dist[sp, "lambda2"])[1]
 end
 
-function add_prey(prey_type,sp_data, prey_data, ind, indices, abundances, sp,detection)
+function add_prey(model,prey_type,sp_data, prey_data, ind,this_pred, indices, abundances, sp,detection)
     dx = sp_data.x[ind] .- prey_data.x[indices]
     dy = sp_data.y[ind] .- prey_data.y[indices]
     dz = sp_data.z[ind] .- prey_data.z[indices]
     dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
-    within_detection = findall(dist .<= detection[ind])
+
+    within_detection = findall(dist .<= detection[this_pred])
+    #println(within_detection)
     prey_infos = PreyInfo[]  # Initialize a vector to store prey info for this individual
     for i in within_detection
+
         if prey_type == 1
-            prey_info = PreyInfo(ind,prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], prey_data.length[indices[i]], abundances, dist[i])
+            energy = prey_data.biomass[indices[i]] * model.individuals.animals[sp].p.Energy_density[2][sp]
+            sp_data.landscape[ind] += energy
+            prey_infos = vcat(prey_infos, PreyInfo(ind,prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], energy, prey_data.length[indices[i]], abundances, dist[i]))
         else
-            prey_info = PreyInfo(ind,prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], prey_data.length[indices[i]], abundances[indices[i]], dist[i])
+            energy = prey_data.biomass[indices[i]] * model.pools.pool[sp].characters.Energy_density[2][sp]
+            sp_data.landscape[ind] += energy
+            prey_infos = vcat(prey_infos, PreyInfo(ind,prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], energy, prey_data.length[indices[i]], abundances[indices[i]], dist[i]))
         end
     end
     return prey_infos
+end
+
+function add_pred(pred_type,sp_data, pred_data, ind,this_pred, indices, abundances, sp,detection)
+    dx = sp_data.x[ind] .- pred_data.x[indices]
+    dy = sp_data.y[ind] .- pred_data.y[indices]
+    dz = sp_data.z[ind] .- pred_data.z[indices]
+    dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
+
+    within_detection = findall(dist .<= detection[this_pred])
+    #println(within_detection)
+    pred_infos = PredatorInfo[]  # Initialize a vector to store prey info for this individual
+    for i in within_detection
+        if pred_type == 1
+            pred_infos = vcat(pred_infos, PredatorInfo(ind,pred_type, sp, indices[i], pred_data.x[indices[i]], pred_data.y[indices[i]], pred_data.z[indices[i]], pred_data.biomass[indices[i]], pred_data.length[indices[i]], abundances, dist[i]))
+
+        else
+            pred_infos = vcat(pred_infos, PredatorInfo(ind,pred_type, sp, indices[i], pred_data.x[indices[i]], pred_data.y[indices[i]], pred_data.z[indices[i]], pred_data.biomass[indices[i]], pred_data.length[indices[i]], abundances[indices[i]], dist[i]))
+        end
+    end
+    return pred_infos
 end
 
 function generate_depths(files)

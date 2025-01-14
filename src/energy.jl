@@ -34,11 +34,11 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, indices::Sub
                   taxa == "Cephalopod" ? 28.326 + 0.779 * log_weight - 7.903 * inv_temp - 0.365 * log_depth :
                   18.775 + 0.766 * log_weight - 5.265 * inv_temp - 0.113 * log_depth)
 
-        rmr::Vector{Float64} = (exp.(lnr) / 1140 * (oxy * 1000)) / 60 * t_res
+        R::Vector{Float64} = (exp.(lnr) / 1140 * (oxy * 1000)) / 60 * t_res
     elseif energy_type == "cetacean"
         min_fmr::Vector{Float64} = (350 .* (weight ./ 1000) .^ 0.75) .* (t_res / 1440) ./ 4184
         max_fmr::Vector{Float64} = (420 .* (weight ./ 1000) .^ 0.75) .* (t_res / 1440) ./ 4184
-        R::Vector{Float64} = min_fmr .+ (max_fmr .- min_fmr) .* active_time
+        R = min_fmr .+ (max_fmr .- min_fmr) .* active_time
     else 
         rmr = weight .^ (3/4) .* exp.(-0.65 ./ (8.617e-5 .* (temp .+ 273.15)))
         R = ((rmr / 2) .* (1 .- active_time)) .+ (rmr .* active_time)

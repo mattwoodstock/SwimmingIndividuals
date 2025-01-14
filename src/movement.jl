@@ -216,21 +216,41 @@ function predator_avoidance(model, time, ind, to_move, pred_list, sp)
     animal = model.individuals.animals[sp]
     animal_data = animal.data
     length_ind = animal_data.length[ind]
-    max_dist = model.individuals.animals[sp].p.Swim_velo[2][sp] .* (length_ind / 1000) .* time
+
+    max_dist = model.individuals.animals[sp].p.Swim_velo[2][sp] .* (length_ind / 1000) .* max.(time,0)
 
     # Threads for parallel processing
     Threads.@threads for ind_index in 1:length(ind)
         pred_list_item = filter(p -> p.Prey == to_move[ind_index], pred_list)        
         # Skip if there are no predators or the animal was consumed
-        if isnothing(pred_list_item) || model.individuals.animals[sp].data.ac[ind[ind_index]] == 0 || isempty(pred_list_item)
+        if model.individuals.animals[sp].data.ac[ind[ind_index]] == 0
             model.individuals.animals[sp].data.behavior[ind[ind_index]] = 0
             continue
         end
 
-        pred_info = pred_list_item
-        predator_position = SVector(pred_info.x, pred_info.y, pred_info.z)
         position = SVector(animal_data.x[ind[ind_index]], animal_data.y[ind[ind_index]], animal_data.z[ind[ind_index]])
-        
+
+        if isnothing(pred_list_item)|| isempty(pred_list_item)
+            random_direction = normalize(randn(2))
+            random_distance = rand() * max_dist[ind_index]/2
+            movement_vector = random_distance * random_direction
+
+            current_position = [animal_data.x[ind[ind_index]],animal_data.y[ind[ind_index]]]
+
+            new_position = current_position .+ movement_vector
+
+            animal_data.x[ind[ind_index]] = clamp(new_position[1],lonmin, lonmax)
+            animal_data.y[ind[ind_index]] = clamp(new_position[2], latmin, latmax)
+
+            animal_data.pool_x[ind[ind_index]] = clamp(ceil(Int, animal_data.x[ind[ind_index]] / ((lonmax - lonmin) / lonres)), 1, lonres)
+            animal_data.pool_y[ind[ind_index]] = clamp(ceil(Int, animal_data.y[ind[ind_index]] / ((latmax - latmin) / latres)), 1, latres)
+
+            model.individuals.animals[sp].data.behavior[ind[ind_index]] = 0
+            continue
+        end
+
+        predator_position = SVector(pred_list_item[1].x, pred_list_item[1].y, pred_list_item[1].z)
+
         # Calculate the direction and displacement
         direction_vector = predator_position - position
         direction_magnitude = norm(direction_vector)
@@ -242,21 +262,19 @@ function predator_avoidance(model, time, ind, to_move, pred_list, sp)
         unit_vector = direction_vector / direction_magnitude
         displacement_vector = unit_vector * max_dist[ind_index]
         new_prey_position = position + displacement_vector
-        
-        # Apply bounds
-        x = clamp(new_prey_position[1], lonmin, lonmax)
-        y = clamp(new_prey_position[2], latmin, latmax)
-        z = clamp(new_prey_position[3], 1, maxdepth)
 
-        # Update animal's position
-        animal_data.x[ind[ind_index]] = x
-        animal_data.y[ind[ind_index]] = y
-        animal_data.z[ind[ind_index]] = z
-        
+        # Apply bounds
+        animal_data.x[ind[ind_index]] = clamp(new_prey_position[1], lonmin, lonmax)
+
+        animal_data.y[ind[ind_index]] = clamp(new_prey_position[2], latmin, latmax)
+        animal_data.z[ind[ind_index]] = clamp(new_prey_position[3], 1, maxdepth)
+
         # Update pool indices
-        animal_data.pool_x[ind[ind_index]] = max(1, ceil(Int, (x - lonmin) / ((lonmax - lonmin) / lonres)))
-        animal_data.pool_y[ind[ind_index]] = max(1, ceil(Int, (y - latmin) / ((latmax - latmin) / latres)))
-        animal_data.pool_z[ind[ind_index]] = max(1, clamp(ceil(Int, z / (maxdepth / depthres)), 1, depthres))
+        animal_data.pool_x[ind[ind_index]] = max(1, ceil(Int, (animal_data.x[ind[ind_index]] - lonmin) / ((lonmax - lonmin) / lonres)))
+        animal_data.pool_y[ind[ind_index]] = max(1, ceil(Int, (animal_data.y[ind[ind_index]] - latmin) / ((latmax - latmin) / latres)))
+
+
+        animal_data.pool_z[ind[ind_index]] = max(1, clamp(ceil(Int, animal_data.z[ind[ind_index]] / (maxdepth / depthres)), 1, depthres))
 
         # Update activity in minutes
         animal_data.active[ind[ind_index]] += (time[ind_index]/60)

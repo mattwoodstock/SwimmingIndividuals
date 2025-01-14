@@ -23,6 +23,17 @@ function TimeStep!(sim::MarineSimulation)
             model.abund[spec] = length(alive)
             model.bioms[spec] = sum(species_data.biomass[alive])
             if length(alive) > 0
+
+                index = findall(x -> x> 1, Int.(species_data.pool_x))
+                if length(index) > 0
+                    error("More than 1 pool_x")
+                end
+            
+                index = findall(x -> x> 1, Int.(species_data.pool_y))
+                if length(index) > 0
+                    error("More than 1 pool_y")
+                end
+
                 #Divide into chunks for quicker processing and eliminating memory allocation at one time.
                 n::Int64 = length(alive)
                 num_chunks::Int64 = Int(ceil(n/chunk_size))
@@ -38,6 +49,7 @@ function TimeStep!(sim::MarineSimulation)
         end 
         species_data.daily_ration[alive] .+= species_data.ration[alive]
     end
+
     #Non-focal species processing. Note the "Larval Pool" does not eat
     for spec in 1:pool   
         n::Int64 = length(model.pools.pool[spec].data.length)
@@ -73,6 +85,7 @@ function TimeStep!(sim::MarineSimulation)
         model.individuals.animals[spec].data.active::Vector{Float64} .= 0.0
         model.individuals.animals[spec].data.consumed::Vector{Float64} .= 0.0
         model.individuals.animals[spec].data.landscape::Vector{Float64} .= 0.0
+
     end
 end
 

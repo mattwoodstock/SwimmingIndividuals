@@ -27,7 +27,7 @@ function behavior(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{In
     return nothing
 end
 
-function predators(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true})
+function predators(model::MarineModel, sp::Int, ind)
     # Precompute constant values
     min_pred_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
     max_pred_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
@@ -36,7 +36,7 @@ function predators(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{I
     calculate_distances_pred(model,sp,ind,min_pred_limit,max_pred_limit,detection)
 end
 
-function preys(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true})
+function preys(model::MarineModel, sp::Int, ind)
     # Precompute constant values
     min_prey_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
     max_prey_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
@@ -56,7 +56,11 @@ function patch_preys(model::MarineModel, sp::Int, ind::Vector{Int64})
     return prey
 end
 
-function decision(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}, outputs::MarineOutputs)  
+function decision(model::MarineModel, sp::Int, ind, outputs::MarineOutputs)  
+    index = findall(x -> x> 1, Int.(model.individuals.animals[sp].data.pool_x[ind]))
+
+    index = findall(x -> x> 1, Int.(model.individuals.animals[sp].data.pool_y[ind]))
+
     sp_dat = model.individuals.animals[sp].data
     sp_char = model.individuals.animals[sp].p
 
@@ -76,14 +80,15 @@ function decision(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{In
 
     if length(to_eat) > 0
         time::Vector{Float64} = eat(model, sp, eating,to_eat, prey, outputs)
+
         predator_avoidance(model,time,eating,to_eat,preds,sp)
     end
 
     if length(not_eating) > 0
         time = fill(sp_char.t_resolution[2][sp] * 60,length(not_eating))
+
         predator_avoidance(model,time,not_eating,not_eat,preds,sp)
     end 
-    
     #Clear these as they are no longer necessary and take up memory.
     prey = Vector{PreyInfo}()
     preds = Vector{PredatorInfo}()

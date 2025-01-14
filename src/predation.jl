@@ -1,4 +1,4 @@
-function calculate_distances_prey(model::MarineModel, sp::Int64, inds::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}, min_prey::Float64, max_prey::Float64, detection::Vector{Float64})
+function calculate_distances_prey(model::MarineModel, sp::Int64, inds, min_prey::Float64, max_prey::Float64, detection::Vector{Float64})
     sp_data = model.individuals.animals[sp].data
     sp_length_inds = sp_data.length[inds]
     sp_x_inds = sp_data.x[inds]
@@ -10,15 +10,16 @@ function calculate_distances_prey(model::MarineModel, sp::Int64, inds::SubArray{
 
     # Process each individual in `inds`
     for (j_index, j_value) in enumerate(inds)
+        new_prey = PreyInfo[]
         min_prey_size = sp_length_inds[j_index] * min_prey
         max_prey_size = sp_length_inds[j_index] * max_prey
-
         # Process individual animals
         for (species_index, animal) in enumerate(model.individuals.animals)
             species_data = animal.data
             size_range = (species_data.length .>= min_prey_size) .& (species_data.length .<= max_prey_size)
             index1 = findall(size_range)
-            prey_infos_all = vcat(prey_infos_all, add_prey(1, sp_data,species_data, j_index, index1, 1, species_index,detection))
+            new_prey = add_prey(model,1, sp_data,species_data, j_value,j_index, index1, 1, species_index,detection)
+            prey_infos_all = vcat(prey_infos_all, new_prey)
         end
 
         # Process pool animals
@@ -26,7 +27,8 @@ function calculate_distances_prey(model::MarineModel, sp::Int64, inds::SubArray{
             pool_data = animal.data
             size_range = (pool_data.length .>= min_prey_size) .& (pool_data.length .<= max_prey_size)
             index1 = findall(size_range)
-            prey_infos_all = vcat(prey_infos_all, add_prey(2, sp_data,pool_data, j_index, index1, pool_data.abundance, pool_index,detection))
+            new_prey = add_prey(model,2, sp_data,pool_data, j_value,j_index, index1, pool_data.abundance, pool_index,detection)
+            prey_infos_all = vcat(prey_infos_all, new_prey) 
         end
     end
     # Return the collected prey information as AllPreys
@@ -53,7 +55,7 @@ function calculate_distances_patch_prey(model::MarineModel, sp::Int64, inds::Vec
             species_data = animal.data
             size_range = (species_data.length .>= min_prey_size) .& (species_data.length .<= max_prey_size)
             index1 = findall(size_range)
-            prey_infos_all = vcat(prey_infos_all, add_prey(1, sp_data,species_data, j_index, index1, 1, species_index,detection))
+            prey_infos_all = vcat(prey_infos_all, add_prey(model,1, sp_data,species_data, j_value,j_index, index1, 1, species_index,detection))
         end
 
         # Process pool animals
@@ -61,14 +63,14 @@ function calculate_distances_patch_prey(model::MarineModel, sp::Int64, inds::Vec
             pool_data = animal.data
             size_range = (pool_data.length .>= min_prey_size) .& (pool_data.length .<= max_prey_size)
             index1 = findall(size_range)
-            prey_infos_all = vcat(prey_infos_all, add_prey(2, sp_data,pool_data, j_index, index1, pool_data.abundance, pool_index,detection))
+            prey_infos_all = vcat(prey_infos_all, add_prey(model,2, sp_data,pool_data, j_value,j_index, index1, pool_data.abundance, pool_index,detection))
         end
     end
     # Return the collected prey information as AllPreys
     return prey_infos_all
 end
 
-function calculate_distances_pred(model::MarineModel, sp::Int64, inds::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}, min_pred::Float64, max_pred::Float64, detection::Vector{Float64})
+function calculate_distances_pred(model::MarineModel, sp::Int64, inds, min_pred::Float64, max_pred::Float64, detection::Vector{Float64})
     sp_data = model.individuals.animals[sp].data
     sp_length_inds::Vector{Float64} = sp_data.length[inds]
     sp_x_inds::Vector{Float64} = sp_data.x[inds]
@@ -88,7 +90,7 @@ function calculate_distances_pred(model::MarineModel, sp::Int64, inds::SubArray{
             species_data = animal.data
             size_range = (species_data.length .>= min_pred_size) .& (species_data.length .<= max_pred_size)
             index1 = findall(size_range)
-            pred_infos_all = vcat(pred_infos_all, add_prey(1, sp_data,species_data, j_index, index1, 1, species_index,detection))
+            pred_infos_all = vcat(pred_infos_all, add_pred(1, sp_data,species_data, j_value,j_index, index1, 1, species_index,detection))
         end
 
         # Process pool animals
@@ -96,7 +98,7 @@ function calculate_distances_pred(model::MarineModel, sp::Int64, inds::SubArray{
             pool_data = animal.data
             size_range = (pool_data.length .>= min_pred_size) .& (pool_data.length .<= max_pred_size)
             index1 = findall(size_range)
-            pred_infos_all = vcat(pred_infos_all, add_prey(2, sp_data,pool_data, j_index, index1, pool_data.abundance, pool_index,detection))
+            pred_infos_all = vcat(pred_infos_all, add_pred(2, sp_data,pool_data, j_value,j_index, index1, pool_data.abundance, pool_index,detection))
         end
     end
     # Return the collected prey information as AllPreys
@@ -111,7 +113,6 @@ function detect_prey(model::MarineModel,sp,ind)
     #https://onlinelibrary.wiley.com/doi/pdf/10.1111/geb.13782
 
     detection = model.individuals.animals[sp].data.vis_prey[ind]
-
     prey_list = calculate_distances_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
 
     searched_volume = (1/2) .* (4/3) .* pi .* detection.^3 #Calculate the maximum searched sphere for the predator (i.e., maximum search volume). Assumed animal can successfuly scan 50% of area
@@ -211,9 +212,9 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
                 break
             end
 
-            # Move towards the closest prey
             move_time = move_predator(model, sp, ind, ind_index, prey_list_item, prey_index)  # Update this call if necessary
             total_time += move_time
+
             model.individuals.animals[sp].data.active[ind[ind_index]] += (move_time/60)
 
             # Check if we have enough time left
@@ -230,12 +231,18 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
                 # Prey is consumable (e.g., type 1)
                 ration = prey_info.Biomass
                 model.individuals.animals[sp].data.ration[ind[ind_index]] += ration * model.individuals.animals[sp].p.Energy_density[2][sp] 
+
+
                 outputs.consumption[sp,prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration
+
+                outputs.encounters[sp,prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
+
                 predation_mortality(model, prey_info, outputs)
                 total_time += handling_time
             else
                 # Prey is in a pool (e.g., type 2)
                 prey_biomass = model.pools.pool[prey_info.Sp].data.biomass[prey_info.Ind]
+
                 max_cons = (ddt[ind_index]-total_time) / handling_time
 
                 min_prey_size = model.individuals.animals[sp].data.length[ind[ind_index]] * model.individuals.animals[sp].p.Min_Prey[2][sp]
@@ -248,6 +255,8 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
                 ration = min(prey_biomass,(ind_biomass * max_cons),(max_stomach[ind_index] - gut_fullness_ind[ind_index])) 
 
                 outputs.consumption[sp,(model.n_species+prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration * model.pools.pool[prey_info.Sp].characters.Energy_density[2][prey_info.Sp]
+
+                outputs.encounters[sp,(model.n_species+prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
 
                 total_time += (ration/ind_biomass) * handling_time
 
@@ -333,6 +342,8 @@ function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
                 predation_mortality(model, prey_info, outputs)
                 outputs.consumption[(model.n_species+sp),prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration
 
+                outputs.encounters[(model.n_species+sp),prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
+
                 total_time += handling_time
             else
                 # Prey is in a pool (e.g., type 2)
@@ -350,6 +361,9 @@ function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
                     ration += cons
                 end
                 outputs.consumption[(model.n_species+sp),(model.n_species + prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += cons
+
+                outputs.encounters[(model.n_species+sp),(model.n_species + prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
+
 
                 total_time += (ration / ind_biomass) * handling_time                    
 
