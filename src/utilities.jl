@@ -47,10 +47,32 @@ struct PreyInfo
     Distance::Float64
 end
 
+struct Selectivity
+    species::String
+    L50::Float64         # length at 50% selectivity
+    slope::Float64       # steepness of logistic curve
+end
+
+mutable struct Fishery
+    name::String
+    target_species::Vector{String}
+    bycatch_species::Vector{String}
+    selectivities::Dict{String, Selectivity}
+    quota::Float64
+    cumulative_catch::Float64
+    season::Tuple{Int, Int}                     # (start_day, end_day)
+    area::Tuple{Tuple{Float64, Float64},        # x bounds
+                Tuple{Float64, Float64},        # y bounds
+                Tuple{Float64, Float64}}        # z bounds
+    slot_limit::Tuple{Float64, Float64}         # (min_len, max_len)
+end
+
 mutable struct MarineEnvironment
+    bathymetry::Array           #Bathymetry grid
     temp::Array                 #TemperatureArray
-    temp_z::Vector{Float64}     #Z values for temperaturearray
-    chl::Array
+    salt::Array                 #SalinityArray
+    chl::Array                  #CHL array
+    ts::Int                     #Environmental time step
 end
 
 mutable struct MarineDepths
@@ -64,14 +86,16 @@ end
 ##### Model struct
 mutable struct MarineModel
     arch::Architecture          # architecture on which models will run
-    environment::MarineEnvironment
+    environment::MarineEnvironment #Environment variables
     depths::MarineDepths        #Depth Profiles for all species
+    fishing::Vector{Fishery}
     t::Float64                  # time in minute
     iteration::Int64            # model interation
     dt::Float64                 # Patch Resolution
     individuals::individuals    # initial individuals generated
     pools::pools              # Characteristics of pooled species
-    #parts::particles            # Particle characteristics (e.g., eDNA)
+    capacities::Array
+    pool_capacities::Array
     ninds::Int64
     n_species::Int64            # Number of IBM species
     n_pool::Int64               # Number of pooled species
@@ -80,7 +104,7 @@ mutable struct MarineModel
     grid::AbstractGrid          # grid information
     files::DataFrame            #Files to call later in model
     output_dt::Int64
-    cell_size::Int64            #Cubic meters of each grid cell
+    cell_size::Float64            #Cubic meters of each grid cell
     spinup::Int64               #Number of timesteps in a spinup
     #timestepper::timestepper    # Add back in once environmental parameters get involved
 end
@@ -159,75 +183,6 @@ function safe_intersect(sets::Vector{Set{Int}})
         end
     end
     return common_indices
-end
-
-function trilinear_interpolation_irregular_z(temp_grid, xs, ys, zs, z_vals)
-    num_individuals = length(xs)
-    temperatures = Vector{Float64}(undef, num_individuals)
-
-    # Get grid dimensions
-    x_size, y_size, z_size = size(temp_grid)
-
-    # Calculate indices
-    x1 = clamp.(floor.(Int, xs), 1, x_size - 1)
-    x2 = clamp.(x1 .+ 1, 1, x_size)
-
-    y1 = clamp.(floor.(Int, ys), 1, y_size - 1)
-    y2 = clamp.(y1 .+ 1, 1, y_size)
-
-    # Prepare arrays to hold z1 and z2 indices
-    z1_indices = Int[]
-    z2_indices = Int[]
-
-    # Find z indices and corresponding values
-    for z in zs
-        z1 = findfirst(z_val -> z_val >= z, z_vals)
-        if isnothing(z1)
-            push!(z1_indices, z_size - 1)
-            push!(z2_indices, z_size)
-        else
-            z1 = clamp(z1, 1, z_size - 1)
-            push!(z1_indices, z1)
-            push!(z2_indices, clamp(z1 + 1, 1, z_size))
-        end
-    end
-
-    z1_values = z_vals[z1_indices]
-    z2_values = z_vals[z2_indices]
-
-    # Calculate the relative positions along the z-axis
-    zd = (zs .- z1_values) ./ (z2_values .- z1_values)
-
-    # Retrieve the values from the grid using the computed indices
-    for i in 1:num_individuals
-        xi, yi, zi1, zi2 = x1[i], y1[i], z1_indices[i], z2_indices[i]
-        
-        c000 = temp_grid[xi, yi, zi1]
-        c001 = temp_grid[xi, yi, zi2]
-        c010 = temp_grid[xi, y2[i], zi1]
-        c011 = temp_grid[xi, y2[i], zi2]
-        c100 = temp_grid[x2[i], yi, zi1]
-        c101 = temp_grid[x2[i], yi, zi2]
-        c110 = temp_grid[x2[i], y2[i], zi1]
-        c111 = temp_grid[x2[i], y2[i], zi2]
-
-        # Compute the interpolated value for each z slice
-        c00 = c000 * (1 - zd[i]) + c100 * zd[i]
-        c01 = c001 * (1 - zd[i]) + c101 * zd[i]
-        c10 = c010 * (1 - zd[i]) + c110 * zd[i]
-        c11 = c011 * (1 - zd[i]) + c111 * zd[i]
-
-        # Interpolate in x and y
-        xd = xs[i] - x1[i] + 1
-        yd = ys[i] - y1[i] + 1
-
-        c0 = c00 * (1 - yd) + c10 * yd
-        c1 = c01 * (1 - yd) + c11 * yd
-
-        temperatures[i] = c0 * (1 - xd) + c1 * xd
-    end
-
-    return temperatures
 end
 
 function sphere_volume(length::Float64, num_individuals)::Float64
@@ -310,4 +265,172 @@ function generate_depths(files)
     grid = CSV.read(grid_file, DataFrame)
 
     MarineDepths(focal_day,focal_night,patch_day,patch_night,grid)
+end
+
+function load_ascii_raster(file_path::String)
+    open(file_path, "r") do f
+        # Read header lines
+        header = Dict{String, Float64}()
+        for _ in 1:6
+            line = readline(f)
+            key, val = split(line)
+            header[key] = parse(Float64, val)
+        end
+        
+        # Load the remaining values as an array
+        data = readdlm(f)
+        return data
+    end
+end
+
+function lognormal_params_from_maxsize(max_size::Float64)
+    median = 1/3 * max_size
+    percentile = 0.95
+
+    μ = log(median)
+    z = quantile(Normal(0, 1), percentile)  # z-score for given percentile (e.g., 1.645 for 95%)
+    
+    # Solve for σ using: log(max_size) = μ + z * σ
+    σ = (log(max_size) - μ) / z
+    
+    return μ, σ
+end
+
+function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple{Int,Int})
+    open_set = [start]
+    came_from = Dict{Tuple{Int,Int}, Tuple{Int,Int}}()
+    visited = Set{Tuple{Int,Int}}()
+    directions = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,-1), (1,-1), (-1,1)]
+
+    while !isempty(open_set)
+        current = popfirst!(open_set)
+        if current == goal
+            # reconstruct path
+            path = [current]
+            while current in keys(came_from)
+                current = came_from[current]
+                pushfirst!(path, current)
+            end
+            return path
+        end
+        push!(visited, current)
+        for (dx, dy) in directions
+            nx, ny = current[1] + dx, current[2] + dy
+            if 1 ≤ nx ≤ size(capacity,2) && 1 ≤ ny ≤ size(capacity,1)
+                neighbor = (nx, ny)
+                if capacity[ny, nx] > 0.05 && !(neighbor in visited) && !(neighbor in open_set)
+                    push!(open_set, neighbor)
+                    came_from[neighbor] = current
+                end
+            end
+        end
+    end
+    return []  # no path found
+end
+
+function reachable_point(
+    current_pos::Tuple{Float64, Float64},  # (x, y) in lon/lat or meters
+    path::Vector{Tuple{Int, Int}},
+    max_distance::Float64,
+    latmin::Float64, latmax::Float64,
+    lonmin::Float64, lonmax::Float64,
+    nrows::Int, ncols::Int
+)
+    # Compute grid resolution
+    dlat = (latmax - latmin) / (nrows - 1)
+    dlon = (lonmax - lonmin) / (ncols - 1)
+
+    # Convert grid cell to lon/lat coordinates
+    function grid_to_coords(cell::Tuple{Int, Int})
+        x = lonmin + (cell[1] - 1) * dlon
+        y = latmax - (cell[2] - 1) * dlat
+        return (x, y)
+    end
+
+    total_distance = 0.0
+    prev_coords = current_pos
+
+    for i in 2:length(path)
+        curr_coords = grid_to_coords(path[i])
+        dx = curr_coords[1] - prev_coords[1]
+        dy = curr_coords[2] - prev_coords[2]
+        d = hypot(dx, dy)
+        total_distance += d
+
+        if total_distance > max_distance
+            excess = total_distance - max_distance
+            frac = 1 - (excess / d)
+            interp_x = prev_coords[1] + frac * dx
+            interp_y = prev_coords[2] + frac * dy
+
+            return (interp_x, interp_y,first(path[i]),last(path[i]))
+        end
+
+        prev_coords = curr_coords
+    end
+
+    new_x,new_y = grid_to_coords(path[end])
+    new_x_pool = first(path[end])
+    new_y_pool = last(path[end])
+    return new_x,new_y, new_x_pool, new_y_pool  # Full path is reachable
+end
+
+function nearest_suitable_direction(habitat::Matrix{Float64}, start::Tuple{Int, Int},lonmin,lonmax,latmin,latmax)
+    nrows, ncols = size(habitat)
+    sc, sr = start
+
+    cell_height = (latmax - latmin) / nrows
+    cell_width  = (lonmax - lonmin) / ncols
+
+    # Helper function to check bounds
+    inbounds(r, c) = 1 ≤ r ≤ nrows && 1 ≤ c ≤ ncols
+
+    # Search in expanding layers
+    for radius in 1:max(nrows, ncols)
+        for dr in -radius:radius
+            for dc in -radius:radius
+                # Skip corners unless exactly at the edge of the current radius
+                if abs(dr) == radius || abs(dc) == radius
+                    r, c = sr + dr, sc + dc
+                    if inbounds(r, c) && habitat[r, c] > 0
+                        actual_x = lonmin + (c - 1) * cell_width + rand() .* cell_width
+                        actual_y = latmin + (nrows - r) * cell_height + rand() * cell_height
+                        
+                        return (actual_x,actual_y)
+                    end
+                end
+            end
+        end
+    end
+
+    return nothing  # No suitable cell found
+end
+
+function emergency_movement(current_pos::Tuple{Float64, Float64},target_pos::Tuple{Float64, Float64},max_distance::Float64,latmin::Float64, latmax::Float64,lonmin::Float64, lonmax::Float64,nrows::Int, ncols::Int)
+    # Compute grid resolution
+    dlat = (latmax - latmin) / (nrows - 1)
+    dlon = (lonmax - lonmin) / (ncols - 1)
+
+    function coords_to_grid(coords::Tuple{Float64,Float64})
+        x,y = coords
+        i = Int(floor((x - lonmin) / dlon)) + 1
+        j = Int(floor((latmax - y) / dlat)) + 1
+        return (i, j)
+    end
+    dx = target_pos[1] - current_pos[1]
+    dy = target_pos[2] - current_pos[2]
+    d = hypot(dx, dy)
+
+    if d > max_distance
+        excess = d - max_distance
+        frac = 1 - (excess / d)
+        interp_x = current_pos[1] + frac * dx
+        interp_y = current_pos[2] + frac * dy
+        new_pool_x,new_pool_y = coords_to_grid((interp_x,interp_y))
+
+        return (interp_x, interp_y,new_pool_x,new_pool_y)
+    else     
+        target_pool = coords_to_grid(target_pos)
+        return (first(target_pos),last(target_pos),first(target_pool),last(target_pool))
+    end
 end

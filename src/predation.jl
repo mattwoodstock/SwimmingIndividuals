@@ -233,9 +233,9 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
                 model.individuals.animals[sp].data.ration[ind[ind_index]] += ration * model.individuals.animals[sp].p.Energy_density[2][sp] 
 
 
-                outputs.consumption[sp,prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration
+                #outputs.consumption[sp,prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration
 
-                outputs.encounters[sp,prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
+                #outputs.encounters[sp,prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
 
                 predation_mortality(model, prey_info, outputs)
                 total_time += handling_time
@@ -254,9 +254,9 @@ function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
 
                 ration = min(prey_biomass,(ind_biomass * max_cons),(max_stomach[ind_index] - gut_fullness_ind[ind_index])) 
 
-                outputs.consumption[sp,(model.n_species+prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration * model.pools.pool[prey_info.Sp].characters.Energy_density[2][prey_info.Sp]
+                #outputs.consumption[sp,(model.n_species+prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration * model.pools.pool[prey_info.Sp].characters.Energy_density[2][prey_info.Sp]
 
-                outputs.encounters[sp,(model.n_species+prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
+                #outputs.encounters[sp,(model.n_species+prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
 
                 total_time += (ration/ind_biomass) * handling_time
 
@@ -340,9 +340,9 @@ function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
                 # Prey is consumable (e.g., type 1)
                 ration += prey_info.Biomass
                 predation_mortality(model, prey_info, outputs)
-                outputs.consumption[(model.n_species+sp),prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration
+                #outputs.consumption[(model.n_species+sp),prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration
 
-                outputs.encounters[(model.n_species+sp),prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
+                #outputs.encounters[(model.n_species+sp),prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
 
                 total_time += handling_time
             else
@@ -360,9 +360,9 @@ function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
                     cons = min((ind_biomass * max_cons), (ration_ts[ind_index] - ration))
                     ration += cons
                 end
-                outputs.consumption[(model.n_species+sp),(model.n_species + prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += cons
+                #outputs.consumption[(model.n_species+sp),(model.n_species + prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += cons
 
-                outputs.encounters[(model.n_species+sp),(model.n_species + prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
+                #outputs.encounters[(model.n_species+sp),(model.n_species + prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
 
 
                 total_time += (ration / ind_biomass) * handling_time                    

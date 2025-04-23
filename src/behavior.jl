@@ -1,4 +1,4 @@
-function behavior(model::MarineModel, sp::Int, ind::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}, outputs::MarineOutputs)
+function behavior(model::MarineModel, sp::Int, ind, outputs::MarineOutputs)
     behave_type = model.individuals.animals[sp].p.Type[2][sp]  # A variable that determines the behavioral type of an animal
     
     if behave_type == "dvm_strong"
@@ -33,6 +33,7 @@ function predators(model::MarineModel, sp::Int, ind)
     max_pred_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
     # Gather distances
     detection = model.individuals.animals[sp].data.vis_pred[ind]
+  
     calculate_distances_pred(model,sp,ind,min_pred_limit,max_pred_limit,detection)
 end
 
@@ -41,7 +42,14 @@ function preys(model::MarineModel, sp::Int, ind)
     min_prey_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
     max_prey_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
     # Gather distances
-    detection = model.individuals.animals[sp].data.vis_prey[ind]
+    #detection = model.individuals.animals[sp].data.vis_prey[ind]
+
+    time = fill(model.individuals.animals[sp].p.t_resolution[2][sp] * 60,length(ind))
+    swim_speed = model.individuals.animals[sp].p.Swim_velo[2][sp]
+    lengths = model.individuals.animals[sp].data.length[ind] / 1000
+    max_swim_distance = swim_speed .* lengths .* time
+    detection = max_swim_distance
+
     prey = calculate_distances_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
     return prey
 end
@@ -57,10 +65,6 @@ function patch_preys(model::MarineModel, sp::Int, ind::Vector{Int64})
 end
 
 function decision(model::MarineModel, sp::Int, ind, outputs::MarineOutputs)  
-    index = findall(x -> x> 1, Int.(model.individuals.animals[sp].data.pool_x[ind]))
-
-    index = findall(x -> x> 1, Int.(model.individuals.animals[sp].data.pool_y[ind]))
-
     sp_dat = model.individuals.animals[sp].data
     sp_char = model.individuals.animals[sp].p
 
@@ -80,14 +84,12 @@ function decision(model::MarineModel, sp::Int, ind, outputs::MarineOutputs)
 
     if length(to_eat) > 0
         time::Vector{Float64} = eat(model, sp, eating,to_eat, prey, outputs)
-
-        predator_avoidance(model,time,eating,to_eat,preds,sp)
+        movement_toward_habitat(model,time,eating,to_eat,sp)
     end
 
     if length(not_eating) > 0
         time = fill(sp_char.t_resolution[2][sp] * 60,length(not_eating))
-
-        predator_avoidance(model,time,not_eating,not_eat,preds,sp)
+        movement_toward_habitat(model,time,not_eating,not_eat,sp)
     end 
     #Clear these as they are no longer necessary and take up memory.
     prey = Vector{PreyInfo}()

@@ -1,10 +1,10 @@
-function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, maxN::Int,depths::MarineDepths)
+function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, maxN::Int,depths::MarineDepths,capacities,grid)
     plank_names = Symbol[]
     plank_data=[]
     for i in 1:Nsp
         name = Symbol("sp"*string(i))
         plank = construct_plankton(arch, params, maxN)
-        generate_plankton!(plank, B[i],i,depths)
+        generate_plankton!(plank, B[i],i,depths,capacities,grid)
         push!(plank_names, name)
         push!(plank_data, plank)
     end
@@ -12,14 +12,14 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, max
     return individuals(planks)
 end
 
-function generate_pools(arch::Architecture, params::Dict, Npool::Int, g::AbstractGrid,maxN::Int,dt::Int,environment::MarineEnvironment,depths::MarineDepths)
+function generate_pools(arch::Architecture, params::Dict, Npool::Int, g::AbstractGrid,maxN::Int,dt::Int,capacities,grid,depths::MarineDepths)
     pool_names = Symbol[]
     pool_data=[]
 
     for i in 1:(Npool+1)
         name = Symbol("pool"*string(i))
         pool = construct_pool(arch,params,g,maxN)
-        generate_pool(pool,i,dt,environment,depths)
+        generate_pool(pool,i,dt,capacities,grid,depths)
         push!(pool_names, name)
         push!(pool_data, pool)
     end
@@ -50,7 +50,7 @@ function construct_pool(arch::Architecture, params::Dict, g,maxN)
     return patch(data, characters)
 end
 
-function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
+function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths,capacities,grid)
     grid = depths.grid
     night_profs = depths.focal_night
 
@@ -68,28 +68,50 @@ function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
     # Set plank data values
     current_b = 0
     ind = 0
-    
+
     while current_b < target_b
         ind += 1
+
         if ind > length(plank.data.length)
-            push!(plank.data.length,rand() .* (plank.p.Max_Size[2][sp]))
+            max_size = Float64(plank.p.Max_Size[2][sp])
+            μ,σ = lognormal_params_from_maxsize(max_size)
+            dist = LogNormal(μ, σ)
+            new_length = rand(dist)
+            # Repeat until within allowed size
+            while new_length > max_size
+                new_length = rand(dist)
+            end
+
+            push!(plank.data.length,new_length)
             push!(plank.data.biomass,plank.p.LWR_a[2][sp] .* (plank.data.length[ind] ./ 10) .^ plank.p.LWR_b[2][sp])
         else
-            plank.data.length[ind] = rand() .* (plank.p.Max_Size[2][sp])
+            #Lognormal distribution selection from a given max size (this is a default and should be adjusted with appropriate data)
+            max_size = Float64(plank.p.Max_Size[2][sp])
+            μ,σ = lognormal_params_from_maxsize(max_size)
+            dist = LogNormal(μ, σ)
+            new_length = rand(dist)
+            # Repeat until within allowed size
+            while new_length > max_size
+                new_length = rand(dist)
+            end
+            plank.data.length[ind] = new_length
+
+            #Random length between 0 and max size (worse default)
+            #plank.data.length[ind] = rand() .* (plank.p.Max_Size[2][sp])
+
             plank.data.biomass[ind] = plank.p.LWR_a[2][sp] .* (plank.data.length[ind] ./ 10) .^ plank.p.LWR_b[2][sp]
             plank.data.ac[ind] = 1.0
-            plank.data.x[ind] = lonmin + rand() * (lonmax - lonmin)
-            plank.data.y[ind] = latmin + rand() * (latmax - latmin)
+
+            plank.data.x[ind], plank.data.y[ind], plank.data.pool_x[ind],plank.data.pool_y[ind] = initial_ind_placement(capacities,sp,grid,1)
+
             plank.data.z[ind] = gaussmix(1, night_profs[sp, "mu1"], night_profs[sp, "mu2"],night_profs[sp, "mu3"], night_profs[sp, "sigma1"],night_profs[sp, "sigma2"], night_profs[sp, "sigma3"],night_profs[sp, "lambda1"], night_profs[sp, "lambda2"])[1]
             plank.data.gut_fullness[ind] = rand() * 0.2 * plank.data.biomass[ind]
             plank.data.vis_prey[ind] = visual_range_preys_init(plank.data.length[ind],plank.data.z[ind],plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],1)[1] * plank.p.t_resolution[2][sp]
             plank.data.vis_pred[ind] = visual_range_preds_init(plank.data.length[ind],plank.data.z[ind],plank.p.Min_Prey[2][sp],plank.p.Max_Prey[2][sp],1)[1] * plank.p.t_resolution[2][sp]
             # Calculate pool indices
-            plank.data.pool_x[ind] = clamp(ceil(Int, plank.data.x[ind] / ((lonmax - lonmin) / lonres)), 1, lonres)
-            plank.data.pool_y[ind] = clamp(ceil(Int, plank.data.y[ind] / ((latmax - latmin) / latres)), 1, latres)
+            
             plank.data.pool_z[ind] = max(1,ceil(Int, plank.data.z[ind] / (maxdepth / depthres)))
             plank.data.pool_z[ind] = clamp(plank.data.pool_z[ind],1,depthres)
-
             plank.data.energy[ind]  = plank.data.biomass[ind] * plank.p.Energy_density[2][sp] * 0.2   # Initial reserve energy = Rmax
             plank.data.behavior[ind] = 1.0
             plank.data.target_z[ind] = copy(plank.data.z[ind])
@@ -99,23 +121,17 @@ function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
             plank.data.active[ind] = 0
             plank.data.mature[ind] = 0.0 #All animals are immature and will become mature once it is necessary. Does not affect model processes/results.
             plank.data.landscape[ind] = 0.0
-
         end
         current_b += plank.data.biomass[ind]
     end
-    to_append = ind - 1
 
-    x = lonmin .+ rand(to_append) * (lonmax - lonmin)
-    y = latmin .+ rand(to_append) * (latmax - latmin)
+    to_append = ind - 1
+    x, y, pool_x, pool_y = initial_ind_placement(capacities,sp,grid,to_append)
     z = gaussmix(to_append, night_profs[sp, "mu1"], night_profs[sp, "mu2"],night_profs[sp, "mu3"], night_profs[sp, "sigma1"],night_profs[sp, "sigma2"], night_profs[sp, "sigma3"],
     night_profs[sp, "lambda1"], night_profs[sp, "lambda2"])
 
-    x = clamp.(x,lonmin,lonmax)
-    y = clamp.(y,latmin,latmax)
     z = clamp.(z,1,maxdepth)
 
-    pool_x = clamp.(ceil.(Int, x / ((lonmax - lonmin) / lonres)), 1, lonres)
-    pool_y = clamp.(ceil.(Int, y / ((latmax - latmin) / latres)), 1, latres)
     pool_z = max.(1,ceil.(Int,z ./ (maxdepth/depthres)))
     pool_z = clamp.(pool_z,1,depthres)
     append!(plank.data.ac, fill(1.0,to_append))
@@ -146,31 +162,23 @@ function generate_plankton!(plank, B::Float64,sp::Int,depths::MarineDepths)
     append!(plank.data.mature, min.(1,plank.data.length[(2:ind)] ./ (0.5*(plank.p.Max_Size[2][sp]))))
     append!(plank.data.landscape, fill(0.0,to_append))
 
-    
-    index = findall(x -> x> 1, Int.(plank.data.pool_x))
-    if length(index) > 0
-        println(plank.data.x[index])
-
-        println(plank.data.pool_x[index])
-        error("More than 1 pool_x")
+    caps = []
+    for i in 1:length(pool_x)
+        push!(caps,capacities[pool_y[i],pool_x[i],1])
     end
+    df = DataFrame(pool_x = pool_x, pool_y = pool_y,value = caps)
 
-    index = findall(x -> x> 1, Int.(plank.data.pool_y))
-    if length(index) > 0
-        println(plank.data.y[index])
+    # Save it to a CSV file
+    CSV.write("./results/Test/start.csv", df)
 
-        println(plank.data.pool_y[index])
-
-        error("More than 1 pool_y")
-    end
     return plank.data
 end
 
-function generate_pool(group, sp::Int,dt::Int,environment::MarineEnvironment,depths::MarineDepths)
+function generate_pool(group, sp::Int,dt::Int,capacities,grid,depths::MarineDepths)
     grid = depths.grid
     night_profs = depths.patch_night
 
-    depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
+    depthres = Int(round(grid[findfirst(grid.Name .== "depthres"), :Value]))
     lonres = grid[findfirst(grid.Name .== "lonres"), :Value]
     latres = grid[findfirst(grid.Name .== "latres"), :Value]
     maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
@@ -179,7 +187,7 @@ function generate_pool(group, sp::Int,dt::Int,environment::MarineEnvironment,dep
     latmax = grid[findfirst(grid.Name .== "latmax"), :Value]
     latmin = grid[findfirst(grid.Name .== "latmin"), :Value]
 
-    z_interval = maxdepth / depthres
+    z_interval = Int(round(maxdepth / depthres))
 
     horiz_cell_size = ((latmax - latmin) / latres) * ((lonmax - lonmin) / lonres) # Square meters of grid cell
     cell_size = horiz_cell_size * z_interval # Cubic meters of water in each grid cell
@@ -227,25 +235,18 @@ function generate_pool(group, sp::Int,dt::Int,environment::MarineEnvironment,dep
             else
                 patch_inds = Int64(inds)
             end            
-            x_part, y_part = smart_placement(environment.chl,1,1)
-            lon_chl_res = size(environment.chl,1)
-            lat_chl_res = size(environment.chl,2)
 
-            x = lonmin + rand() * ((lonmax - lonmin)*(x_part/lon_chl_res))
-            y = latmin + rand() * (latmax - latmin)*(y_part/lat_chl_res)
+            x,y,pool_x,pool_y = pool_placement(capacities,sp,grid,1)
 
             z = min_z[k] + rand() * (max_z[k] - min_z[k])
-
-            x = clamp(x,lonmin,lonmax)
-            y = clamp(y,latmin,latmax)
             z = clamp(z,1,maxdepth)
 
             if patch_num > length(group.data.x)
                 push!(group.data.x, x)
                 push!(group.data.y, y)
                 push!(group.data.z, z)
-                push!(group.data.pool_x, max(1,ceil(Int, x / ((lonmax - lonmin) / lonres))))
-                push!(group.data.pool_y, max(1,ceil(Int, y / ((latmax - latmin) / latres))))
+                push!(group.data.pool_x, pool_x)
+                push!(group.data.pool_y, pool_y)
                 push!(group.data.pool_z, max(1,ceil(Int, z / (maxdepth / depthres))))
                 push!(group.data.abundance, patch_inds)
                 push!(group.data.biomass, den)
@@ -261,8 +262,8 @@ function generate_pool(group, sp::Int,dt::Int,environment::MarineEnvironment,dep
                 group.data.x[1] = x
                 group.data.y[1] = y
                 group.data.z[1] = z
-                group.data.pool_x[1] = max(1,ceil(Int, x / ((lonmax - lonmin) / lonres)))
-                group.data.pool_y[1] = max(1,ceil(Int, y / ((latmax - latmin) / latres)))
+                group.data.pool_x[1] = pool_x
+                group.data.pool_y[1] = pool_y
                 group.data.pool_z[1] = max(1,ceil(Int, z / (maxdepth / depthres)))
                 group.data.abundance[1] = patch_inds
                 group.data.biomass[1] = den
@@ -283,6 +284,8 @@ end
 function pool_growth(model::MarineModel)
     # Function that controls the growth of a population back to its carrying capacity
     for pool_index in 1:model.n_pool
+        animal = model.pools.pool[pool_index]
+
         growth_rate = animal.characters.Growth[2][pool_index] / (1440/model.dt)  # Daily growth rate adjusted to per minute
         for i in 1:length(animal.data.x)
             population = animal.data.biomass[i]
@@ -294,7 +297,7 @@ function pool_growth(model::MarineModel)
     return nothing
 end
 
-function reproduce(model,sp,ind,energy)
+function reproduce(model,sp,ind,energy,val)
     sp_dat = model.individuals.animals[sp].data
     sp_char = model.individuals.animals[sp].p
 
@@ -312,7 +315,10 @@ function reproduce(model,sp,ind,energy)
     egg_volume = 0.15 .* sp_dat.biomass[ind] .^ 0.14 #From Barneche et al. 2018
     egg_energy = 2.15 .* egg_volume .^ 0.77
 
-    num_eggs = max.(0,Int.(ceil.(energy / egg_energy .* sp_char.Sex_Ratio[2][sp] .* sp_char.Hatch_Survival[2][sp])))
+    spent_energy = energy .* val
+    sp_dat.energy[ind] .-= spent_energy
+
+    num_eggs = max.(0,Int.(ceil.(spent_energy / egg_energy .* sp_char.Sex_Ratio[2][sp] .* sp_char.Hatch_Survival[2][sp])))
 
     parent_x = sp_dat.x[ind]
     parent_y = sp_dat.y[ind]
@@ -360,7 +366,6 @@ function reproduce(model,sp,ind,energy)
             push!(larval_dat.active, 1.0)
         end
     end
-    println("bebe")
     println(larval_dat.biomass)
     if any(isnan, larval_dat.biomass)
         error("NaN detected in model.individuals.animals[sp].data.x[ind]")
@@ -373,30 +378,61 @@ function recruit(model::MarineModel)
     for sp in 1:model.n_species
         sp_dat = model.individuals.animals[sp].data
         sp_char = model.individuals.animals[sp].p
-        spec_larvae = findall(x -> x == sp, larvae.focal)
-        of_age = findall(x -> x >= sp_char.Larval_Duration[2][sp], larvae[spec_larvae])
 
+        # Find larvae of the current species
+        spec_larvae = findall(x -> x == sp, larvae.focal)
+
+        # Filter larvae by age
+        larval_duration = sp_char.Larval_Duration[2][sp]
+        of_age = [i for i in spec_larvae if larvae.age[i] >= larval_duration]
+
+        # Skip if no larvae meet the age criterion
         if isempty(of_age)
-            continue # Skip if no larvae of this age
+            continue
         end
 
-        num_create = larvae.abundance[spec_larvae[of_age]]
-        currently_dead = findall(x -> x == 0.0, sp_dat.ac) # Species animals that are currently dead
+        # Calculate the number of new individuals to create
+        num_create = sum(larvae.abundance[i] for i in of_age)
 
-        if !isempty(currently_dead)
-            to_replace = min(length(currently_dead), num_create)
+        # Find dead individuals in the species
+        currently_dead = findall(x -> x == 0.0, sp_dat.ac)
+        num_dead = length(currently_dead)
+
+        if num_dead > 0
+            # Determine the number of individuals to replace
+            to_replace = min(num_dead, num_create)
+
+            # Replace dead individuals
             for j in 1:to_replace
-                update_individual!(sp_dat, larvae, spec_larvae[of_age], sp_char, currently_dead[j], j)
+                update_individual!(
+                    sp_dat,
+                    larvae,
+                    of_age[j],
+                    sp_char,
+                    currently_dead[j],
+                    j
+                )
             end
-            if num_create > to_replace
-                to_make = num_create - to_replace
-                create_new_individuals!(sp_dat, larvae, spec_larvae[of_age], sp_char, to_make)
+
+            # Add new individuals if there are more larvae to create
+            remaining_to_create = num_create - to_replace
+            if remaining_to_create > 0
+                create_new_individuals!(
+                    sp_dat,
+                    larvae,
+                    of_age[to_replace + 1:end],
+                    sp_char,
+                    remaining_to_create
+                )
             end
         else
-            create_new_individuals!(sp_dat, larvae, spec_larvae[of_age], sp_char, num_create)
+            # All new individuals are created fresh
+            create_new_individuals!(sp_dat, larvae, of_age, sp_char, num_create)
         end
     end
 end
+
+
 
 function update_individual!(sp_dat, larvae, spec_larvae, sp_char, idx, age_index)
     grid = model.depths.grid
@@ -503,3 +539,36 @@ function create_new_individuals!(sp_dat, larvae, spec_larvae, sp_char, num_new)
     push!(sp_dat.landscape, fill(0.0, num_new)...)
 end
 
+function load_fisheries(df::DataFrame)
+    grouped = groupby(df, :FisheryName)
+    fisheries = Fishery[]
+
+    for g in grouped
+        name = g.FisheryName[1]
+        quota = g.Quota[1]
+        season = (g.StartDay[1], g.EndDay[1])
+        area = ((g.XMin[1], g.XMax[1]), (g.YMin[1], g.YMax[1]), (g.ZMin[1], g.ZMax[1]))
+        slot_limit = (g.SlotMin[1], g.SlotMax[1])
+
+        targets = g.Species[g.Role .== "target"]
+        bycatch = g.Species[g.Role .== "bycatch"]
+
+        selectivities = Dict{String, Selectivity}()
+        for row in eachrow(g)
+            selectivities[row.Species] = Selectivity(row.Species, row.L50, row.Slope)
+        end
+
+        push!(fisheries, Fishery(
+            name,
+            collect(targets),
+            collect(bycatch),
+            selectivities,
+            quota,
+            0.0,  # initialize cumulative catch
+            season,
+            area,
+            slot_limit
+        ))
+    end
+    return fisheries
+end

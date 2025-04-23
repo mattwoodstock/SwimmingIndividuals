@@ -2,12 +2,18 @@ function timestep_results(sim::MarineSimulation)
     model = sim.model
     outputs = sim.outputs
     population_array = zeros(model.n_species,5) #2D array to append to the Population-Scale Information
+    # Save the results periodically
+    ts = Int(model.iteration)
+    run = Int(sim.run)
+    month = model.environment.ts
 
     Sp = []
     Ind = []
     x = []
     y = []
     z = []
+    pool_x=[]
+    pool_y = []
     lengths = []
     ration = []
     energy = []
@@ -37,6 +43,8 @@ function timestep_results(sim::MarineSimulation)
         append!(x,model.individuals.animals[species_index].data.x[alive])
         append!(y,model.individuals.animals[species_index].data.y[alive])
         append!(z,model.individuals.animals[species_index].data.z[alive])
+        append!(pool_x,model.individuals.animals[species_index].data.pool_x[alive])
+        append!(pool_y,model.individuals.animals[species_index].data.pool_y[alive])
         append!(lengths,model.individuals.animals[species_index].data.length[alive])
         append!(ration,model.individuals.animals[species_index].data.ration[alive])
         append!(energy,model.individuals.animals[species_index].data.energy[alive])
@@ -46,40 +54,51 @@ function timestep_results(sim::MarineSimulation)
         append!(active,model.individuals.animals[species_index].data.active[alive])
         append!(landscape,model.individuals.animals[species_index].data.landscape[alive])
 
+        if month > 10
+        heatmap(model.capacities[:,:,month,species_index], aspect_ratio=1, c=:viridis, title="Habitat Capacity & Locations - Month: $month",xlabel="X", ylabel="Y", colorbar_title="Capacity",clim=(0,1))
+
+        scatter!([x./14773.584905660377], [-1 .* y./12213.740458015267], color=:green, label="Start", markersize=3)
+
+        scatter!([pool_x], [pool_y], color=:green, markersize=3)
+        filename = "./results/Test/Locations/KM/$species_index - $ts.png"
+        savefig(filename)
+        end
+
     end
-    individual_array = hcat(Sp,Ind,x,y,z,lengths,ration,energy,cost,behavior,rmr,active,landscape)
-    column_names = ["Species", "Individual", "X", "Y", "Z", "Length", "Ration", "Energy", "Cost", "Behavior","RMR","Active","Landscape"]
+    individual_array = hcat(Sp,Ind,x,y,z,pool_x,pool_y,lengths,ration,energy,cost,behavior,rmr,active,landscape)
+    column_names = ["Species", "Individual", "X", "Y", "Z","PoolX","PoolY", "Length", "Ration", "Energy", "Cost", "Behavior","RMR","Active","Landscape"]
     df = DataFrame(individual_array, Symbol.(column_names))
 
-    if model.iteration == 1
-        outputs.population_results[:,:,1] = population_array
-    else
-        outputs.population_results = cat(outputs.population_results,population_array,dims=3)
-    end
-    # Save the results periodically
-    ts = Int(model.iteration)
-    run = Int(sim.run)
+    #if model.iteration == 1
+        #outputs.population_results[:,:,1] = population_array
+    #else
+        #outputs.population_results = cat(outputs.population_results,population_array,dims=3)
+    #end
+
     filename = "results/Individual/IndividualResults_$run-$ts.csv"
     CSV.write(filename, df)
 
-    if ts == 24 #Only want these daily for this run.
-        ## Uncomment for population results (Most can be aggregated from individual results and this code takes a long time)
-        file_path = "results/Population/PopulationResults$run-$ts.h5"
+    ## Uncomment for population results (Most can be aggregated from individual results and this code takes a long time)
+    #file_path = "results/Population/PopulationResults$run-$ts.h5"
+    # Save arrays in the JLD2 file
+    #h5open(file_path, "w") do f
+        #write(f, "population", outputs.population_results)
+    #end
+
+    #filename2 = "results/Population/PopulationResults_$run.jld"
+
+    #save(filename2,"population",outputs.population_results)
+
+    ## Uncomment for ecosystem results
+    #file_path = "results/Ecosystem/EcosystemResults$run-$ts.h5"
         # Save arrays in the JLD2 file
-        h5open(file_path, "w") do f
-            write(f, "population", outputs.population_results)
-        end
+    #h5open(file_path, "w") do f
+        #write(f, "diets", outputs.consumption)
+        #write(f, "encounters", outputs.encounters)
+    #end
 
-        #filename2 = "results/Population/PopulationResults_$run.jld"
-
-        #save(filename2,"population",outputs.population_results)
-
-        ## Uncomment for ecosystem results
-        file_path = "results/Ecosystem/EcosystemResults$run-$ts.h5"
-        # Save arrays in the JLD2 file
-        h5open(file_path, "w") do f
-            write(f, "diets", outputs.consumption)
-            write(f, "encounters", outputs.encounters)
-        end
-    end
+    #spec = model.n_species+model.n_pool
+    #outputs.consumption = zeros(model.n_species, (spec+1), model.grid.Nx,model.grid.Ny,model.grid.Nz) #Subconsumption timestep
+    #outputs.encounters = zeros(spec, (spec+1), model.grid.Nx,model.grid.Ny,model.grid.Nz) 
 end
+

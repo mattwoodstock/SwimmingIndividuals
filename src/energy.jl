@@ -1,4 +1,4 @@
-function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, indices::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true})
+function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, indices)
     # Extract animal data and parameters
     animal_data = model.individuals.animals[sp].data
     animal_chars = model.individuals.animals[sp].p
@@ -77,6 +77,7 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, indices::Sub
         growing_inds = findall(can_grow)
 
         growth_energy::Vector{Float64} = excess[growing_inds] .* growth_prop[growing_inds]
+        animal_data.energy[ind[growing_inds]] .-= growth_energy
         animal_data.biomass[ind[growing_inds]] .+= growth_energy ./ animal_ed
         animal_data.length[ind[growing_inds]] .= ((animal_data.biomass[ind[growing_inds]] ./ animal_chars.LWR_a[2][sp]) .^ (1 / animal_chars.LWR_b[2][sp])) .* 10
 
@@ -88,15 +89,24 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, indices::Sub
         to_mature = findall(x -> x > trigger,mature_prob)
 
         animal_data.mature[ind[growing_inds[to_mature]]] .= 1.0
+
+        println(animal_data.mature)
+        stop
     end
 
     # Reproduction
     is_mature::BitVector = (animal_data.mature[ind] .== 1.0)
     can_repro::BitVector = is_mature .& (excess .> 0)
 
-    if any(can_repro)
+    spawn_season = CSV.read(model.files[model.files.File .== "reproduction",:Destination][1],DataFrame) #Database of grid variables
+
+    species_name = animal_chars.SpeciesLong[2][sp]
+    row_idx = findfirst(==(species_name), spawn_season.Species)
+    val = spawn_season[row_idx,model.environment.ts+1]
+
+    if any(can_repro) && (val > 0)
         repro_energy::BitVector = max.(0, excess[findall(can_grow)] .* (1 .- growth_prop[findall(can_grow)]))
-        reproduce(model, sp, ind[findall(can_repro)], repro_energy)
+        reproduce(model, sp, ind[findall(can_repro)], repro_energy,val)
     end
 
     # Starvation
@@ -104,11 +114,6 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, indices::Sub
     if model.iteration > model.spinup && any(starve)
         animal_data.ac[ind[findall(starve)]] .= 0.0
         animal_data.behavior[ind[findall(starve)]] .= 5
-    end
-
-    # Reset Energy for animals that had excess
-    if any(excess .> 0)
-        animal_data.energy[ind[findall(excess .> 0)]] .= r_max
     end
 
     nothing
