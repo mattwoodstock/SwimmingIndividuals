@@ -1,0 +1,5 @@
+FisheryName,Species,Role,L50,Slope,Quota,StartDay,EndDay,XMin,XMax,YMin,YMax,ZMin,ZMax,SlotMin,SlotMax
+Longline,Species1,target,75,0.2,10000,0,365,0,1000,0,1000,0,1000,0,1000
+Longline,Species2,target,80,0.25,10000,0,365,0,100,0,100,0,300,50,200
+Longline,Species3,bycatch,100,0.1,10000,0,365,0,100,0,100,0,300,50,200
+Trawl,Species4,target,20,0.4,5000,0,365,20,70,30,80,0,100,10,30

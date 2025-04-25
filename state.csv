@@ -1,12 +1,12 @@
 Name,Value,Description
 architecture,CPU,Can either be CPU or GPU
-numspec,5,Number of Modeled Species
-nts,72,Number of Time Steps (minutes) model and spinup
-numpool,27,Number of Pooled Groups
-output_dt,20,Interval between Timestep Outputs
+numspec,1,Number of Modeled Species
+nts,2000,Number of Time Steps (minutes) model and spinup
+numpool,1,Number of Pooled Groups
+output_dt,1440,Interval between Timestep Outputs
 num_patches,100,Number of patches per grid cell
 food_exp,1,Food Limitation Adjuster for Experiments
 temp_adjust,0,Temperature Adjuster for Experiments
 spinup,0,Number of time steps of the spinup
-model_dt,20,Number of minutes between time steps
+model_dt,1440,Number of minutes between time steps
 n_iter,1,Number of model iterations to run
