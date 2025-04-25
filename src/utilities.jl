@@ -204,27 +204,56 @@ function get_target_z(sp, dist)
     return gaussmix(1, dist[sp, "mu1"], dist[sp, "mu2"], dist[sp, "mu3"], dist[sp, "sigma1"], dist[sp, "sigma2"], dist[sp, "sigma3"], dist[sp, "lambda1"], dist[sp, "lambda2"])[1]
 end
 
-function add_prey(model,prey_type,sp_data, prey_data, ind,this_pred, indices, abundances, sp,detection)
-    dx = sp_data.x[ind] .- prey_data.x[indices]
-    dy = sp_data.y[ind] .- prey_data.y[indices]
+function add_prey(model, prey_type, sp_data, prey_data, ind, this_pred, indices, abundances, sp, detection, max_num, n_preys, max_dist)
+    # Precompute haversine for horizontal distances once
+    horiz_dist = haversine.(sp_data.y[ind], sp_data.x[ind], prey_data.x[indices], prey_data.y[indices])
     dz = sp_data.z[ind] .- prey_data.z[indices]
-    dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
+    dist = sqrt.(horiz_dist.^2 .+ dz.^2)
 
+    # Filter indices within detection range
     within_detection = findall(dist .<= detection[this_pred])
-    #println(within_detection)
-    prey_infos = PreyInfo[]  # Initialize a vector to store prey info for this individual
-    for i in within_detection
+
+    # Early exit if no prey is within detection range
+    if isempty(within_detection)
+        return PreyInfo[]
+    end
+
+    # Filter by maximum distance
+    valid_indices = findall(dist .<= max_dist)
+    
+    if (n_preys + length(valid_indices)) > max_num
+        # Sort and get top `n_add` indices based on distance
+        n_add = Int(max_num - (n_preys + length(valid_indices)))
+        dists_subset = dist[valid_indices]
+        idx_subset = partialsortperm(dists_subset, 1:n_add)
+
+        # Remaining valid indices after partial sort
+        remaining = valid_indices[idx_subset]
+    else
+        remaining = valid_indices
+    end
+
+    # Pre-allocate array for prey_infos
+    prey_infos = Vector{PreyInfo}(undef, length(remaining))
+
+    for i in 1:length(remaining)
+        prey_idx = remaining[i]
 
         if prey_type == 1
-            energy = prey_data.biomass[indices[i]] * model.individuals.animals[sp].p.Energy_density[2][sp]
+            energy = prey_data.biomass[indices[prey_idx]] * model.individuals.animals[sp].p.Energy_density[2][sp]
             sp_data.landscape[ind] += energy
-            prey_infos = vcat(prey_infos, PreyInfo(ind,prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], energy, prey_data.length[indices[i]], abundances, dist[i]))
+            prey_infos[i] = PreyInfo(ind, prey_type, sp, indices[prey_idx], prey_data.x[indices[prey_idx]], prey_data.y[indices[prey_idx]], 
+                                     prey_data.z[indices[prey_idx]], prey_data.biomass[indices[prey_idx]], energy, 
+                                     prey_data.length[indices[prey_idx]], abundances, dist[prey_idx])
         else
-            energy = prey_data.biomass[indices[i]] * model.pools.pool[sp].characters.Energy_density[2][sp]
+            energy = prey_data.biomass[indices[prey_idx]] * model.pools.pool[sp].characters.Energy_density[2][sp]
             sp_data.landscape[ind] += energy
-            prey_infos = vcat(prey_infos, PreyInfo(ind,prey_type, sp, indices[i], prey_data.x[indices[i]], prey_data.y[indices[i]], prey_data.z[indices[i]], prey_data.biomass[indices[i]], energy, prey_data.length[indices[i]], abundances[indices[i]], dist[i]))
+            prey_infos[i] = PreyInfo(ind, prey_type, sp, indices[prey_idx], prey_data.x[indices[prey_idx]], prey_data.y[indices[prey_idx]], 
+                                     prey_data.z[indices[prey_idx]], prey_data.biomass[indices[prey_idx]], energy, 
+                                     prey_data.length[indices[prey_idx]], abundances[indices[prey_idx]], dist[prey_idx])
         end
     end
+
     return prey_infos
 end
 
@@ -297,11 +326,12 @@ function lognormal_params_from_maxsize(max_size::Float64)
 end
 
 function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple{Int,Int})
+    flipped_cap = reverse(capacity,dims=1)
+    
     open_set = [start]
     came_from = Dict{Tuple{Int,Int}, Tuple{Int,Int}}()
     visited = Set{Tuple{Int,Int}}()
     directions = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,-1), (1,-1), (-1,1)]
-
     while !isempty(open_set)
         current = popfirst!(open_set)
         if current == goal
@@ -314,11 +344,11 @@ function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple
             return path
         end
         push!(visited, current)
-        for (dx, dy) in directions
-            nx, ny = current[1] + dx, current[2] + dy
-            if 1 ≤ nx ≤ size(capacity,2) && 1 ≤ ny ≤ size(capacity,1)
-                neighbor = (nx, ny)
-                if capacity[ny, nx] > 0.05 && !(neighbor in visited) && !(neighbor in open_set)
+        for (dy, dx) in directions
+            ny, nx = current[1] + dy, current[2] + dx
+            if 1 ≤ nx ≤ size(flipped_cap,2) && 1 ≤ ny ≤ size(flipped_cap,1)
+                neighbor = (ny, nx)
+                if flipped_cap[ny, nx] > 0 && !(neighbor in visited) && !(neighbor in open_set)
                     push!(open_set, neighbor)
                     came_from[neighbor] = current
                 end
@@ -328,109 +358,157 @@ function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple
     return []  # no path found
 end
 
-function reachable_point(
-    current_pos::Tuple{Float64, Float64},  # (x, y) in lon/lat or meters
-    path::Vector{Tuple{Int, Int}},
-    max_distance::Float64,
-    latmin::Float64, latmax::Float64,
-    lonmin::Float64, lonmax::Float64,
-    nrows::Int, ncols::Int
-)
-    # Compute grid resolution
-    dlat = (latmax - latmin) / (nrows - 1)
-    dlon = (lonmax - lonmin) / (ncols - 1)
+function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tuple{Int, Int}},max_distance::Float64, latmin::Float64, lonmin::Float64,cell_size::Float64, nrows::Int, ncols::Int)
 
-    # Convert grid cell to lon/lat coordinates
+    # Convert grid cell (i, j) to lat/lon, add randomness within cell
     function grid_to_coords(cell::Tuple{Int, Int})
-        x = lonmin + (cell[1] - 1) * dlon
-        y = latmax - (cell[2] - 1) * dlat
-        return (x, y)
+        i, j = cell
+        lon = lonmin + (j - 1) * cell_size + rand() * cell_size
+        lat = latmin + (i - 1) * cell_size + rand() * cell_size
+        return (lat, lon)
     end
 
     total_distance = 0.0
-    prev_coords = current_pos
+    prev_lat, prev_lon = current_pos
 
-    for i in 2:length(path)
-        curr_coords = grid_to_coords(path[i])
-        dx = curr_coords[1] - prev_coords[1]
-        dy = curr_coords[2] - prev_coords[2]
-        d = hypot(dx, dy)
+    for i in 1:length(path)
+        lat, lon = grid_to_coords(path[i])
+        d = haversine(prev_lat, prev_lon, lat, lon)
         total_distance += d
 
         if total_distance > max_distance
             excess = total_distance - max_distance
             frac = 1 - (excess / d)
-            interp_x = prev_coords[1] + frac * dx
-            interp_y = prev_coords[2] + frac * dy
 
-            return (interp_x, interp_y,first(path[i]),last(path[i]))
+
+
+            interp_lat = prev_lat + frac * (lat - prev_lat)
+            interp_lon = prev_lon + frac * (lon - prev_lon)
+
+            # Compute the grid cell index of the interpolated point
+            grid_x = clamp(Int(floor((interp_lon - lonmin) / cell_size) + 1), 1, ncols)
+            grid_y = clamp(Int(floor((interp_lat - latmin) / cell_size) + 1), 1, nrows)
+
+            # Add randomness within the cell of the interpolated point
+            rand_lat = latmin + (grid_y - 1) * cell_size + rand() * cell_size
+            rand_lon = lonmin + (grid_x - 1) * cell_size + rand() * cell_size
+
+            return (rand_lat, rand_lon, grid_y, grid_x)
         end
 
-        prev_coords = curr_coords
+        prev_lat, prev_lon = lat, lon
     end
 
-    new_x,new_y = grid_to_coords(path[end])
-    new_x_pool = first(path[end])
-    new_y_pool = last(path[end])
-    return new_x,new_y, new_x_pool, new_y_pool  # Full path is reachable
+    # If max distance not reached, return final randomized point within the last cell
+    final_cell = path[end]
+    final_lat = latmin + (final_cell[1] - 1) * cell_size + rand() * cell_size
+    final_lon = lonmin + (final_cell[2] - 1) * cell_size + rand() * cell_size
+
+    return (final_lat, final_lon, first(final_cell),last(final_cell))
 end
 
-function nearest_suitable_direction(habitat::Matrix{Float64}, start::Tuple{Int, Int},lonmin,lonmax,latmin,latmax)
+function atan2(y::Float64, x::Float64)
+    if x > 0
+        return atan(y / x)
+    elseif x < 0 && y >= 0
+        return atan(y / x) + π
+    elseif x < 0 && y < 0
+        return atan(y / x) - π
+    elseif x == 0 && y > 0
+        return π / 2
+    elseif x == 0 && y < 0
+        return -π / 2
+    else
+        return 0.0  # undefined case (x == 0 && y == 0), return 0 by convention
+    end
+end
+
+# Haversine distance in meters
+function haversine(lat1, lon1, lat2, lon2)
+    R = 6371000.0  # Earth radius in meters
+
+    φ1, φ2 = deg2rad(lat1), deg2rad(lat2)
+    Δφ = deg2rad(lat2 - lat1)
+    Δλ = deg2rad(lon2 - lon1)
+    a = sin(Δφ/2)^2 + cos(φ1) * cos(φ2) * sin(Δλ/2)^2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    R * c
+end
+
+function nearest_suitable_habitat(habitat::Matrix{Float64},start_latlon::Tuple{Float64, Float64},start_pool::Tuple{Int,Int},max_distance_m::Float64,latmin::Float64,lonmin::Float64,cellsize_deg::Float64)
+    R = 6371000.0  # Earth radius in meters
+
+    # Grid indexing and helpers
+    get_neighbors(r, c, nrows, ncols) = [
+        (r+dr, c+dc) for (dr, dc) in
+        ((-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1))
+        if 1 ≤ r+dr ≤ nrows && 1 ≤ c+dc ≤ ncols
+    ]
+
+    random_point_in_cell(cell::Tuple{Int, Int}) = begin
+        row, col = cell
+        lat = latmin + (row - 1 + rand()) * cellsize_deg
+        lon = lonmin + (col - 1 + rand()) * cellsize_deg
+        (lat, lon)
+    end
+
     nrows, ncols = size(habitat)
-    sc, sr = start
 
-    cell_height = (latmax - latmin) / nrows
-    cell_width  = (lonmax - lonmin) / ncols
+    # 2. BFS to find nearest suitable cell
+    visited = falses(nrows, ncols)
+    queue = [start_pool]
+    visited[start_pool...] = true
+    came_from = Dict{Tuple{Int,Int}, Tuple{Int,Int}}()
 
-    # Helper function to check bounds
-    inbounds(r, c) = 1 ≤ r ≤ nrows && 1 ≤ c ≤ ncols
-
-    # Search in expanding layers
-    for radius in 1:max(nrows, ncols)
-        for dr in -radius:radius
-            for dc in -radius:radius
-                # Skip corners unless exactly at the edge of the current radius
-                if abs(dr) == radius || abs(dc) == radius
-                    r, c = sr + dr, sc + dc
-                    if inbounds(r, c) && habitat[r, c] > 0
-                        actual_x = lonmin + (c - 1) * cell_width + rand() .* cell_width
-                        actual_y = latmin + (nrows - r) * cell_height + rand() * cell_height
-                        
-                        return (actual_x,actual_y)
-                    end
-                end
+    goal_cell = nothing
+    while !isempty(queue)
+        current = popfirst!(queue)
+        if habitat[nrows - first(current)+1,last(current)] > 0
+            goal_cell = current
+            break
+        end
+        for neighbor in get_neighbors(current[1], current[2], nrows, ncols)
+            if !visited[neighbor...]
+                visited[neighbor...] = true
+                push!(queue, neighbor)
+                came_from[neighbor] = current
             end
         end
     end
 
-    return nothing  # No suitable cell found
-end
-
-function emergency_movement(current_pos::Tuple{Float64, Float64},target_pos::Tuple{Float64, Float64},max_distance::Float64,latmin::Float64, latmax::Float64,lonmin::Float64, lonmax::Float64,nrows::Int, ncols::Int)
-    # Compute grid resolution
-    dlat = (latmax - latmin) / (nrows - 1)
-    dlon = (lonmax - lonmin) / (ncols - 1)
-
-    function coords_to_grid(coords::Tuple{Float64,Float64})
-        x,y = coords
-        i = Int(floor((x - lonmin) / dlon)) + 1
-        j = Int(floor((latmax - y) / dlat)) + 1
-        return (i, j)
+    if isnothing(goal_cell)
+        return
     end
-    dx = target_pos[1] - current_pos[1]
-    dy = target_pos[2] - current_pos[2]
-    d = hypot(dx, dy)
 
-    if d > max_distance
-        excess = d - max_distance
-        frac = 1 - (excess / d)
-        interp_x = current_pos[1] + frac * dx
-        interp_y = current_pos[2] + frac * dy
-        new_pool_x,new_pool_y = coords_to_grid((interp_x,interp_y))
+    # Random location in goal cell
+    goal_latlon = random_point_in_cell(goal_cell)
 
-        return (interp_x, interp_y,new_pool_x,new_pool_y)
-    else     
-        target_pool = coords_to_grid(target_pos)
-        return (first(target_pos),last(target_pos),first(target_pool),last(target_pool))
+    dist_m = haversine(start_latlon[1], start_latlon[2], goal_latlon[1], goal_latlon[2])
+
+    if dist_m <= max_distance_m
+        new_latlon = goal_latlon
+    else
+        # Move toward the goal with proper scaling
+        φ1 = deg2rad(start_latlon[1])
+        λ1 = deg2rad(start_latlon[2])
+        φ2 = deg2rad(goal_latlon[1])
+        λ2 = deg2rad(goal_latlon[2])
+
+        Δφ = φ2 - φ1
+        Δλ = λ2 - λ1
+        θ = atan2(sin(Δλ) * cos(φ2), cos(φ1) * sin(φ2) - sin(φ1) * cos(φ2) * cos(Δλ))
+        d_frac = max_distance_m / dist_m
+
+        δ = dist_m * d_frac / R
+        new_φ = asin(sin(φ1) * cos(δ) + cos(φ1) * sin(δ) * cos(θ))
+        new_λ = λ1 + atan2(sin(θ) * sin(δ) * cos(φ1), cos(δ) - sin(φ1) * sin(new_φ))
+
+        new_latlon = (rad2deg(new_φ), rad2deg(new_λ))
     end
+
+    # Convert new location to grid cell index
+    new_row = floor(Int, (new_latlon[1] - latmin) / cellsize_deg) + 1
+    new_col = floor(Int, (new_latlon[2] - lonmin) / cellsize_deg) + 1
+
+    return new_latlon[1], new_latlon[2], new_col, new_row
 end

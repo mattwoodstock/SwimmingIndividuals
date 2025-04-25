@@ -53,18 +53,8 @@ function timestep_results(sim::MarineSimulation)
         append!(rmr,model.individuals.animals[species_index].data.rmr[alive])
         append!(active,model.individuals.animals[species_index].data.active[alive])
         append!(landscape,model.individuals.animals[species_index].data.landscape[alive])
-
-        if month > 10
-        heatmap(model.capacities[:,:,month,species_index], aspect_ratio=1, c=:viridis, title="Habitat Capacity & Locations - Month: $month",xlabel="X", ylabel="Y", colorbar_title="Capacity",clim=(0,1))
-
-        scatter!([x./14773.584905660377], [-1 .* y./12213.740458015267], color=:green, label="Start", markersize=3)
-
-        scatter!([pool_x], [pool_y], color=:green, markersize=3)
-        filename = "./results/Test/Locations/KM/$species_index - $ts.png"
-        savefig(filename)
-        end
-
     end
+
     individual_array = hcat(Sp,Ind,x,y,z,pool_x,pool_y,lengths,ration,energy,cost,behavior,rmr,active,landscape)
     column_names = ["Species", "Individual", "X", "Y", "Z","PoolX","PoolY", "Length", "Ration", "Energy", "Cost", "Behavior","RMR","Active","Landscape"]
     df = DataFrame(individual_array, Symbol.(column_names))

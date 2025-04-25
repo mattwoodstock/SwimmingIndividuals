@@ -352,12 +352,13 @@ function move_to_prey(model, sp, ind,eat_ind, time, prey_list)
     end
 end
 
-function movement_toward_habitat(model,time::Vector{Float64},ind,inds,sp)
+function movement_toward_habitat(model,time::Vector{Float64},inds,sp)
     files = model.files
     month = model.environment.ts
-    iteration = model.iteration
     grid = CSV.read(files[files.File .== "grid",:Destination][1],DataFrame) #Database of grid variables
     habitat = model.capacities[:,:,month,sp]
+    df = reverse(habitat,dims=1)
+
     nrows, ncols = size(habitat)
 
     x = model.individuals.animals[sp].data.x[inds]
@@ -369,80 +370,79 @@ function movement_toward_habitat(model,time::Vector{Float64},ind,inds,sp)
     # Max Distance
     swim_speed = model.individuals.animals[sp].p.Swim_velo[2][sp]
     lengths = model.individuals.animals[sp].data.length[inds] / 1000
-    max_swim_distance = swim_speed .* lengths .* time
+    max_swim_distance = swim_speed .* lengths .* time[inds] #meters per time step
 
     # Grid boundaries
-    latmin = grid[grid.Name .== "latmin", :Value][1]
-    latmax = grid[grid.Name .== "latmax", :Value][1]
-    lonmin = grid[grid.Name .== "lonmin", :Value][1]
-    lonmax = grid[grid.Name .== "lonmax", :Value][1]
+    latmin = grid[grid.Name .== "yllcorner", :Value][1]
+    lonmin = grid[grid.Name .== "xllcorner", :Value][1]
+    cell_size = grid[grid.Name .== "cellsize", :Value][1]
 
     #Identify habitat preference grid
     data = DataFrame(x=Int[], y=Int[], value=Float64[])
     for i in 1:nrows, j in 1:ncols
-        if habitat[i,j] > 0.05
+        if habitat[i,j] > 0
             push!(data, (x=j, y=i, value=habitat[i, j]))
         end   
     end
+
     sort!(data, :value, rev=true)
     data.cumulative_value = cumsum(data.value)
     total = sum(data.value)
 
-    for N in 1:length(inds)
+    Threads.@threads for N in 1:length(inds)
         path = []
-        current_pos = (x[N],y[N])
-        start = (pool_x[N],pool_y[N])
+        current_pos = (y[N],x[N])
+        start = (pool_y[N],pool_x[N])
 
-        if habitat[pool_y[N],pool_x[N]] == 0
+        if habitat[(nrows - pool_y[N]+1),pool_x[N]] == 0
             #Animal is in a bad spot and needs to move to the nearest location
-            target_x,target_y = nearest_suitable_direction(habitat,start,lonmin,lonmax,latmin,latmax)
-            target = (target_x,target_y)
+            new_y,new_x,new_pool_x,new_pool_y = nearest_suitable_habitat(habitat,current_pos,start,max_swim_distance[N],latmin,lonmin,cell_size)
+            target = (new_x,new_y)
             if target == nothing
                 continue #Could not find a suitable habitat, animal stays put 
             end
-            new_x,new_y,new_x_pool,new_y_pool = emergency_movement(current_pos, target,max_swim_distance[N],latmin,latmax,lonmin,lonmax,nrows,ncols)
 
             model.individuals.animals[sp].data.y[inds[N]] = new_y
             model.individuals.animals[sp].data.x[inds[N]] = new_x
 
-            model.individuals.animals[sp].data.pool_y[inds[N]] = new_y_pool
-            model.individuals.animals[sp].data.pool_x[inds[N]] = new_x_pool
-            #calculate new location that is a straight line distance
+            model.individuals.animals[sp].data.pool_y[inds[N]] = new_pool_y
+            model.individuals.animals[sp].data.pool_x[inds[N]] = new_pool_x
 
-            #if month == 2
-            #heatmap(habitat, aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",
-            #xlabel="X", ylabel="Y", colorbar_title="Capacity")
-            #xs = [p[1] for p in path]
-            #ys = [p[2] for p in path]
-            #plot!(xs, ys, color=:white, lw=2, label="Path")
+            if month > 20
+            heatmap(habitat, aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",
+            xlabel="X", ylabel="Y", colorbar_title="Capacity")
+            xs = [p[2] for p in path]
+            ys = [p[1] for p in path]
+            plot!(xs, ys, color=:white, lw=2, label="Path")
             
             # Plot start location (green)
-            #scatter!([start[1]], [start[2]], color=:green, label="Start", markersize=3)
+            scatter!(x = [start[2]], y = [start[1]], color=:green, label="Start", markersize=3, zorder=10)
             
             # Plot target location (red)
-            #scatter!([target[2]], [target[1]], color=:red, label="Target", markersize=3)
+            scatter!(x =[new_pool_x],  y = [new_pool_y], color=:red, label="Target", markersize=3, zorder=10)
             
             #Plot reachable point
-            #scatter!([new_x_pool],[new_y_pool],color=:yellow,label="Reachable",markersize=3)
-            #item = inds[N]
+            scatter!(x = [new_pool_x],y = [new_pool_y],color=:yellow,label="Reachable",markersize=3, zorder=10)
+            item = inds[N]
             
-            #filename = "./results/Test/Paths/direct_$month ($item).png"
-            #savefig(filename)
-            #end
+            filename = "./results/Test/Paths/direct_$month ($item).png"
+            savefig(filename)
+            end
         else
             count = 0
+            target = nothing
             while isempty(path) && count < 10
                 count += 1
-                r = (rand()^2) * total
+                r = (rand()^4) * total
                 selected = findfirst(data.cumulative_value .>= r)
-                target = (data.x[selected],data.y[selected])
+                target = ((nrows - data.y[selected]+1),data.x[selected])
                 path = find_path(habitat, start, target)
             end
-            if count == 10
+            if isempty(path) && count == 10
                 continue
             end
 
-            new_x,new_y,new_pool_x,new_pool_y = reachable_point(current_pos,path, max_swim_distance[N],latmin,latmax,lonmin,lonmax,nrows,ncols)
+            new_y,new_x,new_pool_y,new_pool_x = reachable_point(current_pos,path, max_swim_distance[N],latmin,lonmin,cell_size,nrows,ncols)
 
             # Update individual’s fine-scale position
             model.individuals.animals[sp].data.y[inds[N]] = new_y
@@ -451,25 +451,19 @@ function movement_toward_habitat(model,time::Vector{Float64},ind,inds,sp)
             model.individuals.animals[sp].data.pool_y[inds[N]] = new_pool_y
             model.individuals.animals[sp].data.pool_x[inds[N]] = new_pool_x
 
-            #if month == 10
-            #heatmap(habitat, aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",xlabel="X", ylabel="Y", colorbar_title="Capacity")
-            #xs = [p[1] for p in path]
-            #ys = [p[2] for p in path]
-            #plot!(xs, ys, color=:white, lw=2, label="Path")
-    
-            # Plot start location (green)
-            #scatter!([start[1]], [start[2]], color=:green, label="Start", markersize=3)
-    
-            # Plot target location (red)
-            #scatter!([target[1]], [target[2]], color=:red, label="Target", markersize=3)
-    
-            #Plot reachable point
-            #scatter!([new_pool_x],[new_pool_y],color=:yellow,label="Reachable",markersize=3)
-            #item = inds[N]
-    
-            #filename = "./results/Test/Paths/path_$month ($item).png"
-            #savefig(filename)
-            #end
+            if month >20
+                plt = heatmap(df, aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",xlabel="X", ylabel="Y", colorbar_title="Capacity")
+  
+                xs = [p[2] for p in path]
+                ys = [p[1] for p in path]
+                plot!(plt, xs, ys, color=:black, lw=2, label="Path")
+                scatter!(plt,[start[2]],[start[1]], color=:green, label="Start", markersize=3)
+                scatter!(plt,[target[2]],[target[1]], color=:red, label="Target", markersize=3)
+                scatter!(plt,[new_pool_x],[new_pool_y], color=:yellow, label="Reachable", markersize=3)
+                item = inds[N]
+                filename = "./results/Test/Paths/path_$month ($item).png"
+                savefig(filename)
+            end
         end
         model.individuals.animals[sp].data.active[inds[N]]+= time[N]
     end
@@ -477,128 +471,121 @@ function movement_toward_habitat(model,time::Vector{Float64},ind,inds,sp)
 end
 
 function pool_movement(model,inds,sp::Int)
-    files = model.files
-    month = model.environment.ts
-
-    grid = CSV.read(files[files.File .== "grid",:Destination][1],DataFrame) #Database of grid variables
-
     time = fill(model.dt * 60, length(inds))
     characters = model.pools.pool[sp].characters
-    data = model.pools.pool[sp].data
-    habitat = model.pool_capacities[:,:,month,sp]
-    nrows, ncols = size(habitat)
-    x = data.x[inds]
-    y = data.y[inds]
-    pool_x = Int.(data.pool_x[inds])
-    pool_y = Int.(data.pool_y[inds])
+    species_data = model.pools.pool[sp].data
 
-    #Calculate Max Distance
-    swim_speed = characters.Swim_Velo[2][sp]  # already scalar
-    lengths = data.length[inds] / 1000
-    max_swim_distance = swim_speed * lengths .* time
+    files = model.files
+    month = model.environment.ts
+    grid = CSV.read(files[files.File .== "grid",:Destination][1],DataFrame) #Database of grid variables
+    habitat = model.capacities[:,:,month,sp]
+    df = reverse(habitat,dims=1)
+
+    nrows, ncols = size(habitat)
+
+    x = species_data.x[inds]
+    y = species_data.y[inds]
+    pool_x = Int.(species_data.pool_x[inds])
+    pool_y = Int.(species_data.pool_y[inds])
+
+    ## Calculate max distances from lengths
+    # Max Distance
+    swim_speed = characters.Swim_Velo[2][sp]
+    lengths = species_data.length[inds] / 1000
+    max_swim_distance = swim_speed .* lengths .* time #meters per time step
 
     # Grid boundaries
-    latmin = grid[grid.Name .== "latmin", :Value][1]
-    latmax = grid[grid.Name .== "latmax", :Value][1]
-    lonmin = grid[grid.Name .== "lonmin", :Value][1]
-    lonmax = grid[grid.Name .== "lonmax", :Value][1]
-    
-    # Compute size of one grid cell
-    dlat = (latmax - latmin) / (nrows - 1)
-    dlon = (lonmax - lonmin) / (ncols - 1)
-    
-    #Convert swim distance to grid-based distance
-    max_grid = hypot(dlat,dlon)
-    max_dist = min.(1,max_swim_distance ./ max_grid)
+    latmin = grid[grid.Name .== "yllcorner", :Value][1]
+    lonmin = grid[grid.Name .== "xllcorner", :Value][1]
+    cell_size = grid[grid.Name .== "cellsize", :Value][1]
 
     #Identify habitat preference grid
-    caps = DataFrame(x=Int[], y=Int[], value=Float64[])
+    data = DataFrame(x=Int[], y=Int[], value=Float64[])
     for i in 1:nrows, j in 1:ncols
-        if habitat[i,j] > 0.05
-            push!(caps, (x=j, y=i, value=habitat[i, j]))
-        end    
+        if habitat[i,j] > 0
+            push!(data, (x=j, y=i, value=habitat[i, j]))
+        end   
     end
-    sort!(caps, :value, rev=true)
-    caps.cumulative_value = cumsum(caps.value)
-    total = sum(caps.value)
 
-    for N in 1:length(inds)
+    sort!(data, :value, rev=true)
+    data.cumulative_value = cumsum(data.value)
+    total = sum(data.value)
+    
+    Threads.@threads for N in 1:length(inds)
         path = []
-        current_pos = (x[N],y[N])
-        start = (pool_x[N],pool_y[N])
+        current_pos = (y[N],x[N])
+        start = (pool_y[N],pool_x[N])
 
-        if habitat[pool_y[N],pool_x[N]] == 0
-            target_x,target_y = nearest_suitable_direction(habitat,start,lonmin,lonmax,latmin,latmax)
-
-            target = (target_y,target_x)
+        if habitat[(nrows - pool_y[N]+1),pool_x[N]] == 0
+            #Animal is in a bad spot and needs to move to the nearest location
+            new_y,new_x,new_pool_x,new_pool_y = nearest_suitable_habitat(habitat,current_pos,start,max_swim_distance[N],latmin,lonmin,cell_size)
+            target = (new_x,new_y)
             if target == nothing
                 continue #Could not find a suitable habitat, animal stays put 
             end
 
-            new_x,new_y,new_x_pool,new_y_pool = emergency_movement(current_pos, target,max_swim_distance[N],latmin,latmax,lonmin,lonmax,nrows,ncols)
+            species_data.y[inds[N]] = new_y
+            species_data.x[inds[N]] = new_x
 
-            model.pools.pool[sp].data.y[inds[N]] = new_y
-            model.individuals.animals[sp].data.x[inds[N]] = new_x
+            species_data.pool_y[inds[N]] = new_pool_y
+            species_data.pool_x[inds[N]] = new_pool_x
 
-            model.pools.pool[sp].data.pool_y[inds[N]] = new_y_pool
-            model.pools.pool[sp].data.pool_x[inds[N]] = new_x_pool
-            #calculate new location that is a straight line distance
-            
-            #heatmap(habitat, aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",
-            #xlabel="X", ylabel="Y", colorbar_title="Capacity")
-            #xs = [p[1] for p in path]
-            #ys = [p[2] for p in path]
-            #plot!(xs, ys, color=:white, lw=2, label="Path")
+            if month > 20
+            heatmap(habitat, aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",
+            xlabel="X", ylabel="Y", colorbar_title="Capacity")
+            xs = [p[2] for p in path]
+            ys = [p[1] for p in path]
+            plot!(xs, ys, color=:white, lw=2, label="Path")
             
             # Plot start location (green)
-            #scatter!([start[1]], [start[2]], color=:green, label="Start", markersize=3)
+            scatter!(x = [start[2]], y = [start[1]], color=:green, label="Start", markersize=3, zorder=10)
             
             # Plot target location (red)
-            #scatter!([target[1]], [target[2]], color=:red, label="Target", markersize=3)
+            scatter!(x =[new_pool_x],  y = [new_pool_y], color=:red, label="Target", markersize=3, zorder=10)
             
             #Plot reachable point
-            #scatter!([data.pool_x[inds[N]]],[data.pool_y[inds[N]]],color=:yellow,label="Reachable",markersize=3)
-            #item = inds[N]
+            scatter!(x = [new_pool_x],y = [new_pool_y],color=:yellow,label="Reachable",markersize=3, zorder=10)
+            item = inds[N]
             
-            #filename = "./results/Test/Paths/direct_pool_path_($item).png"
-            #savefig(filename)
+            filename = "./results/Test/Paths/direct_$month ($item).png"
+            savefig(filename)
+            end
         else
             count = 0
-            while isempty(path) && count < 1
+            target = nothing
+            while isempty(path) && count < 10
                 count += 1
-                r = (rand()^2) * total
-                selected = findfirst(caps.cumulative_value .>= r)
-                target = (caps.x[selected],caps.y[selected])
+                r = (rand()^4) * total
+                selected = findfirst(data.cumulative_value .>= r)
+                target = ((nrows - data.y[selected]+1),data.x[selected])
                 path = find_path(habitat, start, target)
             end
-            if count == 1
+            if isempty(path) && count == 10
                 continue
             end
-            new_x,new_y,new_pool_x,new_pool_y = reachable_point(current_pos,path, max_dist[N],latmin,latmax,lonmin,lonmax,nrows,ncols)
+
+            new_y,new_x,new_pool_y,new_pool_x = reachable_point(current_pos,path, max_swim_distance[N],latmin,lonmin,cell_size,nrows,ncols)
+
             # Update individual’s fine-scale position
-            data.y[inds[N]] = new_y
-            data.x[inds[N]] = new_x
+            species_data.y[inds[N]] = new_y
+            species_data.x[inds[N]] = new_x
 
-            data.pool_y[inds[N]] = new_pool_y
-            data.pool_x[inds[N]] = new_pool_x
+            species_data.pool_y[inds[N]] = new_pool_y
+            species_data.pool_x[inds[N]] = new_pool_x
 
-            #heatmap(habitat, aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",xlabel="X", ylabel="Y", colorbar_title="Capacity")
-            #xs = [p[1] for p in path]
-            #ys = [p[2] for p in path]
-            #plot!(xs, ys, color=:white, lw=2, label="Path")
-    
-            # Plot start location (green)
-            #scatter!([start[1]], [start[2]], color=:green, label="Start", markersize=3)
-    
-            # Plot target location (red)
-            #scatter!([target[1]], [target[2]], color=:red, label="Target", markersize=3)
-    
-            #Plot reachable point
-            #scatter!([new_pool_x],[new_pool_y],color=:yellow,label="Reachable",markersize=3)
-            #item = inds[N]
-    
-            #filename = "./results/Test/Paths/pool_path_($item).png"
-            #savefig(filename)
+            if month >20
+                plt = heatmap(df, aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",xlabel="X", ylabel="Y", colorbar_title="Capacity")
+  
+                xs = [p[2] for p in path]
+                ys = [p[1] for p in path]
+                plot!(plt, xs, ys, color=:black, lw=2, label="Path")
+                scatter!(plt,[start[2]],[start[1]], color=:green, label="Start", markersize=3)
+                scatter!(plt,[target[2]],[target[1]], color=:red, label="Target", markersize=3)
+                scatter!(plt,[new_pool_x],[new_pool_y], color=:yellow, label="Reachable", markersize=3)
+                item = inds[N]
+                filename = "./results/Test/Paths/path_$month ($item).png"
+                savefig(filename)
+            end
         end
     end
     return nothing

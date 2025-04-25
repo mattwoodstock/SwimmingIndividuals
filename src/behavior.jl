@@ -13,16 +13,16 @@ function behavior(model::MarineModel, sp::Int, ind, outputs::MarineOutputs)
         dist = logistic(feed_trigger, 5, 0.5)  # Resample from negative sigmoidal relationship
         
         if model.t >= 18 * 60 && model.individuals.animals[sp].data.mig_status[ind] == -1 && rand() >= dist
-            decision(model, sp, ind, outputs)  # Animal does not migrate when it has the chance. Behaves as normal
+            decision(model, sp, ind,outputs)  # Animal does not migrate when it has the chance. Behaves as normal
         else
             dvm_action(model, sp, ind)  # Animal either migrates or continues what it should do
-            decision(model, sp, ind, outputs)
+            decision(model, sp, ind,outputs)
         end
     elseif behave_type == "pelagic_diver"
         dive_action(model, sp, ind)  # Function of energy density and dive characteristics to start dive
-        decision(model, sp, ind, outputs)
+        decision(model, sp, ind,outputs)
     elseif behave_type == "non_mig"
-        decision(model, sp, ind, outputs)
+        decision(model, sp, ind,outputs)
     end
     return nothing
 end
@@ -42,38 +42,38 @@ function preys(model::MarineModel, sp::Int, ind)
     min_prey_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
     max_prey_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
     # Gather distances
-    #detection = model.individuals.animals[sp].data.vis_prey[ind]
+    detection = model.individuals.animals[sp].data.vis_prey[ind]
 
-    time = fill(model.individuals.animals[sp].p.t_resolution[2][sp] * 60,length(ind))
-    swim_speed = model.individuals.animals[sp].p.Swim_velo[2][sp]
-    lengths = model.individuals.animals[sp].data.length[ind] / 1000
-    max_swim_distance = swim_speed .* lengths .* time
-    detection = max_swim_distance
+    #swim_speed = model.individuals.animals[sp].p.Swim_velo[2][sp]
+    #lengths = model.individuals.animals[sp].data.length[ind] / 1000
+    #max_swim_distance = swim_speed .* lengths .* time[ind]
+    #detection = max_swim_distance
 
     prey = calculate_distances_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
     return prey
 end
 
-function patch_preys(model::MarineModel, sp::Int, ind::Vector{Int64})
+function patch_preys(model::MarineModel, sp::Int, ind::Vector{Int64},dt)
     # Precompute constant values
     min_prey_limit = model.pools.pool[sp].characters.Min_Prey[2][sp]
     max_prey_limit = model.pools.pool[sp].characters.Max_Prey[2][sp]
     # Gather distances
     detection = model.pools.pool[sp].data.vis_prey[ind]
-    prey = calculate_distances_patch_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
+    prey = calculate_distances_patch_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection,dt)
     return prey
 end
 
-function decision(model::MarineModel, sp::Int, ind, outputs::MarineOutputs)  
+function decision(model::MarineModel, sp::Int, ind::Vector{Int64},outputs)  
     sp_dat = model.individuals.animals[sp].data
     sp_char = model.individuals.animals[sp].p
 
-    max_fullness::Vector{Float64} = 0.2 * sp_dat.biomass[ind]     
-    feed_trigger::Vector{Float64} = sp_dat.gut_fullness[ind] ./ max_fullness
+    max_fullness = 0.2 * sp_dat.biomass[ind]     
+    feed_trigger = sp_dat.gut_fullness[ind] ./ max_fullness
     val1 = rand(length(ind))
 
-    # Individual avoids predators if predators exist
-    preds::Vector{PredatorInfo} = predators(model, sp, ind)  #Create list of predators
+    #preds::Vector{PredatorInfo} = predators(model, sp, ind)  #Create list of predators
+    print("find prey | ")
+
     prey::Vector{PreyInfo} = preys(model, sp, ind)  #Create list of preys for all individuals in the species
 
     to_eat = findall(feed_trigger .<= val1)
@@ -81,19 +81,22 @@ function decision(model::MarineModel, sp::Int, ind, outputs::MarineOutputs)
 
     eating = ind[to_eat]
     not_eating = ind[not_eat]
+    time::Vector{Float64} = fill(sp_char.t_resolution[2][sp] * 60,length(ind))
 
     if length(to_eat) > 0
-        time::Vector{Float64} = eat(model, sp, eating,to_eat, prey, outputs)
-        movement_toward_habitat(model,time,eating,to_eat,sp)
+        print("eat | ")
+        time[eating] = eat(model, sp, eating,eating, prey, outputs)
+        print("move | ")
+
+        movement_toward_habitat(model,time,eating,sp)
     end
 
     if length(not_eating) > 0
-        time = fill(sp_char.t_resolution[2][sp] * 60,length(not_eating))
-        movement_toward_habitat(model,time,not_eating,not_eat,sp)
+        movement_toward_habitat(model,time,not_eating,sp)
     end 
     #Clear these as they are no longer necessary and take up memory.
     prey = Vector{PreyInfo}()
-    preds = Vector{PredatorInfo}()
+    #preds = Vector{PredatorInfo}()
 end
 
 function visual_range_preds_init(length,depth,min_pred,max_pred,ind)

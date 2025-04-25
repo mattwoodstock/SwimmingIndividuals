@@ -218,8 +218,7 @@ function generate_pool(group, sp::Int,dt::Int,capacities,grid,depths::MarineDept
         for i in 1:num_patches
             den = b_remaining / (num_patches - (i-1))
             patch_num += 1
-            ind_size = (group.characters.Min_Size[2][sp] + group.characters.Max_Size[2][sp])/2
-            size_sd = (group.characters.Max_Size[2][sp] - group.characters.Min_Size[2][sp])/4
+            ind_size = group.characters.Min_Size[2][sp] + (rand() * (group.characters.Max_Size[2][sp] - group.characters.Min_Size[2][sp]))
             ind_biom =  group.characters.LWR_a[2][sp] * (ind_size/10) ^ group.characters.LWR_b[2][sp]
 
             if (den < ind_biom) & (patch_num > 1)
@@ -236,7 +235,7 @@ function generate_pool(group, sp::Int,dt::Int,capacities,grid,depths::MarineDept
                 patch_inds = Int64(inds)
             end            
 
-            x,y,pool_x,pool_y = pool_placement(capacities,sp,grid,1)
+            x,y,pool_x,pool_y = initial_ind_placement(capacities,sp,grid,1)
 
             z = min_z[k] + rand() * (max_z[k] - min_z[k])
             z = clamp(z,1,maxdepth)
