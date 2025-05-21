@@ -4,3 +4,6 @@ This repository holds the source code for *SwimmingIndividuals.jl* (SI), an agen
 
 
 ![SwimmingIndividuals Schematic](full_SI_Schematic.png)
+
+Currently, this model is being used to estimate King Mackerel growth and movements:
+![King Mackerel Migration](animal_locations.gif)
