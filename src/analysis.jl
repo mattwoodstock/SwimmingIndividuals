@@ -12,30 +12,16 @@ function timestep_results(sim::MarineSimulation)
     x = []
     y = []
     z = []
-    pool_x=[]
-    pool_y = []
     lengths = []
     ration = []
     energy = []
     cost = []
-    behavior = []
-    rmr = []
     active = []
-    landscape = []
+    abundance = []
 
     #Individual-scale
     for (species_index, animal_index) in enumerate(keys(model.individuals.animals))
-        alive = findall(x -> x == 1.0, model.individuals.animals[species_index].data.ac) #Number of individuals per species that are active
-
-        #Parameters necessary for population results
-        pred_mort = findall(x -> x == 4.0, model.individuals.animals[species_index].data.behavior)
-        starv_mort = findall(x -> x == 5.0, model.individuals.animals[species_index].data.behavior)
-        population_array[species_index,1] = length(alive)
-        population_array[species_index,2] = sum(model.individuals.animals[species_index].data.biomass[alive])
-        population_array[species_index,3] = length(pred_mort)
-        population_array[species_index,4] = length(starv_mort)
-        population_array[species_index,5] = mean(model.individuals.animals[species_index].data.daily_ration[alive] ./ 5000 ./ model.individuals.animals[species_index].data.biomass[alive] .* 100)
-        #
+        alive = findall(x -> x == 1.0, model.individuals.animals[species_index].data.alive) #Number of individuals per species that are active
 
         specs = fill(species_index,length(alive))
         append!(Sp,specs)
@@ -43,20 +29,16 @@ function timestep_results(sim::MarineSimulation)
         append!(x,model.individuals.animals[species_index].data.x[alive])
         append!(y,model.individuals.animals[species_index].data.y[alive])
         append!(z,model.individuals.animals[species_index].data.z[alive])
-        append!(pool_x,model.individuals.animals[species_index].data.pool_x[alive])
-        append!(pool_y,model.individuals.animals[species_index].data.pool_y[alive])
         append!(lengths,model.individuals.animals[species_index].data.length[alive])
         append!(ration,model.individuals.animals[species_index].data.ration[alive])
         append!(energy,model.individuals.animals[species_index].data.energy[alive])
         append!(cost,model.individuals.animals[species_index].data.cost[alive])
-        append!(behavior,model.individuals.animals[species_index].data.behavior[alive])
-        append!(rmr,model.individuals.animals[species_index].data.rmr[alive])
         append!(active,model.individuals.animals[species_index].data.active[alive])
-        append!(landscape,model.individuals.animals[species_index].data.landscape[alive])
+        append!(abundance,model.individuals.animals[species_index].data.abundance[alive])
     end
 
-    individual_array = hcat(Sp,Ind,x,y,z,pool_x,pool_y,lengths,ration,energy,cost,behavior,rmr,active,landscape)
-    column_names = ["Species", "Individual", "X", "Y", "Z","PoolX","PoolY", "Length", "Ration", "Energy", "Cost", "Behavior","RMR","Active","Landscape"]
+    individual_array = hcat(Sp,Ind,x,y,z,lengths,abundance,ration,energy,cost,active)
+    column_names = ["Species", "Individual", "X", "Y", "Z", "Length","Abundance", "Ration", "Energy", "Cost","Active"]
     df = DataFrame(individual_array, Symbol.(column_names))
 
     #if model.iteration == 1
@@ -92,3 +74,23 @@ function timestep_results(sim::MarineSimulation)
     #outputs.encounters = zeros(spec, (spec+1), model.grid.Nx,model.grid.Ny,model.grid.Nz) 
 end
 
+function fishery_results(sim,fisheries)
+    ts = Int(sim.model.iteration)
+    run = Int(sim.run)
+    name = []
+    quotas = []
+    catches_t = []
+    catches_ind = []
+    for fishery in fisheries
+        push!(name,fishery.name)
+        push!(quotas,fishery.quota)
+        push!(catches_t,fishery.cumulative_catch)
+        push!(catches_ind,fishery.cumulative_inds)
+    end
+    fish_array = hcat(name,quotas,catches_t,catches_ind)
+    column_names = ["Name","Quota","Tonnage","Inds"]
+    df = DataFrame(fish_array, Symbol.(column_names))
+
+    filename = "results/Fishery/FisheryResults_$run-$ts.csv"
+    CSV.write(filename, df)
+end

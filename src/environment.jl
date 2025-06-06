@@ -99,7 +99,7 @@ function individual_temp(model::MarineModel, sp::Int, ind::Vector{Int64}, enviro
     #ind_val = [itp[xi, yi, zi] for (xi, yi, zi) in zip(y, x, z)]
     ind_val = []
     for i in 1:length(y)
-        push!(ind_val,environment.temp[y[i], x[i], envi_ts])
+        push!(ind_val,(environment.temp[y[i], x[i], envi_ts])+1)
     end
 
     return ind_val
@@ -112,7 +112,6 @@ function initial_ind_placement(df, sp, grid, n_selections)
     cell_size = grid[grid.Name .== "cellsize", :Value][1]
 
     capacity = Matrix(df[:,:,1,sp])
-    rev_cap = reverse(capacity,dims=1)
 
     nrows, ncols = size(df[:, :,1, sp])
     data = DataFrame(x=Int[], y=Int[], value=Float64[])
@@ -155,7 +154,7 @@ function initial_ind_placement(df, sp, grid, n_selections)
     end
 end
 
-function habitat_capacity_multi(env_vars,prefs,sp,type)
+function habitat_capacity_multi(env_vars,prefs,sp)
     nrows, ncols, nmonths = size(env_vars[1])
     shape = size(env_vars[1])
     suitability_total = ones(Float64, shape...)
@@ -184,20 +183,22 @@ function habitat_capacity_multi(env_vars,prefs,sp,type)
             end
         end
         heatmap(suitability_total[:,:,month], aspect_ratio=1, c=:viridis, title="Habitat Capacity & Path",xlabel="X", ylabel="Y", colorbar_title="Capacity")
-        filename = "./results/Test/Capacities/$type - $sp - $month Capacity.png"
+        filename = "./results/Test/Capacities/$sp - $month Capacity.png"
         savefig(filename)
     end
 
     return suitability_total
 end
 
-function initial_habitat_capacity(envi,n_spec,files)
+function initial_habitat_capacity(envi,n_spec,n_resource,files)
     prefs_df = CSV.read(files[files.File .== "envi_pref",:Destination][1],DataFrame) #Database of grid variables
     trait = Dict(pairs(eachcol(CSV.read(files[files.File .== "focal_trait",:Destination][1],DataFrame)))) #Database of IBM species traits 
+    resource = Dict(pairs(eachcol(CSV.read(files[files.File .== "resource_trait",:Destination][1],DataFrame)))) #Database of resource species traits
 
     spec_names = trait[:SpeciesLong]
+    resource_names = resource[:SpeciesLong]
 
-    shape = (size(envi.temp)[1:3]..., n_spec)
+    shape = (size(envi.temp)[1:3]..., n_spec+n_resource)
     capacities = fill(1.0, shape...)
 
     total_capacity = ones(Float64, size(envi.temp)...)
@@ -207,24 +208,51 @@ function initial_habitat_capacity(envi,n_spec,files)
 
         sp_env_vars = Vector{AbstractArray}()
         sp_var_prefs = Vector{NamedTuple}()
-    
+        
         for row in eachrow(sp_prefs)
             varname = row.variable
-        
+            
             # Map variable names to fields in the MarineEnvironment
             env_array = getfield(envi, Symbol(varname))
             @assert env_array !== nothing "Variable '$varname' not found in MarineEnvironment"
-        
+            
             push!(sp_env_vars, env_array)
             push!(sp_var_prefs, (pref_min = row.pref_min,opt_min  = row.opt_min,opt_max  = row.opt_max,pref_max = row.pref_max))
         end
 
         if nrow(sp_prefs) > 0
-            species_capacity = habitat_capacity_multi(sp_env_vars, sp_var_prefs,spec,"focal")
+            species_capacity = habitat_capacity_multi(sp_env_vars, sp_var_prefs,spec)
             total_capacity .*= species_capacity
         end
         capacities[:,:,:,spec] = reverse(total_capacity,dims=1)
     end
+
+    for spec in 1:n_resource
+        sp_prefs = prefs_df[prefs_df.species .== resource_names[spec], :]
+        
+        sp_env_vars = Vector{AbstractArray}()
+        sp_var_prefs = Vector{NamedTuple}()
+        
+        for row in eachrow(sp_prefs)
+            varname = row.variable
+            
+            # Map variable names to fields in the MarineEnvironment
+            env_array = getfield(envi, Symbol(varname))
+            @assert env_array !== nothing "Variable '$varname' not found in MarineEnvironment"
+            
+            push!(sp_env_vars, env_array)
+            push!(sp_var_prefs, (pref_min = row.pref_min,opt_min  = row.opt_min,opt_max  = row.opt_max,pref_max = row.pref_max))
+        end
+
+        if nrow(sp_prefs) > 0
+            species_capacity = habitat_capacity_multi(sp_env_vars, sp_var_prefs,spec)
+            total_capacity .*= species_capacity
+        end
+        capacities[:,:,:,(n_spec+spec)] = reverse(total_capacity,dims=1)
+    end
+
+
+        
 
     return capacities
 end

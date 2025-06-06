@@ -1,433 +1,528 @@
-function calculate_distances_prey(model::MarineModel, sp::Int64, inds, min_prey::Float64, max_prey::Float64, detection::Vector{Float64})
+function calculate_distances_prey(model::MarineModel, sp::Int64, inds, dt)
     sp_data = model.individuals.animals[sp].data
     sp_chars = model.individuals.animals[sp].p
-    sp_length_inds = sp_data.length[inds]
-    sp_x_inds = sp_data.x[inds]
-    sp_y_inds = sp_data.y[inds]
-    sp_z_inds = sp_data.z[inds]
 
-    dt = sp_chars.t_resolution[2][sp]
+    grid = model.depths.grid
+    cell_size = grid[grid.Name .== "cellsize", :Value][1]
+
+    min_prey = sp_chars.Min_Prey[2][sp]
+    max_prey = sp_chars.Max_Prey[2][sp]
     handling_time = sp_chars.Handling_Time[2][sp]
-    max_num = dt / (handling_time / 60) 
+    swim_speed = sp_chars.Swim_velo[2][sp]
 
-    # This will store the collected PreyInfo for all individuals
-    prey_infos_all = PreyInfo[]  # Initialize a single vector to store all prey information
+    detection = @view sp_data.vis_prey[inds]
+    sp_length_inds = @view sp_data.length[inds]
+    x = @view sp_data.x[inds]
+    y = @view sp_data.y[inds]
+    z = @view sp_data.z[inds]
+    sp_pool_x = @view sp_data.pool_x[inds]
+    sp_pool_y = @view sp_data.pool_y[inds]
 
-    # Process each individual in `inds`
-    Threads.@threads for j_index in 1:length(inds)
+    adj_length = sp_length_inds ./ 1000
+    max_swim_dist = swim_speed .* adj_length .* @view(dt[inds])
 
-        max_dist = detection[inds[j_index]]
+    max_num = Int(dt[1] / handling_time)
 
-        new_prey = PreyInfo[]
-        min_prey_size = sp_length_inds[inds[j_index]] * min_prey
-        max_prey_size = sp_length_inds[inds[j_index]] * max_prey
-        # Process individual animals
-        for (species_index, animal) in enumerate(model.individuals.animals)
-            species_data = animal.data
-            size_range = (species_data.length .>= min_prey_size) .& (species_data.length .<= max_prey_size)
+    cell_size_m_lat = cell_size * 111320
+    cell_size_m_lon = cell_size .* 111320 .* cosd.(y)
+    cell_size_min = min.(cell_size_m_lat, cell_size_m_lon)
+    n_cell = Int.(ceil.(cell_size_min ./ max_swim_dist)) .+ 1
 
-            index1 = findall(size_range)
-            n_preys = length(prey_infos_all)
-            new_prey = add_prey(model,1, sp_data,species_data, j_index,[inds[j_index]], index1, 1, species_index,detection,max_num,n_preys,max_dist)
-            prey_infos_all = vcat(prey_infos_all, new_prey)
-            if length(prey_infos_all) > 0
-                max_prey = findmax(p -> p.Distance, prey_infos_all)[2]
-                max_dist = prey_infos_all[max_prey].Distance
-            end
-        end
+    min_prey_sizes = sp_length_inds .* min_prey
+    max_prey_sizes = sp_length_inds .* max_prey
 
-        # Process pool animals
-        for (pool_index, animal) in enumerate(model.pools.pool)
-            pool_data = animal.data
-            size_range = (pool_data.length .>= min_prey_size) .& (pool_data.length .<= max_prey_size)
-            index1 = findall(size_range)
-            n_preys = length(prey_infos_all)
-            new_prey = add_prey(model,2, sp_data,pool_data, j_index,[inds[j_index]], index1, pool_data.abundance, pool_index,detection,max_num,n_preys,max_dist)
-            prey_infos_all = vcat(prey_infos_all, new_prey) 
-            if length(prey_infos_all) > 0
-                max_prey = findmax(p -> p.Distance, prey_infos_all)[2]
-                max_dist = prey_infos_all[max_prey].Distance
-            end
-        end
-    end
-    # Return the collected prey information as AllPreys
-    return prey_infos_all
-end
+    n = length(inds)
+    thread_results = Vector{Vector{PreyInfo}}(undef, n)
 
-function calculate_distances_patch_prey(model::MarineModel, sp::Int64, inds::Vector{Int64}, min_prey::Float64, max_prey::Float64, detection::Vector{Float64},dt)
-    sp_data = model.pools.pool[sp].data
-    sp_chars = model.pools.pool[sp].characters
+    n_resources = length(getfield.(model.resources, :x))
 
-    sp_length_inds = sp_data.length[inds]
-    sp_x_inds = sp_data.x[inds]
-    sp_y_inds = sp_data.y[inds]
-    sp_z_inds = sp_data.z[inds]
+    @Threads.threads for j in 1:n
+        @inbounds begin
+            ind = inds[j]
+            max_dist = detection[j]
+            j_min_prey_size = min_prey_sizes[j]
+            j_max_prey_size = max_prey_sizes[j]
+            j_ncell = n_cell[j]
 
-    handling_time = sp_chars.Handling_Time[2][sp]
-    max_num = dt / (handling_time / 60) 
+            prey_x = Float64[]
+            prey_y = Float64[]
+            prey_z = Float64[]
+            prey_id = Int[]
+            prey_spec = Int[]
+            prey_type = Int[]
+            prey_biomass = Float64[]
+            prey_length = Float64[]
 
-    # This will store the collected PreyInfo for all individuals
-    prey_infos_all = PreyInfo[]  # Initialize a single vector to store all prey information
-
-    # Process each individual in `inds`
-    Threads.@threads for j_index in 1:length(inds)
-
-        max_dist = detection[inds[j_index]]
-
-        min_prey_size = sp_length_inds[inds[j_index]] * min_prey
-        max_prey_size = sp_length_inds[inds[j_index]] * max_prey
-
-        # Process individual animals
-        for (species_index, animal) in enumerate(model.individuals.animals)
-            species_data = animal.data
-            size_range = (species_data.length .>= min_prey_size) .& (species_data.length .<= max_prey_size)
-            index1 = findall(size_range)
-            n_preys = length(prey_infos_all)
-
-            prey_infos_all = vcat(prey_infos_all, add_prey(model,1, sp_data,species_data, j_index,[inds[j_index]], index1, 1, species_index,detection,max_num,n_preys,max_dist))
-            if length(prey_infos_all) > 0
-                max_prey = findmax(p -> p.Distance, prey_infos_all)[2]
-                max_dist = prey_infos_all[max_prey].Distance
-            end
-        end
-
-        # Process pool animals
-        for (pool_index, animal) in enumerate(model.pools.pool)
-            pool_data = animal.data
-            size_range = (pool_data.length .>= min_prey_size) .& (pool_data.length .<= max_prey_size)
-            index1 = findall(size_range)
-            n_preys = length(prey_infos_all)
-
-            prey_infos_all = vcat(prey_infos_all, add_prey(model,2, sp_data,pool_data, j_index,[inds[j_index]], index1, pool_data.abundance, pool_index,detection,max_num,n_preys,max_dist))
-            if length(prey_infos_all) > 0
-                max_prey = findmax(p -> p.Distance, prey_infos_all)[2]
-                max_dist = prey_infos_all[max_prey].Distance
-            end
-        end
-    end
-    # Return the collected prey information as AllPreys
-    return prey_infos_all
-end
-
-function calculate_distances_pred(model::MarineModel, sp::Int64, inds, min_pred::Float64, max_pred::Float64, detection::Vector{Float64})
-    sp_data = model.individuals.animals[sp].data
-    sp_length_inds::Vector{Float64} = sp_data.length[inds]
-    sp_x_inds::Vector{Float64} = sp_data.x[inds]
-    sp_y_inds::Vector{Float64} = sp_data.y[inds]
-    sp_z_inds::Vector{Float64} = sp_data.z[inds]
-
-    # This will store the collected PreyInfo for all individuals
-    pred_infos_all = PredatorInfo[]  # Initialize a single vector to store all prey information
-
-    # Process each individual in `inds`
-    for (j_index, j_value) in enumerate(inds)
-        min_pred_size = sp_length_inds[j_index] / max_pred
-        max_pred_size = sp_length_inds[j_index] / min_pred
-
-        # Process individual animals
-        for (species_index, animal) in enumerate(model.individuals.animals)
-            species_data = animal.data
-            size_range = (species_data.length .>= min_pred_size) .& (species_data.length .<= max_pred_size)
-            index1 = findall(size_range)
-            pred_infos_all = vcat(pred_infos_all, add_pred(1, sp_data,species_data, j_value,j_index, index1, 1, species_index,detection))
-        end
-
-        # Process pool animals
-        for (pool_index, animal) in enumerate(model.pools.pool)
-            pool_data = animal.data
-            size_range = (pool_data.length .>= min_pred_size) .& (pool_data.length .<= max_pred_size)
-            index1 = findall(size_range)
-            pred_infos_all = vcat(pred_infos_all, add_pred(2, sp_data,pool_data, j_value,j_index, index1, pool_data.abundance, pool_index,detection))
-        end
-    end
-    # Return the collected prey information as AllPreys
-    return pred_infos_all
-end
-
-function detect_prey(model::MarineModel,sp,ind)
-    #Prey limitation. Need to make species-specific
-    min_prey_limit = model.individuals.animals[sp].p.Min_Prey[2][sp] #Animals cannot eat anything less than 1% of their body length
-    max_prey_limit = model.individuals.animals[sp].p.Max_Prey[2][sp] #Animals cannot eat anything greater than 5% of their body length
-    #Prey Detection Distances
-    #https://onlinelibrary.wiley.com/doi/pdf/10.1111/geb.13782
-
-    detection = model.individuals.animals[sp].data.vis_prey[ind]
-    prey_list = calculate_distances_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
-
-    searched_volume = (1/2) .* (4/3) .* pi .* detection.^3 #Calculate the maximum searched sphere for the predator (i.e., maximum search volume). Assumed animal can successfuly scan 50% of area
-    return prey_list, searched_volume
-end
-
-function move_predator(model, sp, inds, index, prey_df,prey_ind)
-    swim_velo = model.individuals.animals[sp].p.Swim_velo[2][sp] * model.individuals.animals[sp].data.length[inds[index]] / 1000
-
-    if isa(prey_df,PreyInfo)
-        # Handling time and swimming time
-        time_to_prey = prey_df.Distance / swim_velo
-        # Update predator
-        model.individuals.animals[sp].data.x[inds[index]] = prey_df.x
-        model.individuals.animals[sp].data.y[inds[index]] = prey_df.y
-        model.individuals.animals[sp].data.z[inds[index]] = prey_df.z
-    else
-        # Handling time and swimming time
-        time_to_prey = prey_df[prey_ind].Distance / swim_velo
-        # Update predator
-        model.individuals.animals[sp].data.x[inds[index]] = prey_df[prey_ind].x
-        model.individuals.animals[sp].data.y[inds[index]] = prey_df[prey_ind].y
-        model.individuals.animals[sp].data.z[inds[index]] = prey_df[prey_ind].z
-    end
-
-    return time_to_prey
-end
-
-function move_patch(model, sp, inds, index, prey_df,prey_ind)
-    swim_velo = model.pools.pool[sp].characters.Swim_Velo[2][sp] * model.pools.pool[sp].data.length[inds[index]] / 1000 #1 body lengths per second
-
-    # Handling time and swimming time
-    time_to_prey = prey_df.Distance / swim_velo
-
-    # Update predator
-    model.pools.pool[sp].data.x[inds[index]] = prey_df.x
-    model.pools.pool[sp].data.y[inds[index]] = prey_df.y
-    model.pools.pool[sp].data.z[inds[index]] = prey_df.z
-    return time_to_prey
-end
-
-function eat(model::MarineModel, sp, ind,to_eat, prey_list, outputs)
-    n_ind = length(model.individuals.animals[sp].data.length[ind])
-    ddt = fill(model.individuals.animals[sp].p.t_resolution[2][sp] * 60.0, n_ind)  # Seconds
-    animal = model.individuals.animals[sp]
-    animal_data = animal.data
-    length_ind = animal_data.length[ind]
-    gut_fullness_ind = animal_data.gut_fullness[ind]
-    max_stomach = animal_data.biomass[ind] * 0.2
-    handling_time = model.individuals.animals[sp].p.Handling_Time[2][sp]
-
-    max_dist = model.individuals.animals[sp].p.Swim_velo[2][sp] * (length_ind / 1000) .* ddt
-
-    # Loop through each prey list
-    Threads.@threads for ind_index in 1:n_ind
-        prey_list_item = filter(p -> p.Predator == to_eat[ind_index], prey_list)
-
-        # Check if prey_list_item is a single PreyInfo or a collection
-
-        if !isa(prey_list_item, PreyInfo) #Is a collection
-            if isempty(prey_list_item) #Collection is empty
-                continue  # Skip if the collection is empty
-            end
-            @inbounds sorted_prey = sort!(prey_list_item, by = x -> x.Distance)
-        else #Is a single item
-            sorted_prey = [prey_list_item]
-        end
-
-        if model.individuals.animals[sp].data.ac[ind[ind_index]] == 0 #Animal was consumed by another animal during this timestep and should be skipped.
-            continue
-        end
-
-        # Continue eating as long as there's time left and the gut is not full
-        total_time = 0.0
-        prey_index = 1
-        while total_time < ddt[ind_index] && gut_fullness_ind[ind_index] < max_stomach[ind_index] && prey_index <= length(sorted_prey)
-
-            prey_info = sorted_prey[prey_index]
-            if prey_info.Type == 1
-                if model.individuals.animals[prey_info.Sp].data.ac[prey_info.Ind] == 0.0
-                    prey_index += 1
-                    continue
+            for (species_index, animal) in enumerate(model.individuals.animals)
+                if species_index == sp 
+                    continue 
                 end
-                if model.individuals.animals[sp].data.ac[ind[ind_index]] == 0.0 #Predator has died somewhere in this process
-                    break
+                species_data = animal.data
+                prey_lengths = species_data.length
+
+                size_mask = (prey_lengths .>= j_min_prey_size) .& (prey_lengths .<= j_max_prey_size)
+                in_x = (species_data.pool_x .>= (sp_pool_x[j] - j_ncell)) .& (species_data.pool_x .<= (sp_pool_x[j] + j_ncell))
+                in_y = (species_data.pool_y .>= (sp_pool_y[j] - j_ncell)) .& (species_data.pool_y .<= (sp_pool_y[j] + j_ncell))
+                mask = size_mask .& in_x .& in_y
+
+                index = findall(mask)
+                append!(prey_x, @view species_data.x[index])
+                append!(prey_y, @view species_data.y[index])
+                append!(prey_z, @view species_data.z[index])
+                append!(prey_id, index)
+                append!(prey_spec, fill(species_index, length(index)))
+                append!(prey_type, fill(1,length(index)))
+                append!(prey_biomass, @view species_data.biomass_school[index])
+                append!(prey_length, @view species_data.length[index])
+            end
+
+            pool_x = getfield.(model.resources, :pool_x)
+            pool_y = getfield.(model.resources, :pool_y)
+
+            #Gather resource sizes.
+            in_x = (pool_x .>= (sp_pool_x[j] - j_ncell)) .& (pool_x .<= (sp_pool_x[j] + j_ncell))
+            in_y = (pool_y .>= (sp_pool_y[j] - j_ncell)) .& (pool_y .<= (sp_pool_y[j] + j_ncell))
+            mask = in_x .& in_y
+            masked_indices = findall(mask)
+
+            if length(masked_indices) > 0
+                mean_lengths = Float64[]
+                spec = 1
+                max_size = model.resource_trait[spec,:Max_Size]
+            
+                μ,σ = lognormal_params_from_maxsize(max_size)
+                dist = LogNormal(μ, σ)
+                prop = cdf(dist, j_max_prey_size) - cdf(dist, j_min_prey_size)
+                numerator, _ = quadgk(x -> x * pdf(dist, x), j_min_prey_size, j_max_prey_size)
+
+                for k in masked_indices
+                    this_spec = getfield(model.resources[k], :sp)
+                    if this_spec == spec #Same as last species, so all data is the same
+                    else #Next species
+                        spec += 1
+                        max_size = model.resource_trait[spec,:Max_Size]
+            
+                        μ,σ = lognormal_params_from_maxsize(max_size)
+                        dist = LogNormal(μ, σ)
+                        prop = cdf(dist, j_max_prey_size) - cdf(dist, j_min_prey_size)
+                        numerator, _ = quadgk(x -> x * pdf(dist, x), j_min_prey_size, j_max_prey_size)
+                    end
+                    push!(mean_lengths, numerator/prop)
                 end
-            else
-                if model.pools.pool[prey_info.Sp].data.biomass[prey_info.Ind] <= 0
-                    prey_index += 1
-                    continue
-                end
-            end
-
-            # If closest prey is too far, break the loop
-            if prey_info.Distance > max_dist[ind_index]
-                break
-            end
-
-            move_time = move_predator(model, sp, ind, ind_index, prey_list_item, prey_index)  # Update this call if necessary
-            total_time += move_time
-
-            model.individuals.animals[sp].data.active[ind[ind_index]] += (move_time/60)
-
-            # Check if we have enough time left
-            if total_time > ddt[ind_index]
-                model.individuals.animals[sp].data.active[ind[ind_index]] = (ddt[ind_index]/60)
-                break
-            end
-
-            # Handle predation based on prey type
-            if prey_info.Type == 1
-                if prey_info.Biomass > (max_stomach[ind_index] - gut_fullness_ind[ind_index])
-                    continue
-                end
-                # Prey is consumable (e.g., type 1)
-                ration = prey_info.Biomass
-                model.individuals.animals[sp].data.ration[ind[ind_index]] += ration * model.individuals.animals[sp].p.Energy_density[2][sp] 
-
-
-                #outputs.consumption[sp,prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration
-
-                #outputs.encounters[sp,prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
-
-                predation_mortality(model, prey_info, outputs)
-                total_time += handling_time
-            else
-                # Prey is in a pool (e.g., type 2)
-                prey_biomass = model.pools.pool[prey_info.Sp].data.biomass[prey_info.Ind]
-
-                max_cons = (ddt[ind_index]-total_time) / handling_time
-
-                min_prey_size = model.individuals.animals[sp].data.length[ind[ind_index]] * model.individuals.animals[sp].p.Min_Prey[2][sp]
-                max_prey_size = model.individuals.animals[sp].data.length[ind[ind_index]] * model.individuals.animals[sp].p.Max_Prey[2][sp]
-
-                ind_size = (max(model.pools.pool[prey_info.Sp].characters.Min_Size[2][prey_info.Sp],min_prey_size) + min(model.pools.pool[prey_info.Sp].characters.Max_Size[2][prey_info.Sp],max_prey_size))/2
-
-                ind_biomass = model.pools.pool[prey_info.Sp].characters.LWR_a[2][prey_info.Sp] * (ind_size/10) ^ model.pools.pool[prey_info.Sp].characters.LWR_b[2][prey_info.Sp]
-
-                ration = min(prey_biomass,(ind_biomass * max_cons),(max_stomach[ind_index] - gut_fullness_ind[ind_index])) 
-
-                #outputs.consumption[sp,(model.n_species+prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration * model.pools.pool[prey_info.Sp].characters.Energy_density[2][prey_info.Sp]
-
-                #outputs.encounters[sp,(model.n_species+prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
-
-                total_time += (ration/ind_biomass) * handling_time
-
-                model.individuals.animals[sp].data.ration[ind[ind_index]] += ration * model.pools.pool[prey_info.Sp].characters.Energy_density[2][prey_info.Sp]
-
-                reduce_pool(model, prey_info.Sp, prey_info.Ind, ration)
-                # Continue to the next prey if the pool is depleted
-            end
-
-            # Update gut fullness
-            model.individuals.animals[sp].data.gut_fullness[ind[ind_index]] += ration
-            gut_fullness_ind[ind_index] += ration
-
-            # If the stomach is full, break out of the loop
-            if gut_fullness_ind[ind_index] >= max_stomach[ind_index]
-                break
-            end
-            # Update the remaining time
-            ddt[ind_index] -= total_time
-            prey_index += 1
-        end
-    end
-    return ddt
-end
-
-function patches_eat(model::MarineModel, sp, ind, prey_list, outputs)
-    n_ind = length(ind)
-    ddt = fill(model.dt * 60.0, n_ind)  # Seconds
-    animal = model.pools.pool[sp]
-    animal_data = animal.data
-    length_ind = animal_data.length[ind]
-    ration_ts = animal_data.biomass[ind] .* animal.characters.Daily_Ration[2][sp] ./ 1440 .* model.dt  # Assumed 3% of bodyweight for all individuals per day.
-    handling_time = animal.characters.Handling_Time[2][sp]
-    max_dist = animal.characters.Swim_Velo[2][sp] * (length_ind / 1000) .* ddt #Meters that can be swam.
-
-    Threads.@threads for ind_index in 1:n_ind
-        prey_list_item = filter(p -> p.Predator == ind_index, prey_list)
-
-        if isempty(prey_list_item)
-            continue
-        end
-        # Sort prey by distance initially
-        sorted_prey = sort!(prey_list_item, by = x -> x.Distance)
         
-        total_time = 0.0
-        ration = 0.0
-        prey_index = 1
-
-        while total_time < ddt[ind_index] && ration < ration_ts[ind_index] && prey_index <= length(sorted_prey)
-            prey_info = sorted_prey[prey_index]
-
-            if prey_info.Type == 1
-                if model.individuals.animals[prey_info.Sp].data.ac[prey_info.Ind] == 0.0
-                    prey_index += 1
-                    continue
-                end
-            else
-                if model.pools.pool[prey_info.Sp].data.biomass[prey_info.Ind] <= 0
-                    prey_index += 1
-                    continue
-                end
-            end
-            # If the closest prey is too far, break the loop
-            if prey_info.Distance > max_dist[ind_index]
-                break
+                append!(prey_x, getfield.(model.resources[masked_indices], :x))
+                append!(prey_y, getfield.(model.resources[masked_indices], :y))
+                append!(prey_z, getfield.(model.resources[masked_indices], :z))
+                append!(prey_id, getfield.(model.resources[masked_indices], :ind))
+                append!(prey_spec, getfield.(model.resources[masked_indices], :sp))
+                append!(prey_type, fill(2,length(masked_indices)))
+                append!(prey_biomass, getfield.(model.resources[masked_indices], :biomass)*prop)
+                append!(prey_length,mean_lengths)
             end
 
-            # Move towards the closest prey
-            move_time = move_patch(model, sp, ind, ind_index, prey_info, prey_index)
-            total_time += move_time
+            prey_infos = PreyInfo[]
+            if !isempty(prey_id)
+                prey_coords = hcat(prey_x, prey_y)'  # shape: 2 x N
+                prey_tree = KDTree(prey_coords)
+                prey_inds, prey_specs,prey_type,prey_biomasses, distances, prey_lengths = knn_haversine(prey_tree, [x[j], y[j],z[j]],prey_z, max_num, prey_spec, prey_id,prey_type,prey_biomass, prey_length, max_dist)
 
-            # Check if we have enough time left
-            if total_time > ddt[ind_index]
-                break
-            end
-            if prey_info.Type == 1
-                if prey_info.Biomass > (ration_ts[ind_index] - ration)
-                    prey_index += 1
-                    continue
+                for i in 1:length(prey_inds)
+                    push!(prey_infos, PreyInfo(ind, prey_specs[i], prey_inds[i],prey_type[i], prey_lengths[i], prey_biomasses[i], distances[i]))
                 end
-                # Prey is consumable (e.g., type 1)
-                ration += prey_info.Biomass
-                predation_mortality(model, prey_info, outputs)
-                #outputs.consumption[(model.n_species+sp),prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += ration
-
-                #outputs.encounters[(model.n_species+sp),prey_info.Sp,Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
-
-                total_time += handling_time
-            else
-                # Prey is in a pool (e.g., type 2)
-                prey_biomass = model.pools.pool[prey_info.Sp].data.biomass[prey_info.Ind]
-                prey_inds = model.pools.pool[prey_info.Sp].data.abundance[prey_info.Ind]
-                n_inds = prey_biomass / prey_inds
-                max_cons = Int(floor((ddt[ind_index] - total_time) / handling_time))
-                ind_biomass = model.pools.pool[prey_info.Sp].characters.LWR_a[2][prey_info.Sp] * (prey_info.Length/10) ^ model.pools.pool[prey_info.Sp].characters.LWR_b[2][prey_info.Sp]
-
-                if max_cons > n_inds
-                    cons = min(prey_biomass, (ration_ts[ind_index] - ration))
-                    ration += cons
-                else
-                    cons = min((ind_biomass * max_cons), (ration_ts[ind_index] - ration))
-                    ration += cons
-                end
-                #outputs.consumption[(model.n_species+sp),(model.n_species + prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += cons
-
-                #outputs.encounters[(model.n_species+sp),(model.n_species + prey_info.Sp),Int(animal_data.pool_x[ind_index]),Int(animal_data.pool_y[ind_index]),max(1,Int(animal_data.pool_z[ind_index]))] += 1
-
-
-                total_time += (ration / ind_biomass) * handling_time                    
-
-                reduce_pool(model, prey_info.Sp, prey_info.Ind, cons)
             end
-
-            # Update the remaining time
-            ddt[ind_index] -= total_time
-            prey_index += 1
+            thread_results[j] = prey_infos
         end
     end
-    return ddt
+    return vcat(thread_results...)
 end
 
-function pool_predation(model::MarineModel, pool::Int64, inds, outputs::MarineOutputs,dt)
-    biomass_values = model.pools.pool[pool].data.biomass[inds]::Vector{Float64}  # Enforce Vector{Float64} type
-    ind = findall(x -> x > 0, biomass_values)
-    
-    if !isempty(ind)
-        prey = patch_preys(model, pool, inds[ind],dt)  # Generate prey based on selected indices
-        patches_eat(model, pool, inds, prey, outputs)
-        return prey
+function move_predator(model,sp,sp_data,sp_char, ind, prey_df,time_pred)
+    swim_velo = sp_char.Swim_velo[2][sp] * (sp_data.length[ind] / 1000)
+    predator_x = sp_data.x[ind]
+    predator_y = sp_data.y[ind]
+    predator_z = sp_data.z[ind]
+    if prey_df.Type == 1
+        x = model.individuals.animals[prey_df.Sp].data.x[prey_df.Ind]
+        y = model.individuals.animals[prey_df.Sp].data.y[prey_df.Ind]
+        z = model.individuals.animals[prey_df.Sp].data.z[prey_df.Ind]
+    else
+        x = getfield(model.resources[prey_df.Ind], :x)
+        y = getfield(model.resources[prey_df.Ind], :y)
+        z = getfield(model.resources[prey_df.Ind], :z)
     end
 
-    return Vector{PreyInfo}()
+    horizontal_distance = haversine(predator_y, predator_x, y, x)  # haversine(lat1, lon1, lat2, lon2)
+    vertical_distance = abs(z - predator_z)
+    total_distance = sqrt(horizontal_distance^2 + vertical_distance^2)
+
+    time_to_prey = total_distance  / swim_velo
+
+    if time_to_prey > time_pred
+        frac = time_pred/time_to_prey
+        sp_data.x[ind] = predator_x + (x - predator_x) * frac
+        sp_data.y[ind] = predator_y + (y - predator_y) * frac
+        sp_data.z[ind] = predator_z + (z - predator_z) * frac
+        return time_pred
+    else
+        sp_data.x[ind] = x
+        sp_data.y[ind] = y
+        sp_data.z[ind] = z
+        return time_to_prey
+    end
 end
 
+function move_resource(model,sp, ind, mean_size,prey_df,time_pred)
+    swim_velo = model.resource_trait[sp,:Swim_velo] * (mean_size / 1000)
 
+    predator_x = getfield(model.resources[prey_df.Ind], :x)
+    predator_y = getfield(model.resources[prey_df.Ind], :y)
+    predator_z = getfield(model.resources[prey_df.Ind], :z)
+    if prey_df.Type == 1
+        x = model.individuals.animals[prey_df.Sp].data.x[prey_df.Ind]
+        y = model.individuals.animals[prey_df.Sp].data.y[prey_df.Ind]
+        z = model.individuals.animals[prey_df.Sp].data.z[prey_df.Ind]
+    else
+        x = getfield(model.resources[prey_df.Ind], :x)
+        y = getfield(model.resources[prey_df.Ind], :y)
+        z = getfield(model.resources[prey_df.Ind], :z)
+    end
 
+    horizontal_distance = haversine(predator_y, predator_x, y, x)  # haversine(lat1, lon1, lat2, lon2)
+    vertical_distance = abs(z - predator_z)
+    total_distance = sqrt(horizontal_distance^2 + vertical_distance^2)
+
+    time_to_prey = total_distance  / swim_velo
+    
+    if time_to_prey > time_pred[ind]
+        frac = time_pred[ind]/time_to_prey
+        model.resources[ind].x = predator_x + (x - predator_x) * frac
+        model.resources[ind].y = predator_y + (y - predator_y) * frac
+        model.resources[ind].z = predator_z + (z - predator_z) * frac
+        return time_pred[ind]
+    else
+        model.resources[ind].x = x
+        model.resources[ind].y = y
+        model.resources[ind].z = z
+        return time_to_prey
+    end
+end
+
+function eat(model::MarineModel, sp, to_eat, prey_list, time, outputs)
+    animal = model.individuals.animals[sp]
+    data = animal.data
+    chars = animal.p
+
+    @views length_ind = data.length[to_eat]
+    @views gut_fullness_ind = data.gut_fullness[to_eat]
+    @views biomass_school_ind = data.biomass_school[to_eat]
+
+    n_ind = length(to_eat)
+    max_stomachs = 0.5
+    max_dists = chars.Swim_velo[2][sp] .* (length_ind ./ 1000) .* time[to_eat]
+
+    for j in 1:n_ind
+        sorted_prey_buffer = PreyInfo[]
+        @inbounds ind = to_eat[j]
+        if data.alive[ind] == 0
+            continue
+        end
+
+        empty!(sorted_prey_buffer)
+        for p in prey_list
+            @inbounds if p.Predator == ind
+                push!(sorted_prey_buffer, p)
+            end
+        end
+        if isempty(sorted_prey_buffer)
+            continue
+        end
+
+        sort!(sorted_prey_buffer, by = x -> x.Distance)
+
+        max_dist = max_dists[j]
+        total_time = 0.0
+        prey_index = 1
+
+        while total_time < time[ind] && gut_fullness_ind[j] < max_stomachs && prey_index <= length(sorted_prey_buffer)
+            
+            prey_info = sorted_prey_buffer[prey_index]
+
+            if prey_info.Distance > max_dist
+                break
+            end
+
+            move_time = move_predator(model, sp, data, chars, ind, prey_info, time[ind])
+            move_time = 0
+            total_time += move_time
+            if total_time >= time[ind]
+                break
+            end
+
+            data.active[ind] += move_time / 60
+            time_left = time[ind] - total_time
+            max_dist = chars.Swim_velo[2][sp] * (length_ind[j] / 1000) * time_left
+
+            ration = 0.0
+            n_consumed = 0
+
+            if prey_info.Type == 1
+                prey_data = model.individuals.animals[prey_info.Sp].data
+                prey_chars = model.individuals.animals[prey_info.Sp].p
+
+                if prey_data.alive[prey_info.Ind] == 0.0
+                    prey_index += 1
+                    continue
+                end
+
+                # Fetch fresh biomass and abundance from model, not from prey_info
+                prey_biomass = prey_data.biomass_school[prey_info.Ind]
+                ind_biomass = prey_data.biomass_ind[prey_info.Ind]
+                abundance = prey_data.abundance[prey_info.Ind]
+                max_cons = min(abundance, floor(Int, time_left / chars.Handling_Time[2][sp]))
+
+                ration_max = (max_stomachs * biomass_school_ind[j]) - (gut_fullness_ind[j] * biomass_school_ind[j])
+                ration = min(prey_biomass, ind_biomass * max_cons, ration_max)
+                ration = max(0.0, min(ration, prey_biomass))  # Final safety clamp
+                n_consumed = floor(Int, ration / ind_biomass)
+                data.ration[ind] += ration * prey_chars.Energy_density[2][sp]
+                predation_mortality(model, prey_info, outputs, n_consumed, ration)
+                
+                # Update local prey_info biomass to keep current predator's loop consistent
+                prey_info.Biomass = max(0.0, prey_biomass - ration)
+            else
+                # For non-animal prey (resources)
+                # Always fetch fresh biomass from model.resources
+                prey_spec = prey_info.Sp
+                prey_biomass = model.resources[prey_info.Ind].biomass
+
+                if prey_biomass > 0
+                    prey_length = prey_info.Length[1] / 10
+                    ind_biomass = model.resource_trait[prey_spec, :LWR_a] * prey_length ^ model.resource_trait[prey_spec, :LWR_b]
+
+                    n_inds = ceil(Int, prey_biomass / ind_biomass)
+                    max_cons = min(n_inds, floor(Int, time_left / chars.Handling_Time[2][sp]))
+
+                    ration_max = (max_stomachs * biomass_school_ind[j]) - (gut_fullness_ind[j] * biomass_school_ind[j])
+                    ration = min(prey_biomass, ind_biomass * max_cons, ration_max)
+
+                    ration = max(0.0, min(ration, prey_biomass))  # Final safety clamp
+                    n_consumed = floor(Int, ration / ind_biomass)
+
+                    data.ration[ind] += ration * model.resource_trait[prey_spec, :Energy_density]
+                    model.resources[prey_info.Ind].biomass -= ration
+
+                    # Update local prey_info biomass to keep current predator's loop consistent
+                    prey_info.Biomass = max(0.0, prey_biomass - ration)
+                end
+            end
+                total_time < time[ind] && gut_fullness_ind[j] < max_stomachs && prey_index <= length(sorted_prey_buffer)
+            if ration > 0
+
+                data.gut_fullness[ind] += (ration / biomass_school_ind[j])
+            end
+
+            update_prey_distances(model, sp, j, sorted_prey_buffer, max_dist, 1)
+            sort!(sorted_prey_buffer, by = x -> x.Distance)
+            prey_index += 1
+
+        end
+        time[ind] = max(0.0, time[ind] - total_time)
+    end
+
+    return time
+end
+
+function resource_predation(model::MarineModel)
+    grid = model.depths.grid
+    depthres = Int(grid[grid.Name .== "depthres", :Value][1])
+    latres = Int(grid[grid.Name .== "latres", :Value][1])
+    lonres = Int(grid[grid.Name .== "lonres", :Value][1])
+
+    latmax = grid[grid.Name .== "yulcorner", :Value][1]
+    cell_size_deg = grid[grid.Name .== "cellsize", :Value][1]
+
+    km_per_deg_lat = 111.32
+    km_per_deg_lon = 111.32 * cos(deg2rad(latmax))
+    cell_area = km_per_deg_lat * km_per_deg_lon * cell_size_deg^2  # km²
+
+    dt = model.dt  # timestep in minutes
+
+    for r in 1:model.n_resource
+        min_prey_ratio = model.resource_trait[r, :Min_Prey]
+        max_prey_ratio = model.resource_trait[r, :Max_Prey]
+        max_ingestion = model.resource_trait[r, :Daily_Ration]
+        handling_time = Float64(model.resource_trait[r, :Handling_Time])
+        max_pred_size = model.resource_trait[r, :Max_Size]
+        pred_a = model.resource_trait[r, :LWR_a]
+        pred_b = model.resource_trait[r, :LWR_b]
+
+        mean_pred_size, sd_pred_size = lognormal_params_from_maxsize(max_pred_size)
+        pred_length_mean = exp(mean_pred_size + 0.5 * sd_pred_size^2)  # mm
+        pred_weight_mean = pred_a * (pred_length_mean / 10)^pred_b  # g
+
+        for x in 1:lonres, y in 1:latres, z in 1:depthres
+            pred_idxs = findall(p -> p.sp == r && p.pool_x == x && p.pool_y == y && p.pool_z == z, model.resources)
+            if isempty(pred_idxs)
+                continue
+            end
+
+            pred_biom = sum(getfield.(model.resources[pred_idxs], :biomass)) / cell_area  # g/km²
+
+            if pred_biom <= 0
+                continue
+            end
+
+            predator_biomass = pred_biom  # g/km²
+
+            # Initialize arrays
+            all_biomasses = zeros(Float64, model.n_species + model.n_resource)
+            species_prey_idxs = Vector{Vector{Int}}(undef, model.n_species)
+            species_prey_filters = Vector{BitVector}(undef, model.n_species)
+
+            # --- Loop over individual-based prey species ---
+            for sp in 1:model.n_species
+                animal_dat = model.individuals.animals[sp].data
+                animal_chars = model.individuals.animals[sp].p
+                prey_a = animal_chars.LWR_a[2][sp]
+                prey_b = animal_chars.LWR_b[2][sp]
+
+                prey_idxs = findall(p -> p.pool_x == x && p.pool_y == y && p.pool_z == z, animal_dat)
+                species_prey_idxs[sp] = prey_idxs
+                if isempty(prey_idxs)
+                    all_biomasses[sp] = 0.0
+                    species_prey_filters[sp] = falses(0)
+                    continue
+                end
+
+                prey_lengths = animal_dat.length[prey_idxs]
+                prey_weights = prey_a .* (prey_lengths ./ 10).^prey_b
+                prey_biomasses = animal_dat.biomass_school[prey_idxs] ./ cell_area
+
+                prey_filter = (prey_lengths .>= min_prey_ratio * pred_length_mean) .&
+                            (prey_lengths .<= max_prey_ratio * pred_length_mean)
+                species_prey_filters[sp] = prey_filter
+                species_prey_idxs[sp] = prey_idxs[prey_filter]
+
+                if all(.!prey_filter)
+                    all_biomasses[sp] = 0.0
+                    continue
+                end
+
+                total_prey_biomass = sum(prey_biomasses[prey_filter])
+                all_biomasses[sp] = total_prey_biomass
+            end
+
+            if sum(all_biomasses) == 0
+                continue 
+            end
+
+            # --- Loop over resource-based prey types ---
+            for r in 1:model.n_resource
+                idx = findall(r -> r.sp == r,model.resources)
+                # Total biomass in this cell (scalar), divided by area to get g/km²
+                res_biomass = sum(getfield.(model.resources[idx],:biomass)) / cell_area
+
+                if res_biomass <= 0
+                    all_biomasses[model.n_species + r] = 0.0
+                    continue
+                end
+
+                # Get resource max size and estimate lognormal params
+                res_max_length = model.resource_trait[r, :Max_Size]
+                μ, σ = lognormal_params_from_maxsize(res_max_length)
+
+                # Create 10 size class midpoints (in mm)
+                size_edges = exp.(range(μ - 3σ, μ + 3σ; length=11))  # 10 bins
+                size_mids = 0.5 .* (size_edges[1:end-1] + size_edges[2:end])
+
+                # Prey size range limits
+                min_prey_length = min_prey_ratio * pred_length_mean
+                max_prey_length = max_prey_ratio * pred_length_mean
+
+                # Probability in each bin from CDF
+                p_edges = cdf.(LogNormal(μ, σ), size_edges)
+                p_bins = p_edges[2:end] .- p_edges[1:end-1]  # Length 10
+
+                # Filter bins within acceptable prey length range
+                prey_bin_mask = (size_mids .>= min_prey_length) .& (size_mids .<= max_prey_length)
+
+                # Biomass in acceptable bins
+                res_prey_biomass = sum(p_bins[prey_bin_mask]) * res_biomass  # g/km²
+
+                all_biomasses[model.n_species + r] = res_prey_biomass
+            end
+
+            prop_biomass = all_biomasses ./ sum(all_biomasses)
+            for sp in 1:(model.n_species)
+                animal_dat = model.individuals.animals[sp].data
+                prop_ingestion = prop_biomass[sp] * max_ingestion
+                total_prey_biomass = all_biomasses[sp]
+                # --- Compute mortality ---
+                mortality = resource_predation_mortality(
+                    total_prey_biomass,
+                    predator_biomass,
+                    pred_weight_mean,
+                    prop_ingestion,
+                    handling_time,
+                    dt
+                )
+
+                # Apply mortality to prey biomass
+                kept_idxs = species_prey_idxs[sp]
+                kept_biomasses = animal_dat.biomass_school[species_prey_idxs[sp]]
+                total_kept_biomass = sum(kept_biomasses)
+
+                if total_kept_biomass > 0
+                    # Proportion of each individual's biomass to the total
+                    biomass_proportions = kept_biomasses ./ total_kept_biomass
+
+                    # Total biomass to remove
+                    total_biomass_removed = total_kept_biomass * mortality
+
+                    # Biomass to remove per individual
+                    biomass_removed = biomass_proportions .* total_biomass_removed
+
+                    # Subtract removal amount from each individual
+                    for (i, idx) in enumerate(kept_idxs)
+                        ind_biom = animal_dat.biomass_ind[idx]
+                        inds_removed = floor(Int,biomass_removed[i] / ind_biom)
+                        animal_dat.biomass_school[idx] -= biomass_removed[i]
+                        animal_dat.biomass_school[idx] = max(animal_dat.biomass_school[idx], 0.0)
+                        animal_dat.abundance[idx] -= inds_removed
+                        if animal_dat.abundance[idx] <= 0
+                            animal_dat.alive[idx] = 0
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+function resource_predation_mortality(
+    prey_biomass::Float64,     # g/km²
+    pred_biomass::Float64,     # g/km²
+    pred_weight::Float64,      # g
+    daily_ration::Float64,     # % body weight per day
+    handling_time::Float64,    # days·kg
+    timestep::Float64          # minutes
+)
+    N = prey_biomass / 1000  # kg/km²
+    total_intake = daily_ration * pred_weight * (pred_biomass / pred_weight) / 1000  # kg/day/km²
+
+    function intake_error(a)
+        fr = (a * N) / (1 + a * handling_time * N)
+        return (fr - total_intake)^2
+    end
+
+    result = optimize(intake_error, 1e-6, 10.0)
+    a_opt = Optim.minimizer(result)
+
+    FR_day = (a_opt * N) / (1 + a_opt * handling_time * N)  # kg/day/km²
+    timestep_frac = timestep / 1440  # day fraction
+    FR_timestep = FR_day * timestep_frac  # kg/km² per timestep
+
+    # Convert to proportion of prey removed
+    mortality = (FR_timestep * 1000) / prey_biomass  # unitless fraction
+    return clamp(mortality, 0.0, 1.0)
+end

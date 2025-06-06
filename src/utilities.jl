@@ -8,49 +8,49 @@ struct individuals
     animals::NamedTuple
 end
 
-##### structs for pools
-mutable struct patch
-    data::AbstractArray
-    characters::NamedTuple
-end
-
-struct pools
-    pool::NamedTuple
-end
-
-struct PredatorInfo
-    Prey::Int
-    Type::Int
-    Sp::Int
-    Ind::Int
+mutable struct resource
+    sp::Int
+    ind::Int
     x::Float64
     y::Float64
     z::Float64
-    Biomass::Float64
-    Length::Float64
-    Inds::Float64
-    Distance::Float64
+    pool_x::Int
+    pool_y::Int
+    pool_z::Int
+    biomass::Float64
+    capacity::Float64
 end
 
-struct PreyInfo
+mutable struct PreyInfo
     Predator::Int
-    Type::Int
     Sp::Int
     Ind::Int
-    x::Float64
-    y::Float64
-    z::Float64
-    Biomass::Float64
-    Energy::Float64
+    Type::Int
     Length::Float64
-    Inds::Float64
+    Biomass::Float64
     Distance::Float64
+end
+
+mutable struct ResourcePrey
+    Type::Int64
+    Sp::Int64
+    Ind::Int64
+    Length::Float64       # mm
+    Biomass::Float64    # g
+    a::Float64             # length-weight coefficient
+    b::Float64             # length-weight exponent
 end
 
 struct Selectivity
     species::String
     L50::Float64         # length at 50% selectivity
     slope::Float64       # steepness of logistic curve
+end
+
+struct HabitatPoint
+    x::Int
+    y::Int
+    value::Float64
 end
 
 mutable struct Fishery
@@ -60,11 +60,13 @@ mutable struct Fishery
     selectivities::Dict{String, Selectivity}
     quota::Float64
     cumulative_catch::Float64
+    cumulative_inds::Int64
     season::Tuple{Int, Int}                     # (start_day, end_day)
     area::Tuple{Tuple{Float64, Float64},        # x bounds
                 Tuple{Float64, Float64},        # y bounds
                 Tuple{Float64, Float64}}        # z bounds
     slot_limit::Tuple{Float64, Float64}         # (min_len, max_len)
+    bag_limit::Int64                            # Daily Bag Limit for Fishery
 end
 
 mutable struct MarineEnvironment
@@ -91,22 +93,20 @@ mutable struct MarineModel
     fishing::Vector{Fishery}
     t::Float64                  # time in minute
     iteration::Int64            # model interation
-    dt::Float64                 # Patch Resolution
+    dt::Float64                 # Temporal Resolution
     individuals::individuals    # initial individuals generated
-    pools::pools              # Characteristics of pooled species
+    resources::Vector{resource}         # resource characteristics
+    resource_trait::DataFrame
     capacities::Array
-    pool_capacities::Array
     ninds::Int64
-    n_species::Int64            # Number of IBM species
-    n_pool::Int64               # Number of pooled species
-    bioms::Vector{Float64}          # Total number of individuals in the model
-    abund::Vector{Int64}        #Abundance of animals
-    grid::AbstractGrid          # grid information
+    n_species::Int64            # Number of species
+    n_resource::Int64
+    abund::Vector{Int64}
+    bioms::Vector{Float64}
+    init_abund::Vector{Int64}   # Initial Abundance of animals
     files::DataFrame            #Files to call later in model
     output_dt::Int64
-    cell_size::Float64            #Cubic meters of each grid cell
     spinup::Int64               #Number of timesteps in a spinup
-    #timestepper::timestepper    # Add back in once environmental parameters get involved
 end
 
 #####Functions from PlanktonIndividuals that have been placed here.
@@ -132,10 +132,6 @@ end
 
 #Create a multimodal distribution. May not need to be used in the model and should probably be used a priori.
 function multimodal_distribution(x, means, stds, weights)
-    if length(means) != length(stds) != length(weights) || length(means) < 1
-        error("Invalid input: The lengths of means, stds, and weights should be equal and greater than 0.")
-    end
-    
     pdf_values = [weights[i] * pdf(Normal(means[i], stds[i]), x) for i in 1:length(means)]
     return sum(pdf_values)
 end
@@ -170,111 +166,9 @@ function sample_normal(minimum_value, maximum_value; num_samples = 1000, std=0.1
     return samples
 end
 
-function logistic(x, k, c)
-    return 1 ./ (1 .+ exp.(k.*(x.-c)))
-end
-
-function safe_intersect(sets::Vector{Set{Int}})
-    common_indices = sets[1]
-    for s in sets[2:end]
-        common_indices = intersect(common_indices, s)
-        if isempty(common_indices)
-            return Set{Int}()
-        end
-    end
-    return common_indices
-end
-
-function sphere_volume(length::Float64, num_individuals)::Float64
-    # Calculate the total volume occupied by the individuals
-    volume_individual = π * length^3 / 6
-    total_volume = num_individuals * volume_individual
-    
-    # Calculate the radius of the sphere containing all individuals
-    radius_cubed = total_volume * 3 / (4 * π)
-    radius = radius_cubed^(1/3)
-    
-    # Calculate the volume of the sphere
-    sphere_volume = 4/3 * π * radius^3
-    return sphere_volume
-end
-
 # Function to get target_z based on distribution
 function get_target_z(sp, dist)
     return gaussmix(1, dist[sp, "mu1"], dist[sp, "mu2"], dist[sp, "mu3"], dist[sp, "sigma1"], dist[sp, "sigma2"], dist[sp, "sigma3"], dist[sp, "lambda1"], dist[sp, "lambda2"])[1]
-end
-
-function add_prey(model, prey_type, sp_data, prey_data, ind, this_pred, indices, abundances, sp, detection, max_num, n_preys, max_dist)
-    # Precompute haversine for horizontal distances once
-    horiz_dist = haversine.(sp_data.y[ind], sp_data.x[ind], prey_data.x[indices], prey_data.y[indices])
-    dz = sp_data.z[ind] .- prey_data.z[indices]
-    dist = sqrt.(horiz_dist.^2 .+ dz.^2)
-
-    # Filter indices within detection range
-    within_detection = findall(dist .<= detection[this_pred])
-
-    # Early exit if no prey is within detection range
-    if isempty(within_detection)
-        return PreyInfo[]
-    end
-
-    # Filter by maximum distance
-    valid_indices = findall(dist .<= max_dist)
-    
-    if (n_preys + length(valid_indices)) > max_num
-        # Sort and get top `n_add` indices based on distance
-        n_add = Int(max_num - (n_preys + length(valid_indices)))
-        dists_subset = dist[valid_indices]
-        idx_subset = partialsortperm(dists_subset, 1:n_add)
-
-        # Remaining valid indices after partial sort
-        remaining = valid_indices[idx_subset]
-    else
-        remaining = valid_indices
-    end
-
-    # Pre-allocate array for prey_infos
-    prey_infos = Vector{PreyInfo}(undef, length(remaining))
-
-    for i in 1:length(remaining)
-        prey_idx = remaining[i]
-
-        if prey_type == 1
-            energy = prey_data.biomass[indices[prey_idx]] * model.individuals.animals[sp].p.Energy_density[2][sp]
-            sp_data.landscape[ind] += energy
-            prey_infos[i] = PreyInfo(ind, prey_type, sp, indices[prey_idx], prey_data.x[indices[prey_idx]], prey_data.y[indices[prey_idx]], 
-                                     prey_data.z[indices[prey_idx]], prey_data.biomass[indices[prey_idx]], energy, 
-                                     prey_data.length[indices[prey_idx]], abundances, dist[prey_idx])
-        else
-            energy = prey_data.biomass[indices[prey_idx]] * model.pools.pool[sp].characters.Energy_density[2][sp]
-            sp_data.landscape[ind] += energy
-            prey_infos[i] = PreyInfo(ind, prey_type, sp, indices[prey_idx], prey_data.x[indices[prey_idx]], prey_data.y[indices[prey_idx]], 
-                                     prey_data.z[indices[prey_idx]], prey_data.biomass[indices[prey_idx]], energy, 
-                                     prey_data.length[indices[prey_idx]], abundances[indices[prey_idx]], dist[prey_idx])
-        end
-    end
-
-    return prey_infos
-end
-
-function add_pred(pred_type,sp_data, pred_data, ind,this_pred, indices, abundances, sp,detection)
-    dx = sp_data.x[ind] .- pred_data.x[indices]
-    dy = sp_data.y[ind] .- pred_data.y[indices]
-    dz = sp_data.z[ind] .- pred_data.z[indices]
-    dist = sqrt.(dx.^2 .+ dy.^2 .+ dz.^2)
-
-    within_detection = findall(dist .<= detection[this_pred])
-    #println(within_detection)
-    pred_infos = PredatorInfo[]  # Initialize a vector to store prey info for this individual
-    for i in within_detection
-        if pred_type == 1
-            pred_infos = vcat(pred_infos, PredatorInfo(ind,pred_type, sp, indices[i], pred_data.x[indices[i]], pred_data.y[indices[i]], pred_data.z[indices[i]], pred_data.biomass[indices[i]], pred_data.length[indices[i]], abundances, dist[i]))
-
-        else
-            pred_infos = vcat(pred_infos, PredatorInfo(ind,pred_type, sp, indices[i], pred_data.x[indices[i]], pred_data.y[indices[i]], pred_data.z[indices[i]], pred_data.biomass[indices[i]], pred_data.length[indices[i]], abundances[indices[i]], dist[i]))
-        end
-    end
-    return pred_infos
 end
 
 function generate_depths(files)
@@ -284,16 +178,16 @@ function generate_depths(files)
     focal_day = CSV.read(focal_file_day, DataFrame)
     focal_night = CSV.read(focal_file_night, DataFrame)
 
-    patch_file_day = files[files.File .== "nonfocal_z_dist_day", :Destination][1]
-    patch_file_night = files[files.File .== "nonfocal_z_dist_night", :Destination][1]
+    resource_file_day = files[files.File .== "resource_z_dist_day", :Destination][1]
+    resource_file_day = files[files.File .== "resource_z_dist_night", :Destination][1]
 
-    patch_day = CSV.read(patch_file_day, DataFrame)
-    patch_night = CSV.read(patch_file_night, DataFrame)
+    resource_day = CSV.read(resource_file_day, DataFrame)
+    resource_night = CSV.read(resource_file_day, DataFrame)
 
     grid_file = files[files.File .== "grid",:Destination][1]
     grid = CSV.read(grid_file, DataFrame)
 
-    MarineDepths(focal_day,focal_night,patch_day,patch_night,grid)
+    MarineDepths(focal_day,focal_night,resource_day,resource_night,grid)
 end
 
 function load_ascii_raster(file_path::String)
@@ -312,7 +206,7 @@ function load_ascii_raster(file_path::String)
     end
 end
 
-function lognormal_params_from_maxsize(max_size::Float64)
+function lognormal_params_from_maxsize(max_size::Int)
     median = 1/3 * max_size
     percentile = 0.95
 
@@ -323,88 +217,6 @@ function lognormal_params_from_maxsize(max_size::Float64)
     σ = (log(max_size) - μ) / z
     
     return μ, σ
-end
-
-function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple{Int,Int})
-    flipped_cap = reverse(capacity,dims=1)
-    
-    open_set = [start]
-    came_from = Dict{Tuple{Int,Int}, Tuple{Int,Int}}()
-    visited = Set{Tuple{Int,Int}}()
-    directions = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,-1), (1,-1), (-1,1)]
-    while !isempty(open_set)
-        current = popfirst!(open_set)
-        if current == goal
-            # reconstruct path
-            path = [current]
-            while current in keys(came_from)
-                current = came_from[current]
-                pushfirst!(path, current)
-            end
-            return path
-        end
-        push!(visited, current)
-        for (dy, dx) in directions
-            ny, nx = current[1] + dy, current[2] + dx
-            if 1 ≤ nx ≤ size(flipped_cap,2) && 1 ≤ ny ≤ size(flipped_cap,1)
-                neighbor = (ny, nx)
-                if flipped_cap[ny, nx] > 0 && !(neighbor in visited) && !(neighbor in open_set)
-                    push!(open_set, neighbor)
-                    came_from[neighbor] = current
-                end
-            end
-        end
-    end
-    return []  # no path found
-end
-
-function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tuple{Int, Int}},max_distance::Float64, latmin::Float64, lonmin::Float64,cell_size::Float64, nrows::Int, ncols::Int)
-
-    # Convert grid cell (i, j) to lat/lon, add randomness within cell
-    function grid_to_coords(cell::Tuple{Int, Int})
-        i, j = cell
-        lon = lonmin + (j - 1) * cell_size + rand() * cell_size
-        lat = latmin + (i - 1) * cell_size + rand() * cell_size
-        return (lat, lon)
-    end
-
-    total_distance = 0.0
-    prev_lat, prev_lon = current_pos
-
-    for i in 1:length(path)
-        lat, lon = grid_to_coords(path[i])
-        d = haversine(prev_lat, prev_lon, lat, lon)
-        total_distance += d
-
-        if total_distance > max_distance
-            excess = total_distance - max_distance
-            frac = 1 - (excess / d)
-
-
-
-            interp_lat = prev_lat + frac * (lat - prev_lat)
-            interp_lon = prev_lon + frac * (lon - prev_lon)
-
-            # Compute the grid cell index of the interpolated point
-            grid_x = clamp(Int(floor((interp_lon - lonmin) / cell_size) + 1), 1, ncols)
-            grid_y = clamp(Int(floor((interp_lat - latmin) / cell_size) + 1), 1, nrows)
-
-            # Add randomness within the cell of the interpolated point
-            rand_lat = latmin + (grid_y - 1) * cell_size + rand() * cell_size
-            rand_lon = lonmin + (grid_x - 1) * cell_size + rand() * cell_size
-
-            return (rand_lat, rand_lon, grid_y, grid_x)
-        end
-
-        prev_lat, prev_lon = lat, lon
-    end
-
-    # If max distance not reached, return final randomized point within the last cell
-    final_cell = path[end]
-    final_lat = latmin + (final_cell[1] - 1) * cell_size + rand() * cell_size
-    final_lon = lonmin + (final_cell[2] - 1) * cell_size + rand() * cell_size
-
-    return (final_lat, final_lon, first(final_cell),last(final_cell))
 end
 
 function atan2(y::Float64, x::Float64)
@@ -435,80 +247,100 @@ function haversine(lat1, lon1, lat2, lon2)
     R * c
 end
 
-function nearest_suitable_habitat(habitat::Matrix{Float64},start_latlon::Tuple{Float64, Float64},start_pool::Tuple{Int,Int},max_distance_m::Float64,latmin::Float64,lonmin::Float64,cellsize_deg::Float64)
-    R = 6371000.0  # Earth radius in meters
+function knn_haversine(tree, query_point,z_prey, k,sp,ind,type,biomass,lengths,max_dist)
+    # query_point is in (lat, lon)
+    lat_query, lon_query,z_query = query_point
 
-    # Grid indexing and helpers
-    get_neighbors(r, c, nrows, ncols) = [
-        (r+dr, c+dc) for (dr, dc) in
-        ((-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1))
-        if 1 ≤ r+dr ≤ nrows && 1 ≤ c+dc ≤ ncols
-    ]
+    # Preallocate arrays for distances and indices
+    n = size(tree.data, 1)
+    distances = Float64[]
+    spec = Int64[]
+    individual = Int64[]
+    types = Int64[]
+    biomasses=Float64[]
+    sizes = Float64[]
 
-    random_point_in_cell(cell::Tuple{Int, Int}) = begin
-        row, col = cell
-        lat = latmin + (row - 1 + rand()) * cellsize_deg
-        lon = lonmin + (col - 1 + rand()) * cellsize_deg
-        (lat, lon)
-    end
+    # Calculate distances and store indices
+    for i in 1:n
+        lat_prey, lon_prey = tree.data[i][1], tree.data[i][2]
+        horizontal_dist = haversine(lat_query, lon_query, lat_prey, lon_prey)
+        depth_diff = abs(z_query - z_prey[i])
+        dist = sqrt(horizontal_dist ^ 2 + depth_diff ^ 2)
 
-    nrows, ncols = size(habitat)
+        if dist <= max_dist
 
-    # 2. BFS to find nearest suitable cell
-    visited = falses(nrows, ncols)
-    queue = [start_pool]
-    visited[start_pool...] = true
-    came_from = Dict{Tuple{Int,Int}, Tuple{Int,Int}}()
-
-    goal_cell = nothing
-    while !isempty(queue)
-        current = popfirst!(queue)
-        if habitat[nrows - first(current)+1,last(current)] > 0
-            goal_cell = current
-            break
-        end
-        for neighbor in get_neighbors(current[1], current[2], nrows, ncols)
-            if !visited[neighbor...]
-                visited[neighbor...] = true
-                push!(queue, neighbor)
-                came_from[neighbor] = current
-            end
+            push!(distances, dist)
+            push!(spec, sp[i])
+            push!(individual, ind[i])
+            push!(types,type[i])
+            push!(biomasses,biomass[i])
+            push!(sizes,lengths[i])
         end
     end
 
-    if isnothing(goal_cell)
-        return
-    end
+    if length(individual) > 0
+        # Combine distances and indices into a tuple array
+        distance_index_pairs = [(distances[i],spec[i],types[i],individual[i],biomasses[i],sizes[i]) for i in 1:length(individual)]
 
-    # Random location in goal cell
-    goal_latlon = random_point_in_cell(goal_cell)
+        # Sort the pairs by distance
+        sort!(distance_index_pairs, by = x -> x[1])
 
-    dist_m = haversine(start_latlon[1], start_latlon[2], goal_latlon[1], goal_latlon[2])
+        # Extract the first k entries
+        k = min(k, length(distance_index_pairs))
+        nearest_neighbors = distance_index_pairs[1:k]
 
-    if dist_m <= max_distance_m
-        new_latlon = goal_latlon
+        # Return indices and distances
+        return [neighbor[4] for neighbor in nearest_neighbors], [neighbor[2] for neighbor in nearest_neighbors],[neighbor[3] for neighbor in nearest_neighbors], [neighbor[5] for neighbor in nearest_neighbors], [neighbor[1] for neighbor in nearest_neighbors],[neighbor[6] for neighbor in nearest_neighbors]
     else
-        # Move toward the goal with proper scaling
-        φ1 = deg2rad(start_latlon[1])
-        λ1 = deg2rad(start_latlon[2])
-        φ2 = deg2rad(goal_latlon[1])
-        λ2 = deg2rad(goal_latlon[2])
-
-        Δφ = φ2 - φ1
-        Δλ = λ2 - λ1
-        θ = atan2(sin(Δλ) * cos(φ2), cos(φ1) * sin(φ2) - sin(φ1) * cos(φ2) * cos(Δλ))
-        d_frac = max_distance_m / dist_m
-
-        δ = dist_m * d_frac / R
-        new_φ = asin(sin(φ1) * cos(δ) + cos(φ1) * sin(δ) * cos(θ))
-        new_λ = λ1 + atan2(sin(θ) * sin(δ) * cos(φ1), cos(δ) - sin(φ1) * sin(new_φ))
-
-        new_latlon = (rad2deg(new_φ), rad2deg(new_λ))
+        return individual, spec,types,biomasses, distances, sizes
     end
+end
 
-    # Convert new location to grid cell index
-    new_row = floor(Int, (new_latlon[1] - latmin) / cellsize_deg) + 1
-    new_col = floor(Int, (new_latlon[2] - lonmin) / cellsize_deg) + 1
+function logistic(x, k, c)
+    return 1 ./ (1 .+ exp.(k.*(x.-c)))
+end
 
-    return new_latlon[1], new_latlon[2], new_col, new_row
+function update_prey_distances(model,sp,ind,prey_list,max_dist,type)
+    if type == 1
+        animal_data = model.individuals.animals[sp].data
+        px, py, pz = animal_data.x[ind], animal_data.y[ind], animal_data.z[ind]
+    else
+        px = getfield(model.resources[ind], :x)
+        py = getfield(model.resources[ind], :y)
+        pz = getfield(model.resources[ind], :z)
+    end
+    updated_prey = PreyInfo[]
+    for prey in prey_list
+        if prey.Type == 1
+            prey_data = model.individuals.animals[prey.Sp].data
+            if prey_data.alive[prey.Ind] == 0
+                continue
+            end
+            prey_x =  prey_data.x[prey.Ind]
+            prey_y =  - prey_data.y[prey.Ind]
+            prey_z = prey_data.z[prey.Ind]
+        else
+            resource = model.resources[prey.Ind[1]]
+            if resource.biomass <= 0
+                continue
+            end
+            prey_x = resource.x
+            prey_y = resource.y
+            prey_z = resource.z
+        end
+        horizontal_dist = haversine(py, px, prey_y, prey_x)
+        depth_diff = abs(pz -prey_z)
+        dist = sqrt(horizontal_dist ^ 2 + depth_diff ^ 2)
+
+        if dist <= max_dist
+            prey.Distance = dist
+            push!(updated_prey, prey)
+        end
+    end
+    sort!(updated_prey, by = x -> x.Distance)
+    if length(updated_prey) > 0
+        return updated_prey[1]
+    else
+        return nothing
+    end
 end

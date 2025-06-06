@@ -37,63 +37,27 @@ function predators(model::MarineModel, sp::Int, ind)
     calculate_distances_pred(model,sp,ind,min_pred_limit,max_pred_limit,detection)
 end
 
-function preys(model::MarineModel, sp::Int, ind)
-    # Precompute constant values
-    min_prey_limit = model.individuals.animals[sp].p.Min_Prey[2][sp]
-    max_prey_limit = model.individuals.animals[sp].p.Max_Prey[2][sp]
-    # Gather distances
-    detection = model.individuals.animals[sp].data.vis_prey[ind]
-
-    #swim_speed = model.individuals.animals[sp].p.Swim_velo[2][sp]
-    #lengths = model.individuals.animals[sp].data.length[ind] / 1000
-    #max_swim_distance = swim_speed .* lengths .* time[ind]
-    #detection = max_swim_distance
-
-    prey = calculate_distances_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection)
-    return prey
-end
-
-function patch_preys(model::MarineModel, sp::Int, ind::Vector{Int64},dt)
-    # Precompute constant values
-    min_prey_limit = model.pools.pool[sp].characters.Min_Prey[2][sp]
-    max_prey_limit = model.pools.pool[sp].characters.Max_Prey[2][sp]
-    # Gather distances
-    detection = model.pools.pool[sp].data.vis_prey[ind]
-    prey = calculate_distances_patch_prey(model,sp,ind,min_prey_limit,max_prey_limit,detection,dt)
-    return prey
-end
-
 function decision(model::MarineModel, sp::Int, ind::Vector{Int64},outputs)  
     sp_dat = model.individuals.animals[sp].data
-    sp_char = model.individuals.animals[sp].p
 
-    max_fullness = 0.2 * sp_dat.biomass[ind]     
+    max_fullness = 0.2 * sp_dat.biomass_school[ind]     
     feed_trigger = sp_dat.gut_fullness[ind] ./ max_fullness
     val1 = rand(length(ind))
 
     #preds::Vector{PredatorInfo} = predators(model, sp, ind)  #Create list of predators
-    print("find prey | ")
-
-    prey::Vector{PreyInfo} = preys(model, sp, ind)  #Create list of preys for all individuals in the species
+    time::Vector{Float64} = fill(model.dt * 60,length(sp_dat.alive))
 
     to_eat = findall(feed_trigger .<= val1)
-    not_eat = findall(feed_trigger .> val1)
-
     eating = ind[to_eat]
-    not_eating = ind[not_eat]
-    time::Vector{Float64} = fill(sp_char.t_resolution[2][sp] * 60,length(ind))
 
     if length(to_eat) > 0
+        print("find prey | ")
+        prey = calculate_distances_prey(model, sp, eating,time)  #Create list of preys for all individuals in the species
         print("eat | ")
-        time[eating] = eat(model, sp, eating,eating, prey, outputs)
-        print("move | ")
-
-        movement_toward_habitat(model,time,eating,sp)
+        time = eat(model, sp,eating, prey,time, outputs)
     end
-
-    if length(not_eating) > 0
-        movement_toward_habitat(model,time,not_eating,sp)
-    end 
+    print("move | ")
+    movement_toward_habitat(model,time,ind,sp)
     #Clear these as they are no longer necessary and take up memory.
     prey = Vector{PreyInfo}()
     #preds = Vector{PredatorInfo}()
@@ -141,32 +105,7 @@ function visual_range_preys_init(length,depth,min_prey,max_prey,ind)
     prey_size_factor = (min_prey+max_prey)/2 # Based on assumed half prey-pred size relationship
     
     # Visual range as a function of body size and light
-    r = max.(1,ind_length .* sqrt.(I_z ./ (pred_contrast .* eye_sensitivity .* prey_size_factor)))
-    return r
-end
-
-function visual_range_pred(model,length,depth,sp,ind)
-    min_pred = model.individuals.animals[sp].p.Min_Prey[2][sp]
-    max_pred = model.individuals.animals[sp].p.Max_Prey[2][sp]
-    pred_contrast = fill(0.3,ind) # Utne-Plam (1999)
-    salt = fill(30, ind) # PSU. Add this later if it were to change
-    attenuation_coefficient = 0.64 .- 0.016 .* salt
-    ind_length = length ./ 1000 # Length in meters
-    pred_length = ind_length ./ 0.01 # Largest possible pred-prey size ratio
-    pred_width = pred_length ./ 4
-    pred_image = 0.75 .* pred_length .* pred_width
-    rmax = ind_length .* 30 # The maximum visual range. Currently, this is 1 body length
-    eye_sensitivity = (rmax.^2) ./ (pred_image .* pred_contrast)
-    surface_irradiance = ipar_curve(model.t) # Need real value, in W m^-2
-
-    # Light intensity at depth
-    I_z = surface_irradiance .* exp.(-attenuation_coefficient .* depth)
-    
-    # Constant reflecting fish's visual sensitivity and target size
-    pred_size_factor = 1+((min_pred+max_pred)/2) # Based on assumed half prey-pred size relationship
-    
-    # Visual range as a function of body size and light
-    r = max.(1,ind_length .* sqrt.(I_z ./ (pred_contrast .* eye_sensitivity .* pred_size_factor)))
+    r = min.(1,ind_length .* sqrt.(I_z ./ (pred_contrast .* eye_sensitivity .* prey_size_factor)))
     return r
 end
 
@@ -191,6 +130,6 @@ function visual_range_prey(model,length,depth,sp,ind)
     prey_size_factor = (min_prey+max_prey)/2 # Based on assumed half prey-pred size relationship
     
     # Visual range as a function of body size and light
-    r = max.(1,ind_length .* sqrt.(I_z ./ (pred_contrast .* eye_sensitivity .* prey_size_factor)))
+    r = min.(1,ind_length .* sqrt.(I_z ./ (pred_contrast .* eye_sensitivity .* prey_size_factor)))
     return r
 end
