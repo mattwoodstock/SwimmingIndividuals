@@ -111,40 +111,48 @@ function initial_ind_placement(df, sp, grid, n_selections)
     lonmin = grid[grid.Name .== "xllcorner", :Value][1]
     cell_size = grid[grid.Name .== "cellsize", :Value][1]
 
-    capacity = Matrix(df[:,:,1,sp])
+    capacity = Matrix(df[:, :, 1, sp])
 
-    nrows, ncols = size(df[:, :,1, sp])
+    nrows, ncols = size(capacity)
     data = DataFrame(x=Int[], y=Int[], value=Float64[])
+
     for i in 1:nrows
         for j in 1:ncols
-            if capacity[i,j] > 0.05
+            if capacity[i, j] > 0.05
                 push!(data, (x=j, y=i, value=capacity[i, j]))
             end
         end
     end
 
-    # Sort descending by value
-    sort!(data, :value, rev=true)
-    # Compute cumulative sum
-    data.cumulative_value = cumsum(data.value)
-    # Sample a random value between 0 and the total
+    x_values = Int[]
+    y_values = Int[]
 
-    total = sum(data.value)
-    x_values = []
-    y_values = []
-    for ind in 1:n_selections
-        r = (rand()^2) * total
-        # Find the first row where cumulative_value >= r
-        selected = findfirst(data.cumulative_value .>= r)
-        push!(x_values,data.x[selected])
-        push!(y_values,data.y[selected])
+    if nrow(data) > 0
+        # Sort descending by value
+        sort!(data, :value, rev=true)
+        # Compute cumulative sum
+        data.cumulative_value = cumsum(data.value)
+        total = sum(data.value)
+
+        for ind in 1:n_selections
+            r = (rand()^2) * total
+            selected = findfirst(data.cumulative_value .>= r)
+            push!(x_values, data.x[selected])
+            push!(y_values, data.y[selected])
+        end
+    else
+        # Fall back to uniform random placement across entire grid
+        for ind in 1:n_selections
+            push!(x_values, rand(1:ncols))
+            push!(y_values, rand(1:nrows))
+        end
     end
-    # Return the selected row
 
-    # Corrected Y-coordinate flip to match habitat map orientation
+    # Convert to actual coordinates
     actual_x = lonmin .+ (x_values .- 1) .* cell_size .+ rand(n_selections) .* cell_size
     actual_y = latmax .- (y_values .- 1) .* cell_size .- rand(n_selections) .* cell_size
 
+    # Flip grid Y to match habitat map orientation
     y_values = (nrows .- y_values) .+ 1
 
     if n_selections == 1
@@ -189,6 +197,7 @@ function habitat_capacity_multi(env_vars,prefs,sp)
 
     return suitability_total
 end
+
 
 function initial_habitat_capacity(envi,n_spec,n_resource,files)
     prefs_df = CSV.read(files[files.File .== "envi_pref",:Destination][1],DataFrame) #Database of grid variables
@@ -251,39 +260,5 @@ function initial_habitat_capacity(envi,n_spec,n_resource,files)
         capacities[:,:,:,(n_spec+spec)] = reverse(total_capacity,dims=1)
     end
 
-
-        
-
-    return capacities
-end
-
-function pool_habitat_capacity(envi,n_spec,files)
-    prefs_df = CSV.read(files[files.File .== "envi_pref",:Destination][1],DataFrame) #Database of grid variables
-    trait = Dict(pairs(eachcol(CSV.read(files[files.File .== "nonfocal_trait",:Destination][1],DataFrame)))) #Database of IBM species traits 
-    spec_names = trait[:Group]
-    shape = (size(envi.temp)[1:3]..., (n_spec+1))
-    capacities = fill(1.0, shape...)
-    total_capacity = ones(Float64, size(envi.temp)...)
-    for spec in 1:(n_spec+1)
-        sp_prefs = prefs_df[prefs_df.species .== spec_names[spec], :]
-        sp_env_vars = Vector{AbstractArray}()
-        sp_var_prefs = Vector{NamedTuple}()
-    
-        for row in eachrow(sp_prefs)
-            varname = row.variable
-        
-            # Map variable names to fields in the MarineEnvironment
-            env_array = getfield(envi, Symbol(varname))
-            @assert env_array !== nothing "Variable '$varname' not found in MarineEnvironment"
-        
-            push!(sp_env_vars, env_array)
-            push!(sp_var_prefs, (pref_min = row.pref_min,opt_min  = row.opt_min,opt_max  = row.opt_max,pref_max = row.pref_max))
-        end
-        if nrow(sp_prefs) > 0
-            species_capacity = habitat_capacity_multi(sp_env_vars, sp_var_prefs,spec,"pool")
-            total_capacity .*= species_capacity
-        end
-        capacities[:,:,:,spec] = total_capacity
-    end
     return capacities
 end

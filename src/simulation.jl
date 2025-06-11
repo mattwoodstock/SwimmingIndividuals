@@ -1,10 +1,10 @@
 mutable struct MarineOutputs
-    mortalities::Matrix{Float64}
+    mortalities::Array{Int64,5}
+    Fmort::Array{Int64,5}
     lengths::Vector{Float64}
     weights::Vector{Float64}
-    #consumption::Array{Float64,5}
-    #encounters::Array{Float64,5}
-    #population_results::Array{Float64,3}
+    consumption::Array{Float64,5}
+    abundance::Array{Float64,4}
 end
 
 mutable struct MarineSimulation

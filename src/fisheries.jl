@@ -35,11 +35,12 @@ function load_fisheries(df::DataFrame)
     return fisheries
 end
 
-function fishing(model, fisheries::Vector{Fishery}, sp, day, inds)
+function fishing(model, fisheries::Vector{Fishery}, sp, day, inds,outputs)
     spec = model.individuals.animals[sp].p.SpeciesLong[2][sp]
     spec_dat = model.individuals.animals[sp].data
     spec_char = model.individuals.animals[sp].p
 
+    fish = 1
     for fishery in fisheries
         if !(fishery.season[1] ≤ day ≤ fishery.season[2]) || fishery.cumulative_catch ≥ fishery.quota
             continue
@@ -111,7 +112,14 @@ function fishing(model, fisheries::Vector{Fishery}, sp, day, inds)
             if spec_dat.biomass_school[ind] ≤ 0
                 spec_dat.alive[ind] = 0
             end
+
+            x = floor(Int,spec_dat.pool_x[ind])
+            y = floor(Int,spec_dat.pool_y[ind])
+            z = floor(Int,spec_dat.pool_z[ind])
+
+            outputs.Fmort[x,y,z,fish,sp] += catch_inds
         end
+        fish += 1
     end
 end
 

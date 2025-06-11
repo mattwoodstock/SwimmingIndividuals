@@ -4,7 +4,7 @@ function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, max
     for i in 1:Nsp
         name = Symbol("sp"*string(i))
         plank = construct_individuals(arch, params, maxN)
-        initialize_individiduals(plank, B[i],i,depths,capacities)
+        initialize_individuals(plank, B[i],i,depths,capacities)
         push!(plank_names, name)
         push!(plank_data, plank)
     end
@@ -17,27 +17,33 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:W_mat,:SpeciesLong, :LWR_a, :Larval_Size,:Max_Prey, :Max_Size, :Dive_Max,:School_Size,:Taxa,:Larval_Duration, :Sex_Ratio,:SpeciesShort, :Dive_Min,:Handling_Time,:Energy_density, :Hatch_Survival, :MR_type,  :Swim_velo, :Biomass, :Type)
+    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:W_mat,:SpeciesLong, :LWR_a, :Larval_Size,:Max_Prey, :Max_Size, :Dive_Max,:School_Size,:Taxa,:Larval_Duration, :Sex_Ratio,:SpeciesShort,:FLR_b, :Dive_Min,:Handling_Time,:FLR_a,:Energy_density, :Hatch_Survival, :MR_type,  :Swim_velo, :Biomass, :Type)
 
     p = NamedTuple{param_names}(params)
     return plankton(data, p)
 end
 
-function initialize_individiduals(plank, B::Float64,sp::Int,depths::MarineDepths,capacities)
+function initialize_individuals(plank, B::Float64,sp::Int,depths::MarineDepths,capacities)
     grid = depths.grid
     night_profs = depths.focal_night
 
     depthres = grid[findfirst(grid.Name .== "depthres"), :Value]
-    lonres = grid[findfirst(grid.Name .== "lonres"), :Value]
-    latres = grid[findfirst(grid.Name .== "latres"), :Value]
     maxdepth = grid[findfirst(grid.Name .== "depthmax"), :Value]
-    lonmax = grid[findfirst(grid.Name .== "lonmax"), :Value]
-    lonmin = grid[findfirst(grid.Name .== "lonmin"), :Value]
-    latmax = grid[findfirst(grid.Name .== "latmax"), :Value]
-    latmin = grid[findfirst(grid.Name .== "latmin"), :Value]
+    lonmax = grid[findfirst(grid.Name .== "xulcorner"), :Value]
+    lonmin = grid[findfirst(grid.Name .== "xllcorner"), :Value]
+    latmax = grid[findfirst(grid.Name .== "yulcorner"), :Value]
+    latmin = grid[findfirst(grid.Name .== "yllcorner"), :Value]
 
-    cell_size = ((latmax - latmin) / latres) * ((lonmax - lonmin) / lonres) # Square meters of grid cell
-    target_b = B* 1_000_000 * cell_size #Total grams to create
+    mean_lat_rad = deg2rad((latmin + latmax) / 2)
+    km_per_deg_lat = 111.32
+    km_per_deg_lon = 111.32 * cos(mean_lat_rad)
+
+    lat_range = abs(latmax - latmin)
+    lon_range = abs(lonmax - lonmin)
+
+    area_km2 = lat_range * km_per_deg_lat * lon_range * km_per_deg_lon
+
+    target_b = B * 1e6 * area_km2 #Total grams to create
     # Set plank data values
     current_b = 0
     ind = 0
@@ -135,18 +141,18 @@ function reproduce(model,sp,ind,energy,val)
     sp_dat = model.individuals.animals[sp].data
     sp_char = model.individuals.animals[sp].p
 
-    total_abundance = sum(sp_dat.abundance[findall(x -> x == 1.0, sp_dat.alive)])
-    K = model.init_abund[sp]
-    density_factor = 1 / (1 + total_abundance / K)
+    #max_fecundity = sp_char.FLR_a[2][sp] .* sp_dat.length[ind] .^ sp_char.FLR_b[2][sp]
 
     egg_volume = 0.15 .* sp_dat.biomass_ind[ind] .^ 0.14 #From Barneche et al. 2018
     egg_energy = 2.15 .* egg_volume .^ 0.77
 
-    spent_energy = energy .* val
+    spent_energy = energy .* val .* 0.9 #Assume 10% is saved for maintenance costs while spawning (energy left in reserve: from SEASIM model)
 
     sp_dat.energy[ind] .-= spent_energy
 
-    num_eggs = ceil.(Int, (spent_energy ./ egg_energy) .* sp_char.Sex_Ratio[2][sp] .* sp_char.Hatch_Survival[2][sp] .* density_factor)
+    #num_eggs = min.(floor.(Int, (spent_energy ./ egg_energy) .* sp_char.Sex_Ratio[2][sp] .* sp_char.Hatch_Survival[2][sp]),floor.(max_fecundity))
+
+    num_eggs = floor.(Int, (spent_energy ./ egg_energy) .* sp_char.Sex_Ratio[2][sp] .* sp_char.Hatch_Survival[2][sp])
 
     parent_x = sp_dat.x[ind]
     parent_y = sp_dat.y[ind]
@@ -270,7 +276,7 @@ function initialize_resources(traits,n_spec,n_resource,depths,capacities)
 end
 
 function resource_growth(model)
-    for i in 1:model.n_resource
+    Threads.@threads for i in 1:model.n_resource
         rate = model.resource_trait[i,:Growth]
         matching_idxs = findall(r -> r.sp == i, model.resources)
 

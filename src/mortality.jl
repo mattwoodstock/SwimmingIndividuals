@@ -13,7 +13,7 @@ end
 
 function resource_mortality(model)
     dt = model.dt
-    for i in 1:model.n_resource
+    Threads.@threads for i in 1:model.n_resource
         z = model.resource_trait[i,:Z]
         z_conv = z/(365*1440) * dt
         P_removed = 1 - exp(-z_conv * dt)

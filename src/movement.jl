@@ -441,7 +441,8 @@ function movement_toward_habitat(model, time::Vector{Float64}, inds, sp)
     @views pool_y = Int.(animal_data.pool_y[inds])
     @views lengths = animal_data.length[inds] ./ 1000
 
-    swim_speed = animal_param.Swim_velo[2][sp] * rand() #Assume animal is not at burst velocity, but could be close
+    swim_speed = bl_per_s(lengths*100,animal_param.Swim_velo[2][sp])
+    
     max_swim_distance = swim_speed .* lengths .* time[inds]
 
     latmin = grid[grid.Name .== "yllcorner", :Value][1]
@@ -565,4 +566,8 @@ function move_resources(model,month)
         end
     end
     return resources
+end
+
+function bl_per_s(length,speed;b=0.35,min_speed = 0.5)
+    return max.(speed .* length .^ (-b),min_speed)
 end

@@ -69,7 +69,7 @@ function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, indices)
     animal_data.energy[ind] .= min.(r_max, animal_data.energy[ind])
 
     can_grow = (animal_data.length[ind] .< max_size) .& (excess .> 0)
-    growth_prop = 1 .- (animal_data.length[ind] ./ max_size)
+    growth_prop = exp.(-5* animal_data.length[ind] / max_size)
 
     if any(can_grow)
         growing_inds = findall(can_grow)

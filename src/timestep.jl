@@ -49,6 +49,9 @@ function TimeStep!(sim::MarineSimulation)
             print("   Mean Length: ")
             println(mean(species_data.length[living]))
 
+            ## Gather initial abundances for STE mortality calculations
+            init_abundances(model,spec,outputs)
+
             if length(living) > 0
                 #Divide into chunks for quicker processing and eliminating memory allocation at one time.
                 n::Int64 = length(living)
@@ -68,24 +71,29 @@ function TimeStep!(sim::MarineSimulation)
                     energy(model, spec, ind_temp,chunk_indices)
                     print("fish | ")
 
-                    fishing(model, fisheries, spec, day_index,chunk_indices)
+                    if (model.iteration > model.spinup) #Restrict fishing until after a no-fishing burn-in
+                        fishing(model, fisheries, spec, day_index,chunk_indices,outputs)
+                    end
                 end
             end
         end 
-        species_data.age .+= model.dt
+        species_data.age .+= (model.dt / 1440)
     end
 
     print("resources | ")
 
     #Resource procedure
-    resource_predation(model)
+    resource_predation(model,outputs)
     resource_growth(model)
     resource_mortality(model)
     println("results | ")
 
-    if (model.t % model.output_dt == 0) & (model.iteration > model.spinup) #Only output results after the spinup is done.
+    if (model.t % model.output_dt == 0) #Only output results after the spinup is done.
         timestep_results(sim) #Assign and output
-        fishery_results(sim,fisheries)
+
+        if (model.iteration > model.spinup)
+            fishery_results(sim,fisheries)
+        end
     end 
 
     #Reset at each time step

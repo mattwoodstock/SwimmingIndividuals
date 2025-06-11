@@ -8,7 +8,6 @@ function calculate_distances_prey(model::MarineModel, sp::Int64, inds, dt)
     min_prey = sp_chars.Min_Prey[2][sp]
     max_prey = sp_chars.Max_Prey[2][sp]
     handling_time = sp_chars.Handling_Time[2][sp]
-    swim_speed = sp_chars.Swim_velo[2][sp]
 
     detection = @view sp_data.vis_prey[inds]
     sp_length_inds = @view sp_data.length[inds]
@@ -17,6 +16,8 @@ function calculate_distances_prey(model::MarineModel, sp::Int64, inds, dt)
     z = @view sp_data.z[inds]
     sp_pool_x = @view sp_data.pool_x[inds]
     sp_pool_y = @view sp_data.pool_y[inds]
+
+    swim_speed = bl_per_s(sp_length_inds/10,sp_chars.Swim_velo[2][sp])
 
     adj_length = sp_length_inds ./ 1000
     max_swim_dist = swim_speed .* adj_length .* @view(dt[inds])
@@ -54,9 +55,6 @@ function calculate_distances_prey(model::MarineModel, sp::Int64, inds, dt)
             prey_length = Float64[]
 
             for (species_index, animal) in enumerate(model.individuals.animals)
-                if species_index == sp 
-                    continue 
-                end
                 species_data = animal.data
                 prey_lengths = species_data.length
 
@@ -217,7 +215,7 @@ function eat(model::MarineModel, sp, to_eat, prey_list, time, outputs)
     @views biomass_school_ind = data.biomass_school[to_eat]
 
     n_ind = length(to_eat)
-    max_stomachs = 0.5
+    max_stomachs = 0.2
     max_dists = chars.Swim_velo[2][sp] .* (length_ind ./ 1000) .* time[to_eat]
 
     for j in 1:n_ind
@@ -280,13 +278,20 @@ function eat(model::MarineModel, sp, to_eat, prey_list, time, outputs)
                 abundance = prey_data.abundance[prey_info.Ind]
                 max_cons = min(abundance, floor(Int, time_left / chars.Handling_Time[2][sp]))
 
+                x = floor(Int,prey_data.pool_x[prey_info.Ind])
+                y = floor(Int,prey_data.pool_y[prey_info.Ind])
+                z = floor(Int,prey_data.pool_z[prey_info.Ind])
+
                 ration_max = (max_stomachs * biomass_school_ind[j]) - (gut_fullness_ind[j] * biomass_school_ind[j])
                 ration = min(prey_biomass, ind_biomass * max_cons, ration_max)
                 ration = max(0.0, min(ration, prey_biomass))  # Final safety clamp
                 n_consumed = floor(Int, ration / ind_biomass)
                 data.ration[ind] += ration * prey_chars.Energy_density[2][sp]
                 predation_mortality(model, prey_info, outputs, n_consumed, ration)
-                
+
+                outputs.mortalities[x,y,z,sp,prey_info.Sp] += n_consumed
+                outputs.consumption[x,y,z,sp,prey_info.Sp] += ration
+
                 # Update local prey_info biomass to keep current predator's loop consistent
                 prey_info.Biomass = max(0.0, prey_biomass - ration)
             else
@@ -294,6 +299,10 @@ function eat(model::MarineModel, sp, to_eat, prey_list, time, outputs)
                 # Always fetch fresh biomass from model.resources
                 prey_spec = prey_info.Sp
                 prey_biomass = model.resources[prey_info.Ind].biomass
+
+                x = model.resources[prey_info.Ind].pool_x
+                y = model.resources[prey_info.Ind].pool_y
+                z = model.resources[prey_info.Ind].pool_z
 
                 if prey_biomass > 0
                     prey_length = prey_info.Length[1] / 10
@@ -309,10 +318,12 @@ function eat(model::MarineModel, sp, to_eat, prey_list, time, outputs)
                     n_consumed = floor(Int, ration / ind_biomass)
 
                     data.ration[ind] += ration * model.resource_trait[prey_spec, :Energy_density]
-                    model.resources[prey_info.Ind].biomass -= ration
+                    #model.resources[prey_info.Ind].biomass -= ration
 
                     # Update local prey_info biomass to keep current predator's loop consistent
-                    prey_info.Biomass = max(0.0, prey_biomass - ration)
+                    #prey_info.Biomass = max(0.0, prey_biomass - ration)
+                    outputs.consumption[x,y,z,sp,model.n_species + prey_spec] += ration
+
                 end
             end
                 total_time < time[ind] && gut_fullness_ind[j] < max_stomachs && prey_index <= length(sorted_prey_buffer)
@@ -332,11 +343,12 @@ function eat(model::MarineModel, sp, to_eat, prey_list, time, outputs)
     return time
 end
 
-function resource_predation(model::MarineModel)
+function resource_predation(model::MarineModel,output::MarineOutputs)
     grid = model.depths.grid
     depthres = Int(grid[grid.Name .== "depthres", :Value][1])
     latres = Int(grid[grid.Name .== "latres", :Value][1])
     lonres = Int(grid[grid.Name .== "lonres", :Value][1])
+    Z_daily_sum = zeros(Float64, lonres, latres, depthres, model.n_species)
 
     latmax = grid[grid.Name .== "yulcorner", :Value][1]
     cell_size_deg = grid[grid.Name .== "cellsize", :Value][1]
@@ -374,12 +386,10 @@ function resource_predation(model::MarineModel)
 
             predator_biomass = pred_biom  # g/km²
 
-            # Initialize arrays
             all_biomasses = zeros(Float64, model.n_species + model.n_resource)
             species_prey_idxs = Vector{Vector{Int}}(undef, model.n_species)
             species_prey_filters = Vector{BitVector}(undef, model.n_species)
 
-            # --- Loop over individual-based prey species ---
             for sp in 1:model.n_species
                 animal_dat = model.individuals.animals[sp].data
                 animal_chars = model.individuals.animals[sp].p
@@ -399,7 +409,7 @@ function resource_predation(model::MarineModel)
                 prey_biomasses = animal_dat.biomass_school[prey_idxs] ./ cell_area
 
                 prey_filter = (prey_lengths .>= min_prey_ratio * pred_length_mean) .&
-                            (prey_lengths .<= max_prey_ratio * pred_length_mean)
+                              (prey_lengths .<= max_prey_ratio * pred_length_mean)
                 species_prey_filters[sp] = prey_filter
                 species_prey_idxs[sp] = prey_idxs[prey_filter]
 
@@ -416,40 +426,29 @@ function resource_predation(model::MarineModel)
                 continue 
             end
 
-            # --- Loop over resource-based prey types ---
-            for r in 1:model.n_resource
-                idx = findall(r -> r.sp == r,model.resources)
-                # Total biomass in this cell (scalar), divided by area to get g/km²
-                res_biomass = sum(getfield.(model.resources[idx],:biomass)) / cell_area
+            for rr in 1:model.n_resource
+                idx = findall(res -> res.sp == rr && res.pool_x == x && res.pool_y == y && res.pool_z == z, model.resources)
+                res_biomass = sum(getfield.(model.resources[idx], :biomass)) / cell_area
 
                 if res_biomass <= 0
-                    all_biomasses[model.n_species + r] = 0.0
+                    all_biomasses[model.n_species + rr] = 0.0
                     continue
                 end
 
-                # Get resource max size and estimate lognormal params
-                res_max_length = model.resource_trait[r, :Max_Size]
+                res_max_length = model.resource_trait[rr, :Max_Size]
                 μ, σ = lognormal_params_from_maxsize(res_max_length)
 
-                # Create 10 size class midpoints (in mm)
-                size_edges = exp.(range(μ - 3σ, μ + 3σ; length=11))  # 10 bins
+                size_edges = exp.(range(μ - 3σ, μ + 3σ; length=11))
                 size_mids = 0.5 .* (size_edges[1:end-1] + size_edges[2:end])
-
-                # Prey size range limits
                 min_prey_length = min_prey_ratio * pred_length_mean
                 max_prey_length = max_prey_ratio * pred_length_mean
 
-                # Probability in each bin from CDF
                 p_edges = cdf.(LogNormal(μ, σ), size_edges)
-                p_bins = p_edges[2:end] .- p_edges[1:end-1]  # Length 10
-
-                # Filter bins within acceptable prey length range
+                p_bins = p_edges[2:end] .- p_edges[1:end-1]
                 prey_bin_mask = (size_mids .>= min_prey_length) .& (size_mids .<= max_prey_length)
+                res_prey_biomass = sum(p_bins[prey_bin_mask]) * res_biomass
 
-                # Biomass in acceptable bins
-                res_prey_biomass = sum(p_bins[prey_bin_mask]) * res_biomass  # g/km²
-
-                all_biomasses[model.n_species + r] = res_prey_biomass
+                all_biomasses[model.n_species + rr] = res_prey_biomass
             end
 
             prop_biomass = all_biomasses ./ sum(all_biomasses)
@@ -457,7 +456,7 @@ function resource_predation(model::MarineModel)
                 animal_dat = model.individuals.animals[sp].data
                 prop_ingestion = prop_biomass[sp] * max_ingestion
                 total_prey_biomass = all_biomasses[sp]
-                # --- Compute mortality ---
+
                 mortality = resource_predation_mortality(
                     total_prey_biomass,
                     predator_biomass,
@@ -467,37 +466,32 @@ function resource_predation(model::MarineModel)
                     dt
                 )
 
-                # Apply mortality to prey biomass
                 kept_idxs = species_prey_idxs[sp]
-                kept_biomasses = animal_dat.biomass_school[species_prey_idxs[sp]]
+                kept_biomasses = animal_dat.biomass_school[kept_idxs]
                 total_kept_biomass = sum(kept_biomasses)
 
                 if total_kept_biomass > 0
-                    # Proportion of each individual's biomass to the total
                     biomass_proportions = kept_biomasses ./ total_kept_biomass
-
-                    # Total biomass to remove
                     total_biomass_removed = total_kept_biomass * mortality
-
-                    # Biomass to remove per individual
                     biomass_removed = biomass_proportions .* total_biomass_removed
 
-                    # Subtract removal amount from each individual
                     for (i, idx) in enumerate(kept_idxs)
                         ind_biom = animal_dat.biomass_ind[idx]
-                        inds_removed = floor(Int,biomass_removed[i] / ind_biom)
+                        inds_removed = floor(Int, biomass_removed[i] / ind_biom)
                         animal_dat.biomass_school[idx] -= biomass_removed[i]
                         animal_dat.biomass_school[idx] = max(animal_dat.biomass_school[idx], 0.0)
                         animal_dat.abundance[idx] -= inds_removed
                         if animal_dat.abundance[idx] <= 0
                             animal_dat.alive[idx] = 0
                         end
+                        output.mortalities[x,y,z,model.n_species+r,sp] += inds_removed #Add removed individuals to mortality frame for future caluculation of Z
                     end
                 end
             end
         end
     end
 end
+
 
 function resource_predation_mortality(
     prey_biomass::Float64,     # g/km²
