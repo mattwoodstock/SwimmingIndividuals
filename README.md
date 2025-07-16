@@ -1,17 +1,6 @@
-## SwimmingIndividuals.jl
-
-This repository holds the source code for *SwimmingIndividuals.jl* (SI), an agent-based ecosystem modeling software. SI takes basic biological traits (e.g., species' biomass, maximum individual size, swim speed) and simulates individual animal behavior decisions as a result of surrounding predator and prey fields. Predator-prey interactions and environmental factors drive animal movements, energetics, and population dynamics through temperature-dependent bioenergetic rates that simulate individual animal growth and reproductive output from [ideally] realistic prey fields and environmental conditions. The model is in development, as new processes become made available and and model performance is improved. If SI could work for you, please reach out to me at my [email](msw200@miami.edu) to discuss collaborations until a sensible user guide and manuscript can be created.
-
-
-![SwimmingIndividuals Schematic](full_SI_Schematic.png)
-
-Currently, this model is being used to estimate King Mackerel growth and movements:
-![King Mackerel Migration](animal_locations.gif)
-
-
 # SwimmingIndividuals.jl: A High-Performance Agent-Based Model for Marine Ecosystems
 
-![Model Banner](https://placehold.co/1200x300/0077be/ffffff?text=SwimmingIndividuals.jl)
+![Model Banner](![SwimmingIndividuals Schematic](full_SI_Schematic.png))
 
 **SwimmingIndividuals.jl** is a flexible, high-performance agent-based model (ABM) written in the Julia programming language. It is designed to simulate the life histories, behaviors, and population dynamics of marine organisms interacting with a dynamic environment and human systems like fisheries. The model is built for performance, with a dual CPU/GPU architecture that allows for the efficient simulation of millions of individual agents.
 
@@ -75,6 +64,8 @@ Governs all agent motion.
 - **`dvm_action!()` / `dive_action!()`**: GPU kernels that manage the state-machine logic for Diel Vertical Migration and air-breathing diver behavior.
 - **`movement_toward_habitat!()`**: A CPU-based, multi-threaded function that moves agents toward higher-quality habitat using pathfinding algorithms. It uses a "Gather, Compute, Update" pattern to remain GPU-compliant.
 - **`move_resources()`**: Re-distributes all resource patches at the start of each month based on the new month's habitat capacity.
+
+![King Mackerel Migration](animal_locations.gif)
 
 ### `predation.jl`
 Handles all foraging and consumption events.
