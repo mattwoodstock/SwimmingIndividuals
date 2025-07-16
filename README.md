@@ -1,6 +1,6 @@
 # SwimmingIndividuals.jl: A High-Performance Agent-Based Model for Marine Ecosystems
 
-![Model Banner](![SwimmingIndividuals Schematic](full_SI_Schematic.png))
+(![SwimmingIndividuals Schematic](full_SI_Schematic.png))
 
 **SwimmingIndividuals.jl** is a flexible, high-performance agent-based model (ABM) written in the Julia programming language. It is designed to simulate the life histories, behaviors, and population dynamics of marine organisms interacting with a dynamic environment and human systems like fisheries. The model is built for performance, with a dual CPU/GPU architecture that allows for the efficient simulation of millions of individual agents.
 
