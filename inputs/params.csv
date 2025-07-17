@@ -1,9 +1,10 @@
 Name,Value,Description
-architecture,CPU,Can either be CPU or GPU
+architecture,GPU,Can either be CPU or GPU
 numspec,1,Number of Modeled Species
-numresource,19,Number of resource groups
-nts,36500,Number of Time Steps (minutes) model and spinup
+numresource,11,Number of resource groups
+nts,365,Number of Time Steps (minutes) model and spinup
 output_dt,1440,Interval between Timestep Outputs
-spinup,365,Number of time steps of the spinup
+spinup,0,Number of time steps of the spinup
 model_dt,1440,Number of minutes between time steps
 n_iter,10,Number of model iterations to run
+plt_diags,0,0 = Do not plot diagnostics : 1 = plot diagnostics

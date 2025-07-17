@@ -10,3 +10,4 @@ resource_z_dist_day,inputs/z_pool_distributions_day.csv
 fisheries,inputs/fishery.csv
 envi_pref,inputs/envi_pref.csv
 reproduction,inputs/reproduction.csv
+environment,inputs/environment.nc

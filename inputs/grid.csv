@@ -3,12 +3,12 @@ latmin,0,Minimum Latitude
 latmax,783000,Maximum Latitude
 lonmin,0,Minimum Longitude
 lonmax,1600000,Maximum Longitude
-depthmax,20,Maximum Depth (insert positive value)
+depthmax,1000,Maximum Depth (insert positive value)
 latres,53,Number of latitude grid cells
 lonres,131,Number of Longitude Grid Cells
 depthres,1,Number of depth Grid Cells
 cellsize,0.133587793,Size of the cell degrees
+xurcorner,-80,Upper left longitude
 xllcorner,-98,Lower left longitude
-xulcorner,-81,Upper left longitude
-yulcorner,31,Lower left latitude
+yulcorner,31,Upper left latitude
 yllcorner,23.9265270233154,Lower left latitude
