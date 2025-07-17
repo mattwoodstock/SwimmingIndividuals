@@ -35,91 +35,105 @@ function load_fisheries(df::DataFrame)
     return fisheries
 end
 
-function fishing(model, fisheries::Vector{Fishery}, sp, day, inds,outputs)
-    spec = model.individuals.animals[sp].p.SpeciesLong[2][sp]
-    spec_dat = model.individuals.animals[sp].data
-    spec_char = model.individuals.animals[sp].p
+@kernel function fishing_kernel!(
+    spec_dat, Fmort_inds, # Main data arrays
+    spec_char_gpu, fishery_params_gpu, # GPU-compatible parameters
+    sp::Int # Pass species index directly
+)
+    ind = @index(Global) # My index
 
-    fish = 1
-    for fishery in fisheries
-        if !(fishery.season[1] ≤ day ≤ fishery.season[2]) || fishery.cumulative_catch ≥ fishery.quota
-            continue
+    @inbounds if spec_dat.alive[ind] == 1.0
+        # --- Filter 1: Is the agent in the right place? ---
+        # Note: Accessing fields from the simple fishery_params_gpu tuple
+        in_area = (fishery_params_gpu.area[1][1] <= spec_dat.x[ind] <= fishery_params_gpu.area[1][2] &&
+                   fishery_params_gpu.area[2][1] <= spec_dat.y[ind] <= fishery_params_gpu.area[2][2] &&
+                   fishery_params_gpu.area[3][1] <= spec_dat.z[ind] <= fishery_params_gpu.area[3][2])
+
+        if in_area
+            # --- Filter 2: Is the agent the right size? ---
+            in_slot = fishery_params_gpu.slot_limit[1] <= spec_dat.length[ind] <= fishery_params_gpu.slot_limit[2]
+
+            if in_slot
+                # --- Filter 3: Gear Selectivity (probabilistic) ---
+                selectivity = 1.0 / (1.0 + exp(-fishery_params_gpu.slope * (spec_dat.length[ind] - fishery_params_gpu.l50)))
+                
+                if rand(Float32) <= selectivity
+                    # --- ALL FILTERS PASSED: Calculate Catch ---
+                    abundance = spec_dat.abundance[ind]
+                    # Note: Accessing traits from the GPU-compatible spec_char_gpu
+                    k = spec_char_gpu.School_Size[sp] / 2.0
+                    density_effect = abundance^2 / (abundance^2 + k^2)
+                    
+                    possible_inds = floor(Int, abundance)
+                    catch_inds = floor(Int, rand(Float32) * possible_inds * density_effect)
+
+                    if catch_inds > 0
+                        # Atomically update agent state to prevent race conditions
+                        @atomic spec_dat.biomass_school[ind] -= catch_inds * spec_dat.biomass_ind[ind]
+                        old_abund = @atomic spec_dat.abundance[ind] -= Float64(catch_inds)
+
+                        if old_abund - catch_inds <= 0
+                            spec_dat.alive[ind] = 0.0
+                        end
+                        
+                        # Atomically record the number of individuals caught
+                        @atomic Fmort_inds[ind] += catch_inds
+                    end
+                end
+            end
         end
-
-        in_target_or_bycatch = spec in fishery.target_species || sp in fishery.bycatch_species
-        if !in_target_or_bycatch
-            continue
-        end
-
-        daily_catch = 0
-
-        for ind in inds
-            in_area = (fishery.area[1][1] ≤ spec_dat.x[ind] ≤ fishery.area[1][2] &&
-                       fishery.area[2][1] ≤ spec_dat.y[ind] ≤ fishery.area[2][2] &&
-                       fishery.area[3][1] ≤ spec_dat.z[ind] ≤ fishery.area[3][2])
-
-            if !in_area || daily_catch >= fishery.bag_limit
-                continue
-            end
-
-            in_slot = fishery.slot_limit[1] ≤ spec_dat.length[ind] ≤ fishery.slot_limit[2]
-            if !in_slot
-                continue
-            end
-
-            l50 = fishery.selectivities[string(spec)].L50
-            slope = fishery.selectivities[string(spec)].slope
-            selectivity = 1 / (1 + exp(-slope * (spec_dat.length[ind] - l50)))
-
-            if rand() > selectivity
-                continue
-            end
-
-            # Density-dependent adjustment
-            abundance = spec_dat.abundance[ind]
-            k = spec_char.School_Size[2][sp] / 2 #Density at which catchability is 50%. Assumed to be 1/2 school size
-            density_effect = abundance^2 / (abundance^2 + k^2)
-
-            available_biomass = spec_dat.biomass_school[ind]
-            available_tons = available_biomass / 10e6
-            remaining_quota = fishery.quota - fishery.cumulative_catch
-
-            if remaining_quota ≤ 0 || available_tons ≤ 0
-                break
-            end
-
-            biomass_ind = spec_char.LWR_a[2][sp] * (spec_dat.length[ind]/10)^spec_char.LWR_b[2][sp]
-            max_catchable_inds = floor(Int, (remaining_quota * 10e6) / biomass_ind)
-            max_inds_by_biomass = floor(Int, available_biomass / biomass_ind)
-
-            possible_inds = min(fishery.bag_limit - daily_catch, max_catchable_inds, max_inds_by_biomass)
-            # Apply density compensation to reduce catch
-            catch_inds = floor(Int, rand() * possible_inds * density_effect)
-
-            if catch_inds ≤ 0
-                continue
-            end
-
-            adj_catch = catch_inds * biomass_ind
-            adj_catch_tons = adj_catch / 10e6
-
-            spec_dat.biomass_school[ind] -= adj_catch
-            spec_dat.abundance[ind] -= catch_inds
-            fishery.cumulative_catch += adj_catch_tons
-            fishery.cumulative_inds += catch_inds
-            daily_catch += catch_inds
-
-            if spec_dat.biomass_school[ind] ≤ 0
-                spec_dat.alive[ind] = 0
-            end
-
-            x = floor(Int,spec_dat.pool_x[ind])
-            y = floor(Int,spec_dat.pool_y[ind])
-            z = floor(Int,spec_dat.pool_z[ind])
-
-            outputs.Fmort[x,y,z,fish,sp] += catch_inds
-        end
-        fish += 1
     end
 end
 
+function fishing!(model::MarineModel, sp::Int, day::Int, outputs::MarineOutputs)
+    arch = model.arch
+    spec_dat = model.individuals.animals[sp].data
+    spec_char_cpu = model.individuals.animals[sp].p
+    spec_name = spec_char_cpu.SpeciesLong.second[sp]
+
+    # Temporary array to store individuals caught per agent
+    Fmort_inds = array_type(arch)(zeros(Int, length(spec_dat.x)))
+
+    spec_char_gpu = (; (k => array_type(arch)(v.second) for (k, v) in pairs(spec_char_cpu))...)
+
+    for (fish_idx, fishery) in enumerate(model.fishing)
+        # --- Main Fishery Checks (done once on CPU) ---
+        if !(fishery.season[1] <= day <= fishery.season[2]) || fishery.cumulative_catch >= fishery.quota
+            continue
+        end
+        if !(spec_name in fishery.target_species || spec_name in fishery.bycatch_species)
+            continue
+        end
+
+        sel = fishery.selectivities[spec_name]
+        fishery_params_gpu = (
+            area = fishery.area,
+            slot_limit = fishery.slot_limit,
+            l50 = sel.L50,
+            slope = sel.slope
+        )
+
+        # --- Launch Kernel with only GPU-compatible arguments ---
+        kernel! = fishing_kernel!(device(arch), 256, (length(spec_dat.x),))
+        kernel!(spec_dat, Fmort_inds, spec_char_gpu, fishery_params_gpu, sp)
+
+        # --- Post-Kernel Processing (on CPU) ---
+        total_inds_caught = Int(sum(Fmort_inds)) # Copy scalar result from GPU
+        if total_inds_caught > 0
+            # (This logic to update cumulative totals is fine on the CPU)
+            # You may want a more efficient way to get avg_biomass_ind if this becomes a bottleneck
+            cpu_biomass_ind = Array(spec_dat.biomass_ind)
+            cpu_fmort_inds = Array(Fmort_inds)
+            avg_biomass_ind = mean(cpu_biomass_ind[cpu_fmort_inds .> 0])
+            total_biomass_caught = total_inds_caught * avg_biomass_ind
+            
+            fishery.cumulative_inds += total_inds_caught
+            fishery.cumulative_catch += total_biomass_caught / 1e6
+            
+            # Reset temp array for next fishery
+            fill!(Fmort_inds, 0)
+        end
+    end
+    # Synchronize to ensure all fishing kernels are done before proceeding
+    KernelAbstractions.synchronize(device(arch))
+end

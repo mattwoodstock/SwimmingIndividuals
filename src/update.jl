@@ -1,15 +1,17 @@
-function update!(sim::MarineSimulation)
-    #Run model
+# ===================================================================
+# Main Simulation Driver
+# ===================================================================
+
+"""
+    runSI(sim::MarineSimulation)
+
+A simple wrapper function to start the simulation. This can be used as the
+main entry point in your `model.jl` script.
+"""
+function runSI(sim::MarineSimulation)
+    println("✅ Model Initialized. Starting simulation run...")
     for i in 1:sim.iterations
         TimeStep!(sim)
-        #@profile TimeStep!(sim)
-
-        #ProfileView.view()
-        #stop
-        #Open a text file to write the profile results
-        #open("profile_output.txt", "w") do file
-        #    Profile.print(file)
-        #end
-        
     end
+    println("✅ Simulation run complete.")
 end

@@ -1,26 +1,21 @@
-function predation_mortality(model::MarineModel,df,outputs,n_consumed,ration)
-    if model.iteration > model.spinup
-        model.individuals.animals[df.Sp[1]].data.abundance[df.Ind[1]] -= n_consumed
-        model.individuals.animals[df.Sp[1]].data.biomass_school[df.Ind[1]] -= ration
-        outputs.mortalities[df.Sp[1],1] += n_consumed #Add one to the predation mortality column
+@kernel function resource_mortality_kernel!(biomass_grid, resource_trait, dt)
+    lon, lat, depth, sp = @index(Global, NTuple)
 
-        if (model.individuals.animals[df.Sp[1]].data.abundance[df.Ind[1]]) == 0
-            model.individuals.animals[df.Sp[1]].data.alive[df.Ind[1]] = 0.0
-        end
+    biomass = biomass_grid[lon, lat, depth, sp]
+    if biomass > 0
+        z_rate = resource_trait.Z[sp]
+        z_per_minute = z_rate / (365 * 1440)
+        proportion_surviving = exp(-z_per_minute * dt)
+        @inbounds biomass_grid[lon, lat, depth, sp] = biomass * proportion_surviving
     end
-    return nothing
 end
 
-function resource_mortality(model)
-    dt = model.dt
-    Threads.@threads for i in 1:model.n_resource
-        z = model.resource_trait[i,:Z]
-        z_conv = z/(365*1440) * dt
-        P_removed = 1 - exp(-z_conv * dt)
+function resource_mortality!(model::MarineModel)
+    arch = model.arch
+    trait_gpu = (; (Symbol(c) => array_type(arch)(model.resource_trait[:, c]) for c in names(model.resource_trait))...)
 
-        matching_idxs = findall(r -> r.sp == i,model.resources)
-        for idx in matching_idxs
-            model.resources[idx].biomass *= P_removed
-        end
-    end
+    kernel! = resource_mortality_kernel!(device(arch), (8, 8, 4, 1), size(model.resources.biomass))
+    # Pass only the biomass grid
+    kernel!(model.resources.biomass, trait_gpu, model.dt)
+    KernelAbstractions.synchronize(device(arch))
 end

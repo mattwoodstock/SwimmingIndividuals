@@ -1,17 +1,30 @@
+# ===================================================================
+# Data Structures for Simulation and Output
+# ===================================================================
+
+"""
+    MarineOutputs
+A mutable struct to hold all the data generated during a simulation run.
+The fields are defined as `AbstractArray` to be compatible with both
+CPU `Array`s and GPU `CuArray`s.
+"""
 mutable struct MarineOutputs
-    mortalities::Array{Int64,5}
-    Fmort::Array{Int64,5}
-    lengths::Vector{Float64}
-    weights::Vector{Float64}
-    consumption::Array{Float64,5}
-    abundance::Array{Float64,4}
+    mortalities::AbstractArray{Int64,5}
+    Fmort::AbstractArray{Int64,5}
+    consumption::AbstractArray{Float64,5}
+    abundance::AbstractArray{Float64,4}
 end
 
+
+"""
+    MarineSimulation
+The main "runner" object for a single simulation experiment. It bundles
+the model state with run-specific parameters
+"""
 mutable struct MarineSimulation
-    model::MarineModel                       # Model object
-    ΔT::Float64                                  # model time step
-    iterations::Int64                          # run the simulation for this number of iterations
-    run::Int64                                  #Model run ID
+    model::MarineModel
+    ΔT::Float64
+    iterations::Int64
+    run::Int64
     outputs::MarineOutputs
-    #output_writer::Union{MarineOutputWriter,Nothing} # Output writer
 end

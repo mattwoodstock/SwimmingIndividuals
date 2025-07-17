@@ -1,129 +1,161 @@
-function energy(model::MarineModel, sp::Int, temp::Vector{Float64}, indices)
-    # Extract animal data and parameters
-    animal_data = model.individuals.animals[sp].data
-    animal_chars = model.individuals.animals[sp].p
-    ind = collect(indices)
+function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
+    arch = model.arch
+    p_cpu = model.individuals.animals[sp].p
+    dt = model.dt
 
-    animal_ed = animal_chars.Energy_density[2][sp]
-    consumed = animal_data.ration[ind]                     # C in Wisconsin model
-    t_res = model.dt
-    weight = animal_data.biomass_school[ind]
-    taxa = animal_chars.Taxa[2][sp]
-    energy_type = animal_chars.MR_type[2][sp]
-    school_size = animal_chars.School_Size[2][sp]
-    max_size = animal_chars.Max_Size[2][sp]
-    abundance = animal_data.abundance[ind]
+    # --- 1. GATHER DATA FROM DEVICE (GPU) TO HOST (CPU) ---
+    # Reconstruct the StructArray on the CPU by copying each column individually.
+    agent_data_device = model.individuals.animals[sp].data
+    data_cpu = StructArray(
+        x = Array(agent_data_device.x), y = Array(agent_data_device.y), z = Array(agent_data_device.z),
+        length = Array(agent_data_device.length), abundance = Array(agent_data_device.abundance),
+        biomass_ind = Array(agent_data_device.biomass_ind), biomass_school = Array(agent_data_device.biomass_school),
+        energy = Array(agent_data_device.energy), gut_fullness = Array(agent_data_device.gut_fullness),
+        cost = Array(agent_data_device.cost), pool_x = Array(agent_data_device.pool_x),
+        pool_y = Array(agent_data_device.pool_y), pool_z = Array(agent_data_device.pool_z),
+        active = Array(agent_data_device.active), ration = Array(agent_data_device.ration),
+        alive = Array(agent_data_device.alive), vis_prey = Array(agent_data_device.vis_prey),
+        mature = Array(agent_data_device.mature), age = Array(agent_data_device.age),
+        cell_id = Array(agent_data_device.cell_id), sorted_id = Array(agent_data_device.sorted_id),
+        repro_energy = Array(agent_data_device.repro_energy),
+        best_prey_dist = Array(agent_data_device.best_prey_dist),
+        best_prey_idx = Array(agent_data_device.best_prey_idx),
+        best_prey_sp = Array(agent_data_device.best_prey_sp),
+        best_prey_type = Array(agent_data_device.best_prey_type),
+        successful_ration = Array(agent_data_device.successful_ration),
+        temp_idx = Array(agent_data_device.temp_idx),
+        cell_starts = Array(agent_data_device.cell_starts),
+        cell_ends = Array(agent_data_device.cell_ends),
+    )
+    temp_cpu = Array(temp)
 
-    #Test
-    percent_bw = (consumed ./ (animal_ed .* animal_data.biomass_school[ind])) .* 100
-
-    active_time = min.(1, animal_data.active[ind] ./ t_res)
-
-    # Constants
-    egestion_coeff = 0.1  # F
-    excretion_coeff = 0.05 # U
-    sda_coeff = 0.05      # SDA
-    n_hours = t_res / 60
-    evac_prop = min.(1.0, 0.053 .* exp.(0.073 .* temp))
-
-    ## --- RESPIRATION (R) --- ##
-    if energy_type == "deepsea"
-        oxy = 13.6 # kj/g
-        depth = max.(1, animal_data.z[ind])
-        log_weight = log.(weight)
-        inv_temp = 1000 ./ (273.15 .+ temp)
-        log_depth = log.(depth)
-
-        lnr = @. (taxa == "Fish" ? 19.491 + 0.885 * log_weight - 5.770 * inv_temp - 0.261 * log_depth :
-                  taxa == "Cephalopod" ? 28.326 + 0.779 * log_weight - 7.903 * inv_temp - 0.365 * log_depth :
-                  18.775 + 0.766 * log_weight - 5.265 * inv_temp - 0.113 * log_depth)
-
-        R = (exp.(lnr) / 1140 * (oxy * 1000)) / 60 * t_res
-    elseif energy_type == "cetacean"
-        min_fmr = (350 .* (weight ./ 1000) .^ 0.75) .* (t_res / 1440) ./ 4184
-        max_fmr = (420 .* (weight ./ 1000) .^ 0.75) .* (t_res / 1440) ./ 4184
-        R = min_fmr .+ (max_fmr .- min_fmr) .* active_time
-    else
-        R0 = 0.02
-        k = 8.617e-5
-        TK = temp .+ 273.15
-        rmr = R0 .* weight .^ 0.75 .* exp.(-0.65 ./ (k .* TK))
-        R = ((rmr / 2) .* (1 .- active_time)) .+ (rmr .* active_time)
-    end
-
-    ## --- Wisconsin Components --- ##
-    F = consumed .* egestion_coeff
-    U = consumed .* excretion_coeff
-    SDA = consumed .* sda_coeff
-
-    ## --- Net Production Energy --- ##
-    net_energy = consumed .- (R .+ SDA .+ F .+ U)
-    animal_data.gut_fullness[ind] = max.(0.0, animal_data.gut_fullness[ind] .* (1 .- evac_prop) .^ n_hours)
-
-    animal_data.cost[ind] .= R .+ SDA .+ F .+ U
-    animal_data.energy[ind] .+= net_energy
-
-    ## --- Growth --- ##
-    r_max = weight .* animal_ed .* 0.2
-    excess = max.(0, animal_data.energy[ind] .- r_max)
-    animal_data.energy[ind] .= min.(r_max, animal_data.energy[ind])
-
-    can_grow = (animal_data.length[ind] .< max_size) .& (excess .> 0)
-    growth_prop = exp.(-5* animal_data.length[ind] / max_size)
-
-    if any(can_grow)
-        growing_inds = findall(can_grow)
-        growth_energy = excess[growing_inds] .* growth_prop[growing_inds]
-
-        # Save current state
-        first_biomass_ind = copy(animal_data.biomass_ind[ind[growing_inds]])
-        first_length = copy(animal_data.length[ind[growing_inds]])
-
-        proposed_biomass_school = growth_energy ./ animal_ed
-        proposed_biomass_ind = proposed_biomass_school ./ abundance[growing_inds]
-
-        proposed_total_biomass = first_biomass_ind .+ proposed_biomass_ind
-        proposed_length = ((proposed_total_biomass ./ animal_chars.LWR_a[2][sp]) .^ (1 / animal_chars.LWR_b[2][sp])) .* 10
-        growth_ratio = (proposed_length .- first_length) ./ first_length
-
-        final_length = first_length .* (1 .+ growth_ratio)
-        final_biomass_ind = animal_chars.LWR_a[2][sp] .* (final_length ./ 10) .^ animal_chars.LWR_b[2][sp]
-        final_biomass_school = final_biomass_ind .* school_size
-
-        energy_used = (final_biomass_school .- animal_data.biomass_school[ind[growing_inds]]) .* animal_ed
-        animal_data.energy[ind[growing_inds]] .-= energy_used
-
-        animal_data.biomass_school[ind[growing_inds]] .= final_biomass_school
-        animal_data.biomass_ind[ind[growing_inds]] .= final_biomass_ind
-        animal_data.length[ind[growing_inds]] .= final_length
-
-        # Maturation
-        mature_weight = animal_chars.W_mat[2][sp] * (animal_chars.LWR_a[2][sp] * (max_size / 10)^animal_chars.LWR_b[2][sp])
-        mature_prob = logistic(animal_data.biomass_ind[ind[growing_inds]], 5, mature_weight)
-        trigger = rand(length(ind[growing_inds]))
-        to_mature = findall(mature_prob .> trigger)
-        animal_data.mature[ind[growing_inds[to_mature]]] .= 1.0
-    end
-
-    ## --- Reproduction --- ##
-    can_repro = (animal_data.mature[ind] .== 1.0) .& (excess .> 0)
+    # --- 2. COMPUTE BIOENERGETICS ON CPU ---
+    # Get seasonal reproduction value
     spawn_season = CSV.read(model.files[model.files.File .== "reproduction", :Destination][1], DataFrame)
-    species_name = animal_chars.SpeciesLong[2][sp]
+    species_name = p_cpu.SpeciesLong.second[sp]
     row_idx = findfirst(==(species_name), spawn_season.Species)
-    val = spawn_season[row_idx, model.environment.ts + 1]
+    spawn_val = row_idx !== nothing ? spawn_season[row_idx, model.environment.ts + 1] : 0.0
+    
+    spinup_check = model.iteration > model.spinup
 
-    if any(can_repro) && (val > 0)
-        repro_inds = findall(can_repro)
-        repro_energy = excess[repro_inds] .* (1 .- growth_prop[repro_inds])
+    # Use CPU multi-threading for the main calculation loop
+    #Threads.@threads for ind in 1:length(data_cpu.x)
+    for ind in 1:length(data_cpu.x)
 
-        reproduce(model, sp, ind[repro_inds], repro_energy, val)
+        if data_cpu.alive[ind] == 1.0
+            # --- Gather Agent Properties (from CPU copies) ---
+            my_temp = temp_cpu[ind]
+            my_consumed = data_cpu.ration[ind]
+            my_weight = data_cpu.biomass_school[ind]
+            my_active_time = min(0.0, data_cpu.active[ind] / dt)
+            my_z = data_cpu.z[ind]
+            my_length = data_cpu.length[ind]
+            my_energy = data_cpu.energy[ind]
+            my_mature = data_cpu.mature[ind]
+
+            # Get Species-Specific Trait Codes
+            energy_ed = p_cpu.Energy_density.second[sp]
+            taxa_code = p_cpu.Taxa.second[sp]
+            energy_type_code = p_cpu.MR_type.second[sp]
+            max_size = p_cpu.Max_Size.second[sp]
+
+            # --- Respiration (R) ---
+            R = 0.0
+            if energy_type_code == 2 # "cetacean"
+                min_fmr = (350.0 * (my_weight / 1000.0)^0.75) * (dt / 1440.0) / 4184.0
+                max_fmr = (420.0 * (my_weight / 1000.0)^0.75) * (dt / 1440.0) / 4184.0
+                R = min_fmr + (max_fmr - min_fmr) * my_active_time
+            elseif energy_type_code == 3 # "deepsea"
+                oxy = 13.6
+                depth = max(1.0, my_z)
+                if my_weight > 0; log_weight = log(my_weight); else continue; end
+                inv_temp = 1000.0 / (273.15 + my_temp)
+                log_depth = log(depth)
+                lnr = (taxa_code == 1 ? 19.491 + 0.885 * log_weight - 5.770 * inv_temp - 0.261 * log_depth :
+                       taxa_code == 2 ? 28.326 + 0.779 * log_weight - 7.903 * inv_temp - 0.365 * log_depth :
+                       18.775 + 0.766 * log_weight - 5.265 * inv_temp - 0.113 * log_depth)
+                R = (exp(lnr) / 1140.0 * (oxy * 1000.0)) / 60.0 * dt
+            else # Default
+                R0 = 0.02; k = 8.617e-5; TK = my_temp + 273.15
+                rmr = R0 * my_weight^0.75 * exp(-0.65 / (k * TK))
+                R = ((rmr / 2.0) * (1.0 - my_active_time)) + (rmr * my_active_time)
+            end
+
+            # --- Net Energy and Gut Evacuation ---
+            sda_coeff, egestion_coeff, excretion_coeff = 0.05, 0.1, 0.05
+            total_waste_and_cost = R + (my_consumed * (sda_coeff + egestion_coeff + excretion_coeff))
+            net_energy = my_consumed - total_waste_and_cost
+            
+            if ismissing(total_waste_and_cost)
+                println(temp_cpu)
+                STOP
+            end
+            data_cpu.cost[ind] = total_waste_and_cost
+
+            my_energy += net_energy
+
+            evac_prop = min(1.0, 0.053 * exp(0.073 * my_temp))
+            if evac_prop < 1.0
+                data_cpu.gut_fullness[ind] *= exp((dt / 60.0) * log(1.0 - evac_prop))
+            else
+                data_cpu.gut_fullness[ind] = 0.0
+            end
+
+            # --- Growth & Reproduction ---
+            r_max = my_weight * energy_ed * 0.2
+            excess = max(0.0, my_energy - r_max)
+            my_energy = min(r_max, my_energy)
+
+            if my_length < max_size && excess > 0.0
+                growth_prop = exp(-5.0 * my_length / max_size)
+                growth_energy = excess * growth_prop
+                new_biomass = data_cpu.biomass_school[ind] + (growth_energy / energy_ed)
+                data_cpu.biomass_school[ind] = new_biomass
+                my_energy -= growth_energy
+                excess -= growth_energy
+            end
+
+            if my_mature == 1.0 && excess > 0.0 && spawn_val > 0.0
+                data_cpu.repro_energy[ind] = excess
+                my_energy -= excess
+            end
+
+            data_cpu.energy[ind] = my_energy
+            
+            # --- Starvation ---
+            if my_energy < 0.0 && spinup_check
+                data_cpu.alive[ind] = 0.0
+            end
+        end
+    end
+    
+    # --- Process Reproduction on the CPU ---
+    repro_inds = findall(data_cpu.repro_energy .> 0)
+    if !isempty(repro_inds)
+        parent_data_for_repro = (
+            x = data_cpu.x[repro_inds], y = data_cpu.y[repro_inds], z = data_cpu.z[repro_inds],
+            pool_x = data_cpu.pool_x[repro_inds], pool_y = data_cpu.pool_y[repro_inds], pool_z = data_cpu.pool_z[repro_inds],
+            biomass_ind = data_cpu.biomass_ind[repro_inds]
+        )
+        new_offspring = calculate_new_offspring_cpu(p_cpu, parent_data_for_repro, data_cpu.repro_energy[repro_inds], spawn_val)
+        
+        num_new = length(new_offspring.x)
+        if num_new > 0
+            dead_slots = findall(data_cpu.alive .== 0)
+            num_to_add = min(num_new, length(dead_slots))
+            if num_to_add > 0
+                slots_to_fill = @view dead_slots[1:num_to_add]
+                for (field, values) in pairs(new_offspring)
+                    getproperty(data_cpu, field)[slots_to_fill] .= @view(values[1:num_to_add])
+                end
+                data_cpu.alive[slots_to_fill] .= 1.0
+            end
+        end
+        data_cpu.repro_energy[repro_inds] .= 0.0
     end
 
-    ## --- Starvation --- ##
-    starve = animal_data.energy[ind] .< 0
-    if model.iteration > model.spinup && any(starve)
-        animal_data.alive[ind[findall(starve)]] .= 0.0
-    end
+    # --- 3. UPDATE: Copy the modified CPU data back to the original device array ---
+    copyto!(model.individuals.animals[sp].data, data_cpu)
 
     return nothing
 end
