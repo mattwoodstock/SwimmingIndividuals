@@ -48,6 +48,10 @@ Manages the physical world of the simulation.
 - **`initial_habitat_capacity()`**: Calculates a 4D `(lon, lat, month, species)` habitat suitability grid by comparing species' environmental preferences (from a CSV) to the environmental data.
 - **`individual_temp_kernel!()`**: A GPU kernel that efficiently finds the 3D temperature for every agent based on its grid location.
 
+![The user provides environmental parameters and preferences](surface_vars_jan.png)
+
+![The model calculates habitat preferences and temperature-dependent energetics](Menhaden_month_5_capacity.png)
+
 ### `simulation.jl` & `update.jl`
 The engine that drives the model forward in time.
 - **`MarineSimulation`**: Defines the simulation object.
@@ -84,6 +88,8 @@ Removes agents from the simulation.
 Simulates the impact of human fishing activity.
 - **`load_fisheries()`**: Reads a CSV file to create the `Fishery` objects with their specific regulations.
 - **`fishing_kernel!()`**: A GPU kernel that efficiently applies fishing pressure to all agents, checking them against all regulations (season, area, quota, size slot, gear selectivity).
+
+![Can incorporate multiple place-based fisheries with realistic harvest control rules.](Cumulative_Catch.png)
 
 ### `energy.jl`
 The bioenergetics engine that governs agent life history.
