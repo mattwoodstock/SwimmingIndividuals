@@ -1,9 +1,0 @@
-Name,Value,Description
-architecture,CPU,Can either be CPU or GPU
-numspec,45,Number of Modeled Species
-maxindividuals,1000,Maximum number of individuals
-nts,525600,Number of Time Steps (minutes)
-numpool,17,Number of Pooled Groups
-output_dt,1440,Interval between Timestep Outputs
-food_exp,1,Food Limitation Adjuster for Experiments
-temp_adjust,0,Temperature Adjuster for Experiments
