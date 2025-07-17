@@ -1,3 +1,0 @@
-Group,Min_Size,Max_Size,Total_Density,LWR_a,LWR_b,Trophic_Level,Growth,Energy_density,Min_Prey,Max_Prey,Daily_Ration,Handling_Time,Swim_Velo,Type
-Pool1,1.00E-02,5.00E+00,9,1e-6,3,3,0.2,5000,1.00E-02,0.2,0.03,60,0.5,Predator
-NewPrey,1.00E-02,1.00E+01,1,1.00E-10,3,3,0.2,5000,1.00E-02,0.2,0.03,60,0.5,Predator
