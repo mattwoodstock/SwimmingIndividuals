@@ -101,12 +101,7 @@ Processes and saves model output.
 ## How to Run
 
 1.  **Install Julia:** Ensure you have the latest stable version of Julia installed.
-2.  **Instantiate Environment:** Open the Julia REPL in the project directory and run:
-    ```julia
-    using Pkg
-    Pkg.activate(".")
-    Pkg.instantiate()
-    ```
+2.  **Instantiate Environment:** Open the Julia REPL in the project directory, install all dependencies (if necessary)
 3.  **Configure Inputs:**
     * Place your `environment.nc` file in the `inputs/` directory.
     * Ensure your `focal_trait.csv`, `resource_trait.csv`, `envi_pref.csv`, and other input files are correctly configured.
