@@ -1,2 +1,0 @@
-﻿SpeciesLong,SpeciesShort,Type,Taxa,MR_type,Biomass,Max_Size,LWR_a,LWR_b,Swim_velo,Surface_Interval,Dive_Interval,Dive_Min,Dive_Max,Min_Prey,Max_Prey,Energy_density,Handling_Time,Sex_Ratio,Larval_Size,Larval_Duration,Hatch_Survival,t_resolution
-Species1,sp1,non_mig,fish,fish,0.14,1840,7.31E-06,3.009,0.5,30,30,200,400,0.01,0.2,5000,60,0.5,3,3,0.01,1440
