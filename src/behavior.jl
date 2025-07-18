@@ -48,7 +48,6 @@ function update_visual_range!(model::MarineModel, sp::Int)
     KernelAbstractions.synchronize(device(arch))
 end
 
-
 # ===================================================================
 # Core Behavioral Functions
 # ===================================================================

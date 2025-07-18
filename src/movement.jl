@@ -6,7 +6,6 @@ function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple
     open_set = [start]
     came_from = Dict{Tuple{Int,Int}, Tuple{Int,Int}}()
     visited = Set{Tuple{Int,Int}}()
-    # Directions are (d_lon, d_lat)
     directions = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,-1), (1,-1), (-1,1)]
     lonres, latres = size(capacity)
     
@@ -25,7 +24,6 @@ function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple
             nx, ny = current[1] + dx, current[2] + dy
             if 1 <= nx <= lonres && 1 <= ny <= latres
                 neighbor = (nx, ny)
-                # Access capacity with correct (lon, lat) order
                 if capacity[nx, ny] > 0 && !(neighbor in visited) && !(neighbor in open_set)
                     push!(open_set, neighbor)
                     came_from[neighbor] = current
@@ -33,16 +31,12 @@ function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple
             end
         end
     end
-    return nothing # no path found
+    return nothing
 end
 
-function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tuple{Int, Int}}, max_distance::Float64, latmax::Float64, lonmin::Float64, cell_size::Float64, lonres::Int, latres::Int)
-    # This helper function now correctly converts from grid index to geographic coordinates,
-    # assuming that the first row of the grid corresponds to the maximum latitude.
+function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tuple{Int, Int}}, max_distance::Float64, latmax::Float64, latmin::Float64, lonmin::Float64, cell_size::Float64, lonres::Int, latres::Int)
     function grid_to_coords(cell::Tuple{Int, Int})
         lon_idx, lat_idx = cell
-        
-        # FIX: Use `latmax` and subtract to correctly handle top-down latitude indexing.
         lon = lonmin + (lon_idx - 1 + rand()) * cell_size
         lat = latmax - (lat_idx - 1 + rand()) * cell_size 
         return (lat, lon)
@@ -63,7 +57,6 @@ function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tupl
             interp_lon = prev_lon + frac * (lon - prev_lon)
             
             grid_x = clamp(Int(floor((interp_lon - lonmin) / cell_size) + 1), 1, lonres)
-            # The latitude index is now calculated from latmax
             grid_y = clamp(Int(floor((latmax - interp_lat) / cell_size) + 1), 1, latres)
             
             return (interp_lat, interp_lon, grid_y, grid_x)
@@ -73,11 +66,10 @@ function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tupl
 
     final_cell = path[end]
     final_lat, final_lon = grid_to_coords(final_cell)
-    # The return order (lat_idx, lon_idx) is correct
     return (final_lat, final_lon, final_cell[2], final_cell[1])
 end
 
-function nearest_suitable_habitat(habitat::Matrix{Float64}, start_latlon::Tuple{Float64, Float64}, start_pool::Tuple{Int,Int}, max_distance_m::Float64, latmax::Float64, lonmin::Float64, cellsize_deg::Float64)
+function nearest_suitable_habitat(habitat::Matrix{Float64}, start_latlon::Tuple{Float64, Float64}, start_pool::Tuple{Int,Int}, max_distance_m::Float64, latmax::Float64, latmin::Float64, lonmin::Float64, cellsize_deg::Float64)
     R = 6371000.0
     lonres, latres = size(habitat)
     
@@ -134,132 +126,151 @@ end
 # ===================================================================
 # Specialized Movement Kernels (DVM and Diving)
 # ===================================================================
-@kernel function dvm_action_kernel!(data, p, grid_params, t, dt, sp)
+
+@kernel function dvm_action_kernel!(
+    alive, mig_status, z, target_z, pool_z, active,
+    p_gpu, maxdepth, depth_res_m, depthres, t, dt, sp
+)
     ind = @index(Global)
-    @inbounds if data.alive[ind] == 1.0
-        my_status = data.mig_status[ind]
-        my_z = data.z[ind]
-        swim_speed = 2.68 # m/min
-        z_increment = swim_speed * dt
-        is_daytime = (6*60 <= t < 18*60)
+    @inbounds if alive[ind] == 1.0
+        my_status = mig_status[ind]
+        my_z = z[ind]
+        swim_speed = 2.68f0
+        z_increment = swim_speed * Float32(dt)
+        is_daytime = (360.0f0 <= t < 1080.0f0)
         
         if is_daytime
-            if my_status == 0.0
-                data.mig_status[ind] = 2.0
-                data.target_z[ind] = clamp(get_target_z(sp, p.z_day_dist), my_z, grid_params.maxdepth)
-                data.z[ind] = min(data.target_z[ind], my_z + z_increment)
-            elseif my_status == 2.0
-                data.z[ind] = min(data.target_z[ind], my_z + z_increment)
-                if data.z[ind] >= data.target_z[ind]; data.mig_status[ind] = -1.0; end
+            if my_status == 0.0f0
+                mig_status[ind] = 2.0f0
+                z[ind] = min(target_z[ind], my_z + z_increment)
+            elseif my_status == 2.0f0
+                z[ind] = min(target_z[ind], my_z + z_increment)
+                if z[ind] >= target_z[ind]; mig_status[ind] = -1.0f0; end
             end
-        else # Nighttime
-            if my_status == -1.0
-                data.mig_status[ind] = 1.0
-                data.target_z[ind] = clamp(get_target_z(sp, p.z_night_dist), 1.0, my_z)
-                data.z[ind] = max(data.target_z[ind], my_z - z_increment)
-            elseif my_status == 1.0
-                data.z[ind] = max(data.target_z[ind], my_z - z_increment)
-                if data.z[ind] <= data.target_z[ind]; data.mig_status[ind] = 0.0; end
+        else
+            if my_status == -1.0f0
+                mig_status[ind] = 1.0f0
+                z[ind] = max(target_z[ind], my_z - z_increment)
+            elseif my_status == 1.0f0
+                z[ind] = max(target_z[ind], my_z - z_increment)
+                if z[ind] <= target_z[ind]; mig_status[ind] = 0.0f0; end
             end
         end
-        @inbounds data.pool_z[ind] = ceil(Int, data.z[ind] / grid_params.depth_res_m)
-        @inbounds data.active[ind] += dt
+        
+        @inbounds pool_z[ind] = clamp(ceil(Int, z[ind] / depth_res_m), 1, depthres)
+        @inbounds active[ind] += dt
     end
 end
 
 function dvm_action!(model::MarineModel, sp::Int)
     arch = model.arch
-    animal = model.individuals.animals[sp]
-    data = animal.data
-    p_cpu = animal.p
+    data = model.individuals.animals[sp].data
+    p_cpu = model.individuals.animals[sp].p
     
     p_gpu = (; (k => array_type(arch)(v.second) for (k, v) in pairs(p_cpu))...)
     
     grid = model.depths.grid
-    grid_params = (
-        maxdepth = grid[grid.Name .== "depthmax", :Value][1],
-        depth_res_m = grid[grid.Name .== "depthmax", :Value][1] / grid[grid.Name .== "depthres", :Value][1]
-    )
+    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
+    depthres = Int(grid[grid.Name .== "depthres", :Value][1])
+    depth_res_m = maxdepth / depthres
+    
+    is_daytime = (360.0 <= model.t < 1080.0)
+    dist_params = is_daytime ? model.depths.focal_day[sp, :] : model.depths.focal_night[sp, :]
+    
+    target_z_cpu = gaussmix(length(data.x), dist_params.mu1, dist_params.mu2, dist_params.mu3,
+                                           dist_params.sigma1, dist_params.sigma2, dist_params.sigma3,
+                                           dist_params.lambda1, dist_params.lambda2)
+    copyto!(data.target_z, Float32.(target_z_cpu))
 
     kernel! = dvm_action_kernel!(device(arch), 256, (length(data.x),))
-    kernel!(data, p_gpu, grid_params, model.t, model.dt, sp)
+    kernel!(
+        data.alive, data.mig_status, data.z, data.target_z, data.pool_z, data.active,
+        p_gpu, maxdepth, depth_res_m, depthres, model.t, model.dt, sp
+    )
     KernelAbstractions.synchronize(device(arch))
 end
 
-@kernel function dive_action_kernel!(data, p_gpu, grid_params, t, dt, sp)
+@kernel function dive_action_kernel!(
+    alive, mig_status, interval, z, dives_remaining, gut_fullness,
+    biomass_school, length_arr, target_z, pool_z, active,
+    surface_interval, dive_interval, swim_velo, dive_max, dive_min,
+    depth_res_m, depthres, t, dt
+)
     ind = @index(Global)
-    @inbounds if data.alive[ind] == 1.0
+    @inbounds if alive[ind] == 1.0
+        my_status = mig_status[ind]
+        my_interval = interval[ind]
+        my_z = z[ind]
+        my_dives_remaining = dives_remaining[ind]
+        my_fullness = gut_fullness[ind]
+        my_biomass = biomass_school[ind]
         
-        my_status = data.mig_status[ind]
-        my_interval = data.interval[ind]
-        my_z = data.z[ind]
-        my_dives_remaining = data.dives_remaining[ind]
-        my_fullness = data.gut_fullness[ind]
-        my_biomass = data.biomass_school[ind]
-        
-        surface_interval = p_gpu.Surface_Interval[sp]
-        foraging_interval = p_gpu.Dive_Interval[sp]
-        dive_velo = p_gpu.Swim_velo[sp] * (data.length[ind] / 1000.0) * 60.0 # m/min
-        z_increment = dive_velo * dt
+        dive_velo_ms = swim_velo * (length_arr[ind] / 1000.0f0) * 60.0f0
+        z_increment = dive_velo_ms * Float32(dt)
 
-        # State 0: At surface, deciding whether to dive
-        if my_status == 0.0 && my_dives_remaining > 0
+        if my_status == 0.0f0 && my_dives_remaining > 0
             my_interval += dt
-            max_fullness = 0.2 * my_biomass
-            dive_prob = 1.0 - logistic(my_fullness / max_fullness, 5.0, 0.5)
+            max_fullness = 0.2f0 * my_biomass
+            fullness_ratio = max_fullness > 0 ? my_fullness / max_fullness : 1.0f0
+            dive_prob = 1.0f0 - (1.0f0 / (1.0f0 + exp(-5.0f0 * (fullness_ratio - 0.5f0))))
             if my_interval >= surface_interval && rand(Float32) < dive_prob
-                data.mig_status[ind] = 1.0 # Start diving
-                data.interval[ind] = 0.0
-                data.target_z[ind] = rand(Float32) * (p_gpu.Dive_Max[sp] - p_gpu.Dive_Min[sp]) + p_gpu.Dive_Min[sp]
+                mig_status[ind] = 1.0f0
+                interval[ind] = 0.0f0
+                target_z[ind] = rand(Float32) * (dive_max - dive_min) + dive_min
             else
-                data.interval[ind] = my_interval
+                interval[ind] = my_interval
             end
-        # State 1: Descending
-        elseif my_status == 1.0
-            data.z[ind] = min(data.target_z[ind], my_z + z_increment)
-            if data.z[ind] >= data.target_z[ind]
-                data.mig_status[ind] = -1.0 # Arrived at depth
-            end
-        # State -1: Foraging at depth
-        elseif my_status == -1.0
+        elseif my_status == 1.0f0
+            z[ind] = min(target_z[ind], my_z + z_increment)
+            if z[ind] >= target_z[ind]; mig_status[ind] = -1.0f0; end
+        elseif my_status == -1.0f0
             my_interval += dt
-            if my_interval >= foraging_interval
-                data.mig_status[ind] = 2.0 # Time to ascend
-                data.interval[ind] = 0.0
+            if my_interval >= dive_interval
+                mig_status[ind] = 2.0f0
+                interval[ind] = 0.0f0
             else
-                data.interval[ind] = my_interval
+                interval[ind] = my_interval
             end
-        # State 2: Ascending
-        elseif my_status == 2.0
-            data.z[ind] = max(1.0, my_z - z_increment) # Ascend towards surface
-            if data.z[ind] <= 1.0
-                data.mig_status[ind] = 0.0 # Arrived at surface
-                data.dives_remaining[ind] -= 1
+        elseif my_status == 2.0f0
+            z[ind] = max(1.0f0, my_z - z_increment)
+            if z[ind] <= 1.0f0
+                mig_status[ind] = 0.0f0
+                dives_remaining[ind] -= 1
             end
         end
         
-        @inbounds data.pool_z[ind] = ceil(Int, data.z[ind] / grid_params.depth_res_m)
-        @inbounds data.active[ind] += dt
+        @inbounds pool_z[ind] = clamp(ceil(Int, z[ind] / depth_res_m), 1, depthres)
+        @inbounds active[ind] += dt
     end
 end
 
 function dive_action!(model::MarineModel, sp::Int)
     arch = model.arch
-    animal = model.individuals.animals[sp]
-    data = animal.data
-    p_cpu = animal.p
+    data = model.individuals.animals[sp].data
+    p_cpu = model.individuals.animals[sp].p
     
-    p_gpu = (; (k => array_type(arch)(v.second) for (k, v) in pairs(p_cpu))...)
+    surface_interval = p_cpu.Surface_Interval.second[sp]
+    dive_interval = p_cpu.Dive_Interval.second[sp]
+    swim_velo = p_cpu.Swim_velo.second[sp]
+    dive_max = p_cpu.Dive_Max.second[sp]
+    dive_min = p_cpu.Dive_Min.second[sp]
     
     grid = model.depths.grid
-    grid_params = (
-        depth_res_m = grid[grid.Name .== "depthmax", :Value][1] / grid[grid.Name .== "depthres", :Value][1]
-    )
+    depthres = Int(grid[grid.Name .== "depthres", :Value][1])
+    depth_res_m = grid[grid.Name .== "depthmax", :Value][1] / depthres
 
     kernel! = dive_action_kernel!(device(arch), 256, (length(data.x),))
-    kernel!(data, p_gpu, grid_params, model.t, model.dt, sp)
+    kernel!(
+        data.alive, data.mig_status, data.interval, data.z, data.dives_remaining,
+        data.gut_fullness, data.biomass_school, data.length, data.target_z,
+        data.pool_z, data.active,
+        surface_interval, dive_interval, swim_velo, dive_max, dive_min,
+        depth_res_m, depthres, model.t, model.dt
+    )
     KernelAbstractions.synchronize(device(arch))
 end
+
+
 
 # ===================================================================
 # General Habitat-Seeking Movement

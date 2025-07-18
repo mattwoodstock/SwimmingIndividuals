@@ -25,7 +25,11 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
         successful_ration = zeros(Float64, maxN),
         temp_idx = zeros(Int, maxN),
         cell_starts = zeros(Int, maxN),
-        cell_ends = zeros(Int, maxN)
+        cell_ends = zeros(Int, maxN),
+        mig_status = zeros(Float64, maxN),
+        target_z = zeros(Float64, maxN),
+        interval = zeros(Float64, maxN),
+        dives_remaining = zeros(Int, maxN)
     )
 
     data = replace_storage(array_type(arch), rawdata)
@@ -87,7 +91,7 @@ function initialize_individuals(plank, B::Float64, sp::Int, depths::MarineDepths
 
         cpu_abundance = fill(Float64(school_size), n_agents)
         
-        land_mask = Array(envi.data["bathymetry"]) .> 0
+        land_mask = coalesce.(Array(envi.data["bathymetry"]), 0.0) .> 0
         res = initial_ind_placement(Array(capacities), sp, grid, n_agents, 1, land_mask)
         
         cpu_x, cpu_y, cpu_pool_x, cpu_pool_y = res.lons, res.lats, res.grid_x, res.grid_y
@@ -100,6 +104,7 @@ function initialize_individuals(plank, B::Float64, sp::Int, depths::MarineDepths
         max_weight = plank.p.LWR_a[2][sp] * (max_size / 10)^plank.p.LWR_b[2][sp]
         cpu_mature = min.(1.0, cpu_biomass_ind ./ (plank.p.W_mat[2][sp] * max_weight))
         cpu_vis_prey = visual_range_preys_init(cpu_lengths, cpu_z, plank.p.Min_Prey[2][sp], plank.p.Max_Prey[2][sp], n_agents) .* dt
+        remaining_dives = 1440/(plank.p.Surface_Interval[2][sp] + plank.p.Dive_Interval[2][sp])
         
         # --- 4. Copy all data from CPU arrays to the target device (CPU or GPU) in one batch ---
         copyto!(plank.data.length, 1, cpu_lengths, 1, n_agents)
@@ -119,6 +124,7 @@ function initialize_individuals(plank, B::Float64, sp::Int, depths::MarineDepths
         @views plank.data.energy[1:n_agents] .= plank.data.biomass_school[1:n_agents] .* plank.p.Energy_density[2][sp] .* 0.2
         @views plank.data.gut_fullness[1:n_agents] .= 0.2
         @views plank.data.age[1:n_agents] .= plank.p.Larval_Duration[2][sp]
+        @views plank.data.dives_remaining[1:n_agents] .= remaining_dives
         
         # Set remaining unused slots to non-alive
         @views plank.data.alive[n_agents+1:end] .= 0.0
@@ -126,14 +132,12 @@ function initialize_individuals(plank, B::Float64, sp::Int, depths::MarineDepths
     return plank.data
 end
 
-# The launcher must now accept and pass the `envi` object
 function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, maxN::Int, depths::MarineDepths, capacities, dt, envi::MarineEnvironment)
     plank_names = Symbol[]
     plank_data=[]
     for i in 1:Nsp
         name = Symbol("sp"*string(i))
         plank = construct_individuals(arch, params, maxN)
-        # Pass the `envi` object here
         initialize_individuals(plank, B[i], i, depths, capacities, dt, envi)
         push!(plank_names, name)
         push!(plank_data, plank)

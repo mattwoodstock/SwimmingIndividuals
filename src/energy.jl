@@ -26,6 +26,10 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
         temp_idx = Array(agent_data_device.temp_idx),
         cell_starts = Array(agent_data_device.cell_starts),
         cell_ends = Array(agent_data_device.cell_ends),
+        mig_status = Array(agent_data_device.mig_status),
+        target_z = Array(agent_data_device.target_z),
+        interval = Array(agent_data_device.interval),
+        dives_remaining = Array(agent_data_device.dives_remaining),
     )
     temp_cpu = Array(temp)
 
@@ -40,7 +44,7 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
 
     # Use CPU multi-threading for the main calculation loop
     #Threads.@threads for ind in 1:length(data_cpu.x)
-    for ind in 1:length(data_cpu.x)
+    @Threads.threads for ind in 1:length(data_cpu.x)
 
         if data_cpu.alive[ind] == 1.0
             # --- Gather Agent Properties (from CPU copies) ---
@@ -87,14 +91,13 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
             net_energy = my_consumed - total_waste_and_cost
             
             if ismissing(total_waste_and_cost)
-                println(temp_cpu)
-                STOP
+                continue
             end
             data_cpu.cost[ind] = total_waste_and_cost
 
             my_energy += net_energy
 
-            evac_prop = min(1.0, 0.053 * exp(0.073 * my_temp))
+            evac_prop = min(0.0, 0.053 * exp(0.073 * my_temp))
             if evac_prop < 1.0
                 data_cpu.gut_fullness[ind] *= exp((dt / 60.0) * log(1.0 - evac_prop))
             else
@@ -137,21 +140,23 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
             pool_x = data_cpu.pool_x[repro_inds], pool_y = data_cpu.pool_y[repro_inds], pool_z = data_cpu.pool_z[repro_inds],
             biomass_ind = data_cpu.biomass_ind[repro_inds]
         )
-        new_offspring = calculate_new_offspring_cpu(p_cpu, parent_data_for_repro, data_cpu.repro_energy[repro_inds], spawn_val)
+        new_offspring = calculate_new_offspring_cpu(p_cpu, parent_data_for_repro, data_cpu.repro_energy[repro_inds], spawn_val,sp)
         
-        num_new = length(new_offspring.x)
-        if num_new > 0
-            dead_slots = findall(data_cpu.alive .== 0)
-            num_to_add = min(num_new, length(dead_slots))
-            if num_to_add > 0
-                slots_to_fill = @view dead_slots[1:num_to_add]
-                for (field, values) in pairs(new_offspring)
-                    getproperty(data_cpu, field)[slots_to_fill] .= @view(values[1:num_to_add])
+        if new_offspring !== nothing
+            num_new = length(new_offspring.x)
+            if num_new > 0
+                dead_slots = findall(data_cpu.alive .== 0)
+                num_to_add = min(num_new, length(dead_slots))
+                if num_to_add > 0
+                    slots_to_fill = @view dead_slots[1:num_to_add]
+                    for (field, values) in pairs(new_offspring)
+                        getproperty(data_cpu, field)[slots_to_fill] .= @view(values[1:num_to_add])
+                    end
+                    data_cpu.alive[slots_to_fill] .= 1.0
                 end
-                data_cpu.alive[slots_to_fill] .= 1.0
             end
+            data_cpu.repro_energy[repro_inds] .= 0.0
         end
-        data_cpu.repro_energy[repro_inds] .= 0.0
     end
 
     # --- 3. UPDATE: Copy the modified CPU data back to the original device array ---
