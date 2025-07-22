@@ -1,0 +1,54 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "SwimmingIndividuals.jl"
+  site-url: https://mattwoodstock.github.io/SwimmingIndividuals.jl
+  repo-url: https://github.com/mattwoodstock/SwimmingIndividuals
+  navbar:
+    background: "#003f5c"
+    foreground: "#ffffff"
+    right:
+      - icon: github
+        href: https://github.com/mattwoodstock/SwimmingIndividuals
+        aria-label: GitHub
+  sidebar:
+    style: "docked"
+    collapse-level: 1
+    search: true
+    contents:
+      - href: index.md
+      - href: inputs.md
+      - href: model_setup.md
+      - href: running_simulations.md
+      - section: "Model Components"
+        contents:
+          - href: components/environment.md
+          - href: components/create.md 
+          - href: components/timestep.md
+          - href: components/behavior.md
+          - href: components/movement.md
+          - href: components/predation.md
+          - href: components/energy.md
+          - href: components/fisheries.md 
+          - href: components/mortality.md 
+          - href: components/output.md
+          - href: components/utilities.md
+
+  page-footer:
+    right: "This page was built with [Quarto](https://quarto.org)."
+    left: "&copy; 2025 Matthew S. Woodstock et al."
+
+format:
+  html:
+    theme:
+      - cosmo
+      - styles.css
+    toc: true
+    toc-depth: 3
+    code-link: true
+    code-copy: true
+    code-overflow: wrap
+    link-external-icon: true
+    link-external-newwindow: true
