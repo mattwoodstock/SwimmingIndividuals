@@ -61,25 +61,25 @@ output_dt = parse(Int64,params[params.Name .== "output_dt", :Value][1]) #Number 
 spinup = parse(Int64,params[params.Name .== "spinup", :Value][1]) #Number of timesteps for a burn-in
 plt_diags = parse(Int64,params[params.Name .== "plt_diags", :Value][1]) #Number of timesteps for a burn-in
 
-maxN = 500000  # Placeholder where the maximum number of individuals created is simply the maximum abundance
+maxN = 500000  # Placeholder where the maximum number of individuals created is simply the maximum abundance
 arch_str = params[params.Name .== "architecture", :Value][1] #Architecture to use.
 
 if arch_str == "GPU"
-    if CUDA.functional()
-        arch = GPU()
-        println("✅ Architecture successfully set to GPU.")
-    else
-        # Fallback to CPU if CUDA is not available or functional
-        @warn "GPU specified but CUDA is not functional. Falling back to CPU."
-        arch = CPU()
-    end
+    if CUDA.functional()
+        arch = GPU()
+        println("✅ Architecture successfully set to GPU.")
+    else
+        # Fallback to CPU if CUDA is not available or functional
+        @warn "GPU specified but CUDA is not functional. Falling back to CPU."
+        arch = CPU()
+    end
 elseif arch_str == "CPU"
-    arch = CPU()
-    println("✅ Architecture successfully set to CPU.")
+    arch = CPU()
+    println("✅ Architecture successfully set to CPU.")
 else
-    # Default to CPU if the setting is unrecognized
-    @warn "Architecture '$arch_str' not recognized. Defaulting to CPU."
-    arch = CPU()
+    # Default to CPU if the setting is unrecognized
+    @warn "Architecture '$arch_str' not recognized. Defaulting to CPU."
+    arch = CPU()
 end
 
 t = 0.0 #Initial time
@@ -97,35 +97,33 @@ depths = generate_depths(files)
 capacities = initial_habitat_capacity(envi,Nsp,Nresource,files,arch,plt_diags) #3D array (x,y,spec)
 
 for iter in 1:n_iters
-    B = trait[:Biomass][1:Nsp] #Vector of IBM abundances for all species
+    B = trait[:Biomass][1:Nsp] #Vector of IBM abundances for all species
 
-    ## Create individuals
-    inds = generate_individuals(trait, arch, Nsp, B, maxN,depths,capacities,dt,envi)
+    ## Create individuals
+    inds = generate_individuals(trait, arch, Nsp, B, maxN,depths,capacities,dt,envi)
 
-    resources = initialize_resources(resource_trait,Nsp,Nresource,depths,capacities,arch)
+    resources = initialize_resources(resource_trait,Nsp,Nresource,depths,capacities,arch)
 
-    #Load in fisheries data
-    fishery = load_fisheries(fisheries)
+    #Load in fisheries data
+    fishery = load_fisheries(fisheries)
 
-    init_abund = fill(0,Nsp)
-    bioms = fill(0.0,Nsp)
+    init_abund = fill(0,Nsp)
+    bioms = fill(0.0,Nsp)
 
-    for sp in 1:Nsp
-        init_abund[sp] = sum(inds.animals[sp].data.abundance)
-        bioms[sp] = sum(inds.animals[sp].data.biomass_school)
-    end
+    for sp in 1:Nsp
+        init_abund[sp] = sum(inds.animals[sp].data.abundance)
+        bioms[sp] = sum(inds.animals[sp].data.biomass_school)
+    end
 
-    ## Create model object
-    model = MarineModel(arch,envi,depths, fishery, t, 0,dt, inds,resources,resource_trait, capacities,maxN, Nsp,Nresource,init_abund,bioms,init_abund, files, output_dt,spinup)
+    ## Create model object
+    model = MarineModel(arch,envi,depths, fishery, t, 0,dt, inds,resources,resource_trait, capacities,maxN, Nsp,Nresource,init_abund,bioms,init_abund, files, output_dt,spinup)
 
-    ##Set up outputs in the simulation
-    outputs = generate_outputs(model)
+    ##Set up outputs in the simulation
+    outputs = generate_outputs(model)
 
-    # Set up simulation parameters
-    sim = MarineSimulation(model, dt, n_iteration,iter,outputs)
+    # Set up simulation parameters
+    sim = MarineSimulation(model, dt, n_iteration,iter,outputs)
 
-    # Run model. Currently this is very condensed, but I kept the code for when we work with environmental factors
-    runSI(sim)
-    #reset_run(sim)
-end
-
+    # Run model. Currently this is very condensed, but I kept the code for when we work with environmental factors
+    runSI(sim)
+    #reset_run
