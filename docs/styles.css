@@ -1,0 +1,129 @@
+/*-- scss:rules --*/
+
+/* This is the required layer boundary for Quarto. All CSS rules go below this line. */
+
+/* Typography */
+body {
+  font-family: 'Roboto', sans-serif;
+  line-height: 1.6;
+  color: #1d2d35;
+  background-color: #f4f9fc;
+  margin: 0;
+  padding: 0;
+}
+
+/* Main content area */
+main {
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Headings */
+h1, h2, h3 {
+  font-family: 'Montserrat', sans-serif;
+  color: #003f5c;
+}
+
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+h2 {
+  font-size: 2rem;
+  margin-top: 2rem;
+  border-bottom: 2px solid #0077b6;
+  padding-bottom: 0.3rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+/* Code blocks */
+pre, code {
+  font-family: 'Fira Code', monospace;
+  background-color: #e6f0f7;
+  color: #003049;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+pre {
+  overflow-x: auto;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 1.5rem;
+  background-color: #ffffff;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+th {
+  background-color: #0077b6;
+  color: white;
+}
+
+/* Figures and Images */
+img, figure {
+  display: block;
+  margin: 2rem auto;
+  max-width: 100%;
+}
+
+figcaption {
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  font-size: 0.85rem;
+  padding: 2rem;
+  color: #5a5a5a;
+}
+
+/* Callouts / Panels */
+.callout {
+  padding: 1rem;
+  margin: 2rem 0;
+  border-left: 5px solid #0077b6;
+  background-color: #e1f1fb;
+}
+
+.callout-warning {
+  border-left-color: #e07a5f;
+  background-color: #fff4f2;
+}
+
+.callout-success {
+  border-left-color: #81b29a;
+  background-color: #f0fdf6;
+}
+
+/* Target the specific Quarto TOC classes to adjust font size and spacing */
+#quarto-toc .nav-link {
+    font-size: 0.85rem; /* Make the font slightly smaller */
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+}
+
+#quarto-toc .nav-item {
+    line-height: 1.3; /* Adjust line height for better fit */
+}

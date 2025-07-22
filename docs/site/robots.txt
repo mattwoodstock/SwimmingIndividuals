@@ -1,0 +1,1 @@
+Sitemap: https://mattwoodstock.github.io/SwimmingIndividuals.jl/sitemap.xml
