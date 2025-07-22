@@ -34,7 +34,7 @@ function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple
     return nothing
 end
 
-function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tuple{Int, Int}}, max_distance::Float64, latmax::Float64, latmin::Float64, lonmin::Float64, cell_size::Float64, lonres::Int, latres::Int)
+function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tuple{Int, Int}}, max_distance::Float64, latmax::Float64, lonmin::Float64, cell_size::Float64, lonres::Int, latres::Int)
     function grid_to_coords(cell::Tuple{Int, Int})
         lon_idx, lat_idx = cell
         lon = lonmin + (lon_idx - 1 + rand()) * cell_size
@@ -69,7 +69,7 @@ function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tupl
     return (final_lat, final_lon, final_cell[2], final_cell[1])
 end
 
-function nearest_suitable_habitat(habitat::Matrix{Float64}, start_latlon::Tuple{Float64, Float64}, start_pool::Tuple{Int,Int}, max_distance_m::Float64, latmax::Float64, latmin::Float64, lonmin::Float64, cellsize_deg::Float64)
+function nearest_suitable_habitat(habitat::Matrix{Float64}, start_latlon::Tuple{Float64, Float64}, start_pool::Tuple{Int,Int}, max_distance_m::Float64, latmax::Float64, lonmin::Float64, cellsize_deg::Float64)
     R = 6371000.0
     lonres, latres = size(habitat)
     
