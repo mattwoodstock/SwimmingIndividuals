@@ -9,10 +9,10 @@ The fields are defined as `AbstractArray` to be compatible with both
 CPU `Array`s and GPU `CuArray`s.
 """
 mutable struct MarineOutputs
-    mortalities::AbstractArray{Int64,5}
-    Fmort::AbstractArray{Int64,5}
-    consumption::AbstractArray{Float64,5}
-    abundance::AbstractArray{Float64,4}
+    mortalities::AbstractArray{Int32,5}
+    Fmort::AbstractArray{Int32,5}
+    consumption::AbstractArray{Float32,5}
+    abundance::AbstractArray{Float32,4}
 end
 
 
@@ -23,8 +23,8 @@ the model state with run-specific parameters
 """
 mutable struct MarineSimulation
     model::MarineModel
-    ΔT::Float64
-    iterations::Int64
-    run::Int64
+    ΔT::Float32
+    iterations::Int32
+    run::Int32
     outputs::MarineOutputs
 end

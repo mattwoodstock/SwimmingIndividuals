@@ -3,32 +3,31 @@
 # ===================================================================
 
 function construct_individuals(arch::Architecture, params::Dict, maxN)
-    # Defines the full data structure for an agent, including all state variables
-    # and fields needed for spatial indexing and other calculations.
+    # Defines the full data structure for an agent.
     rawdata = StructArray(
-        x = zeros(Float64,maxN), y = zeros(Float64,maxN), z = zeros(Float64,maxN),
-        length = zeros(Float64,maxN), abundance = zeros(Float64,maxN),
-        biomass_ind = zeros(Float64,maxN), biomass_school = zeros(Float64,maxN),
-        energy = zeros(Float64,maxN), gut_fullness = zeros(Float64,maxN),
-        cost = zeros(Float64,maxN), pool_x = zeros(Int,maxN), pool_y = zeros(Int,maxN),
-        pool_z = zeros(Int,maxN), active = zeros(Float64,maxN),
-        ration = zeros(Float64,maxN), alive = zeros(Float64,maxN),
-        vis_prey = zeros(Float64,maxN), mature = zeros(Float64,maxN),
-        age=zeros(Float64,maxN),
+        x = zeros(Float32,maxN), y = zeros(Float32,maxN), z = zeros(Float32,maxN),
+        length = zeros(Float32,maxN), abundance = zeros(Float64,maxN),
+        biomass_ind = zeros(Float32,maxN), biomass_school = zeros(Float32,maxN),
+        energy = zeros(Float32,maxN), gut_fullness = zeros(Float32,maxN),
+        cost = zeros(Float32,maxN), pool_x = zeros(Int,maxN), pool_y = zeros(Int,maxN),
+        pool_z = zeros(Int,maxN), active = zeros(Float32,maxN),
+        ration = zeros(Float32,maxN), alive = zeros(Float32,maxN),
+        vis_prey = zeros(Float32,maxN), mature = zeros(Float32,maxN),
+        age=zeros(Float32,maxN),
         cell_id = zeros(Int, maxN),
         sorted_id = zeros(Int, maxN),
-        repro_energy = zeros(Float64, maxN),
+        repro_energy = zeros(Float32, maxN),
         best_prey_dist = zeros(Float32, maxN),
         best_prey_idx = zeros(Int, maxN),
         best_prey_sp = zeros(Int, maxN),
         best_prey_type = zeros(Int, maxN),
-        successful_ration = zeros(Float64, maxN),
+        successful_ration = zeros(Float32, maxN),
         temp_idx = zeros(Int, maxN),
         cell_starts = zeros(Int, maxN),
         cell_ends = zeros(Int, maxN),
-        mig_status = zeros(Float64, maxN),
-        target_z = zeros(Float64, maxN),
-        interval = zeros(Float64, maxN),
+        mig_status = zeros(Float32, maxN),
+        target_z = zeros(Float32, maxN),
+        interval = zeros(Float32, maxN),
         dives_remaining = zeros(Int, maxN)
     )
 
@@ -38,12 +37,11 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
                  :LWR_a, :Larval_Size,:Max_Prey, :Max_Size, :Dive_Max,:School_Size,:Taxa,
                  :Larval_Duration, :Sex_Ratio,:SpeciesShort,:FLR_b, :Dive_Min,:Handling_Time,
                  :FLR_a,:Energy_density, :Hatch_Survival, :MR_type, :Swim_velo, :Biomass, :Type)
-
     p = NamedTuple{param_names}(params)
     return plankton(data, p)
 end
 
-function initialize_individuals(plank, B::Float64, sp::Int, depths::MarineDepths, capacities, dt, envi::MarineEnvironment)
+function initialize_individuals(plank, B::Float32, sp::Int, depths::MarineDepths, capacities, dt, envi::MarineEnvironment)
     # This function uses the "Gather, Compute, Update" pattern to be architecture-compliant.
     
     # --- 1. Pre-calculate constants and create temporary CPU arrays ---
@@ -63,7 +61,7 @@ function initialize_individuals(plank, B::Float64, sp::Int, depths::MarineDepths
     school_size = plank.p.School_Size[2][sp]
     max_size = plank.p.Max_Size[2][sp]
 
-    cpu_lengths, cpu_biomass_ind, cpu_biomass_school = Float64[], Float64[], Float64[]
+    cpu_lengths, cpu_biomass_ind, cpu_biomass_school = Float32[], Float32[], Float32[]
     
     # --- 2. Generate core data on the CPU until target biomass is met ---
     current_b = 0.0
@@ -89,7 +87,7 @@ function initialize_individuals(plank, B::Float64, sp::Int, depths::MarineDepths
             n_agents = length(plank.data.x)
         end
 
-        cpu_abundance = fill(Float64(school_size), n_agents)
+        cpu_abundance = fill(Float32(school_size), n_agents)
         
         land_mask = coalesce.(Array(envi.data["bathymetry"]), 0.0) .> 0
         res = initial_ind_placement(Array(capacities), sp, grid, n_agents, 1, land_mask)
@@ -132,7 +130,7 @@ function initialize_individuals(plank, B::Float64, sp::Int, depths::MarineDepths
     return plank.data
 end
 
-function generate_individuals(params::Dict, arch::Architecture, Nsp::Int, B, maxN::Int, depths::MarineDepths, capacities, dt, envi::MarineEnvironment)
+function generate_individuals(params::Dict, arch::Architecture, Nsp::Int32, B::Vector{Float32}, maxN::Int64, depths::MarineDepths, capacities, dt::Int32, envi::MarineEnvironment)
     plank_names = Symbol[]
     plank_data=[]
     for i in 1:Nsp
@@ -178,7 +176,7 @@ end
 end
 
 function initialize_resources(
-    traits::DataFrame, n_spec::Int, n_resource::Int, 
+    traits::DataFrame, n_spec::Int32, n_resource::Int32, 
     depths::MarineDepths, capacities::AbstractArray, arch::Architecture
 )
     grid = depths.grid
@@ -186,8 +184,8 @@ function initialize_resources(
     latres = Int(grid[grid.Name .== "latres", :Value][1])
     lonres = Int(grid[grid.Name .== "lonres", :Value][1])
     
-    resource_biomass = array_type(arch)(zeros(Float64, lonres, latres, depthres, n_resource))
-    resource_capacity = array_type(arch)(zeros(Float64, lonres, latres, depthres, n_resource))
+    resource_biomass = array_type(arch)(zeros(Float32, lonres, latres, depthres, n_resource))
+    resource_capacity = array_type(arch)(zeros(Float32, lonres, latres, depthres, n_resource))
     
     traits_gpu = (; (Symbol(c) => array_type(arch)(traits[:, c]) for c in names(traits))...)
     max_depth = Int(grid[grid.Name .== "depthmax", :Value][1])
@@ -270,7 +268,7 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
     
     return (
         x=new_x, y=new_y, z=new_z, length=new_length,
-        abundance=fill(Float64(p_cpu.School_Size.second[sp]), total_eggs),
+        abundance=fill(Float32(p_cpu.School_Size.second[sp]), total_eggs),
         biomass_ind=new_biomass_ind,
         biomass_school=new_biomass_ind .* p_cpu.School_Size.second[sp],
         energy = new_biomass_ind .* p_cpu.School_Size.second[sp] .* p_cpu.Energy_density.second[sp] .* 0.2,
@@ -281,7 +279,7 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
 end
 
 # Manages the GPU/CPU data transfer for reproduction
-function process_reproduction!(model::MarineModel, sp::Int, spawn_val::Real)
+function process_reproduction!(model::MarineModel, sp::Int32, spawn_val::Real)
     arch = model.arch
     data = model.individuals.animals[sp].data
     p_cpu = model.individuals.animals[sp].p

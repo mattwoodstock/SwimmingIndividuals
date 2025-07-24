@@ -3,7 +3,7 @@ function TimeStep!(sim::MarineSimulation)
     envi = model.environment
     fisheries = model.fishing
     outputs = sim.outputs
-    species::Int64 = model.n_species
+    species::Int32 = model.n_species
     arch = model.arch # Get architecture for checks
 
     model.iteration += 1
@@ -40,10 +40,10 @@ function TimeStep!(sim::MarineSimulation)
         cpu_alive = Array(species_data.alive)
         cpu_age = Array(species_data.age)
         
-        living::Vector{Int64} = findall(x -> x == 1, cpu_alive)
+        living::Vector{Int32} = findall(x -> x == 1, cpu_alive)
         # This is not used later, but if needed, it's now safe:
         # to_model = findall(i -> cpu_alive[i] == 1 && cpu_age[i] >= species_chars.Larval_Duration[2][spec], eachindex(cpu_alive))
-        
+
         if !isempty(living)
             # --- Population stats (requires GPU->CPU transfer for sum/mean) ---
             model.abund[spec] = sum(Array(species_data.abundance[living]))
@@ -56,7 +56,6 @@ function TimeStep!(sim::MarineSimulation)
 
 
             # --- Main agent update loop ---
-            
             print("behave | ")
             behavior(model, spec, living, outputs) # 'behavior' dispatches to kernel-based functions
 
@@ -89,6 +88,10 @@ function TimeStep!(sim::MarineSimulation)
         if (model.iteration > model.spinup)
             fishery_results(sim)
         end
+    end
+
+    if model.plt_diags == 1 ## Gather diagnostic-based results to make sure the model works after code revisions
+        assemble_diagnostic_results(model,sim.run,model.iteration)
     end
 
     # --- Reset per-timestep accumulators ---

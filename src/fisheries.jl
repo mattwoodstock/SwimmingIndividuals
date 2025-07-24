@@ -89,7 +89,7 @@ end
                             actual_inds_caught = floor(Int, actual_biomass_removed / biomass_ind[ind])
                             
                             if actual_inds_caught > 0
-                                old_abund = @atomic abundance[ind] -= Float64(actual_inds_caught)
+                                old_abund = @atomic abundance[ind] -= Float32(actual_inds_caught)
                                 if old_abund - actual_inds_caught <= 0
                                     alive[ind] = 0.0
                                 end

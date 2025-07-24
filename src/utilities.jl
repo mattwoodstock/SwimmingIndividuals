@@ -22,16 +22,16 @@ mutable struct PreyInfo
     Sp::Int
     Ind::Int
     Type::Int
-    Length::Float64
-    Biomass::Float64
-    Distance::Float64
+    Length::Float32
+    Biomass::Float32
+    Distance::Float32
 end
 
 # Defines the gear selectivity for a species within a fishery
 struct Selectivity
     species::String
-    L50::Float64
-    slope::Float64
+    L50::Float32
+    slope::Float32
 end
 
 # Defines a single fishery's regulations and properties
@@ -40,13 +40,13 @@ mutable struct Fishery
     target_species::Vector{String}
     bycatch_species::Vector{String}
     selectivities::Dict{String, Selectivity}
-    quota::Float64
-    cumulative_catch::Float64
-    cumulative_inds::Int64
+    quota::Float32
+    cumulative_catch::Float32
+    cumulative_inds::Int32
     season::Tuple{Int, Int}
-    area::Tuple{Tuple{Float64, Float64}, Tuple{Float64, Float64}, Tuple{Float64, Float64}}
-    slot_limit::Tuple{Float64, Float64}
-    bag_limit::Int64
+    area::Tuple{Tuple{Float32, Float32}, Tuple{Float32, Float32}, Tuple{Float32, Float32}}
+    slot_limit::Tuple{Float32, Float32}
+    bag_limit::Int32
 end
 
 # A flexible struct to hold any environmental data loaded from a NetCDF file
@@ -70,22 +70,23 @@ mutable struct MarineModel
     environment::MarineEnvironment
     depths::MarineDepths
     fishing::Vector{Fishery}
-    t::Float64
-    iteration::Int64
-    dt::Float64
+    t::Float32
+    iteration::Int32
+    dt::Float32
     individuals::individuals
-    resources::NamedTuple{(:biomass, :capacity), Tuple{AbstractArray{Float64, 4}, AbstractArray{Float64, 4}}}
+    resources::NamedTuple{(:biomass, :capacity), Tuple{AbstractArray{Float32, 4}, AbstractArray{Float32, 4}}}
     resource_trait::DataFrame
     capacities::AbstractArray
     ninds::Int64
-    n_species::Int64
-    n_resource::Int64
+    n_species::Int32
+    n_resource::Int32
     abund::Vector{Int64}
-    bioms::Vector{Float64}
+    bioms::Vector{Float32}
     init_abund::Vector{Int64}
     files::DataFrame
-    output_dt::Int64
-    spinup::Int64
+    output_dt::Int32
+    spinup::Int32
+    plt_diags::Int32
 end
 
 
@@ -165,11 +166,11 @@ end
 
 function load_ascii_raster(file_path::String)
     open(file_path, "r") do f
-        header = Dict{String, Float64}()
+        header = Dict{String, Float32}()
         for _ in 1:6
             line = readline(f)
             key, val = split(line)
-            header[key] = parse(Float64, val)
+            header[key] = parse(Float32, val)
         end
         data = readdlm(f)
         return data
@@ -180,4 +181,13 @@ end
 function ipar_curve(time, peak_ipar=450, peak_time=12, width=4)
     adj_time = time/60
     return peak_ipar * exp(-((adj_time - peak_time)^2) / (2 * width^2))
+end
+
+function generate_random_directions(n::Int)
+    θ = 2π .* rand(Float32, n)
+    φ = acos.(2f0 .* rand(Float32, n) .- 1f0)
+    dx = sin.(φ) .* cos.(θ)
+    dy = sin.(φ) .* sin.(θ)
+    dz = cos.(φ)
+    return dx, dy, dz
 end

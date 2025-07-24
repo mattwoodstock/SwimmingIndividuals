@@ -178,3 +178,188 @@ function fishery_results(sim::MarineSimulation)
     df = DataFrame(Name=name, Quota=quotas, Tonnage=catches_t, Individuals=catches_ind)
     CSV.write("results/Fishery/FisheryResults_$run-$ts.csv", df)
 end
+
+function assemble_diagnostic_results(model::MarineModel, run::Int, ts::Int)
+    
+    # --- 1. Set up run-specific output directory ---
+    output_dir = joinpath("./results/diags", "run_$run")
+    if ts == 1 && isdir(output_dir)
+        rm(output_dir, recursive=true)
+    end
+    mkpath(output_dir)
+
+    # --- 2. Assemble Agent-Based Results ---
+    
+    # Pre-allocate vectors to hold the data for all focal species
+    sp_ids, agent_ids = Int[], Int[]
+    x_coords, y_coords, z_coords = Float32[], Float32[], Float32[]
+    # ADDED: Vectors for pool_x and pool_y
+    pool_x_coords, pool_y_coords = Int[], Int[]
+    daily_rations, repro_energy = Float32[], Float32[]
+    biomass_ind, biomass_school = Float32[], Float32[]
+
+    # Loop through each focal species to gather data for living agents
+    for sp in 1:model.n_species
+        agents = model.individuals.animals[sp].data
+        
+        cpu_alive_mask = Array(agents.alive) .== 1.0
+        alive_indices = findall(cpu_alive_mask)
+        if isempty(alive_indices); continue; end
+
+        # Append data for the living agents of this species
+        append!(sp_ids, fill(sp, length(alive_indices)))
+        append!(agent_ids, alive_indices)
+        append!(x_coords, Array(agents.x[alive_indices]))
+        append!(y_coords, Array(agents.y[alive_indices]))
+        append!(z_coords, Array(agents.z[alive_indices]))
+        # ADDED: Append pool coordinates
+        append!(pool_x_coords, Array(agents.pool_x[alive_indices]))
+        append!(pool_y_coords, Array(agents.pool_y[alive_indices]))
+        append!(daily_rations, Array(agents.ration[alive_indices]))
+        append!(repro_energy, Array(agents.repro_energy[alive_indices]))
+        append!(biomass_ind, Array(agents.biomass_ind[alive_indices]))
+        append!(biomass_school, Array(agents.biomass_school[alive_indices]))
+    end
+
+    # Create the final agent results DataFrame
+    agent_results_df = DataFrame(
+        SpeciesID = sp_ids, AgentID = agent_ids, 
+        X = x_coords, Y = y_coords, Z = z_coords,
+        # ADDED: Include pool coordinates in the DataFrame
+        pool_x = pool_x_coords, pool_y = pool_y_coords,
+        DailyRation = daily_rations, ReproEnergy = repro_energy,
+        IndividualBiomass = biomass_ind, SchoolBiomass = biomass_school
+    )
+    CSV.write(joinpath(output_dir, "agent_results_$ts.csv"), agent_results_df)
+
+
+    # --- 3. Assemble Spatially Explicit Resource Biomass ---
+    resource_biomass_cpu = Array(model.resources.biomass)
+    lonres, latres, depthres, nres = size(resource_biomass_cpu)
+    lon_indices, lat_indices, depth_indices = Int[], Int[], Int[]
+    res_sp_ids, biomass_densities = Int[], Float32[]
+
+    for sp in 1:nres, d in 1:depthres, l in 1:latres, lon in 1:lonres
+        biomass = resource_biomass_cpu[lon, l, d, sp]
+        if biomass > 0
+            push!(lon_indices, lon)
+            push!(lat_indices, l)
+            push!(depth_indices, d)
+            push!(res_sp_ids, sp)
+            push!(biomass_densities, biomass)
+        end
+    end
+
+    resource_results_df = DataFrame(
+        LonIndex = lon_indices, LatIndex = lat_indices, DepthIndex = depth_indices,
+        ResourceID = res_sp_ids, BiomassDensity = biomass_densities
+    )
+    CSV.write(joinpath(output_dir, "resource_results_$ts.csv"), resource_results_df)
+
+    return nothing
+end
+
+function test_prey_detection(model::MarineModel)
+    @info "--- Running Prey Detection Test ---"
+    
+    # --- 1. Setup: Select a single predator and prey ---
+    pred_sp = 1
+    prey_sp = 2
+    res_sp = 1
+    
+    pred_data = model.individuals.animals[pred_sp].data
+    prey_data = model.individuals.animals[prey_sp].data
+    pred_params = model.individuals.animals[pred_sp].p
+    prey_params = model.individuals.animals[prey_sp].p
+    
+    pred_idx = findfirst(Array(pred_data.alive) .== 1.0)
+    prey_idx = findfirst(Array(prey_data.alive) .== 1.0)
+    
+    if pred_idx === nothing || prey_idx === nothing
+        @warn "Could not find a living predator or prey to conduct the test. Skipping."
+        return
+    end
+
+    # --- 2. FOCAL PREY TEST ---
+    @info "--- Testing for FOCAL prey detection... ---"
+    
+    pred_data_cpu = StructArray(NamedTuple(k => Array(v) for (k, v) in pairs(StructArrays.components(pred_data))))
+    prey_data_cpu = StructArray(NamedTuple(k => Array(v) for (k, v) in pairs(StructArrays.components(prey_data))))
+
+    # --- FIX: Ensure prey is a valid size for the predator ---
+    pred_len = pred_data_cpu.length[pred_idx]
+    min_size = pred_len * pred_params.Min_Prey.second[pred_sp]
+    max_size = pred_len * pred_params.Max_Prey.second[pred_sp]
+    
+    # Set prey length to be in the middle of the acceptable range
+    new_prey_len = (min_size + max_size) / 2.0
+    prey_data_cpu.length[prey_idx] = new_prey_len
+    
+    # Update prey biomass to match its new length
+    new_prey_biomass_ind = prey_params.LWR_a.second[prey_sp] * (new_prey_len / 10.0)^prey_params.LWR_b.second[prey_sp]
+    prey_data_cpu.biomass_ind[prey_idx] = new_prey_biomass_ind
+    prey_data_cpu.biomass_school[prey_idx] = new_prey_biomass_ind * prey_params.School_Size.second[prey_sp]
+    
+    @info "Test Predator Length: $(pred_len)mm. Valid prey size range: [$(min_size)mm, $(max_size)mm]."
+    @info "Set Test Prey ID $prey_idx to length $(new_prey_len)mm."
+
+    # Place the correctly-sized prey 1 meter in front of predator
+    pred_x, pred_y, pred_z = pred_data_cpu.x[pred_idx], pred_data_cpu.y[pred_idx], pred_data_cpu.z[pred_idx]
+    prey_data_cpu.x[prey_idx] = pred_x + 0.00001
+    prey_data_cpu.y[prey_idx] = pred_y
+    prey_data_cpu.z[prey_idx] = pred_z
+    prey_data_cpu.pool_x[prey_idx] = pred_data_cpu.pool_x[pred_idx]
+    prey_data_cpu.pool_y[prey_idx] = pred_data_cpu.pool_y[pred_idx]
+    prey_data_cpu.pool_z[prey_idx] = pred_data_cpu.pool_z[pred_idx]
+    
+    copyto!(pred_data, pred_data_cpu)
+    copyto!(prey_data, prey_data_cpu)
+    
+    @info "Placed Focal Prey ID $prey_idx at the location of Predator ID $pred_idx."
+
+    calculate_distances_prey!(model, pred_sp, [pred_idx])
+
+    best_idx = Array(pred_data.best_prey_idx[[pred_idx]])[1]
+    best_sp = Array(pred_data.best_prey_sp[[pred_idx]])[1]
+    best_dist = Array(pred_data.best_prey_dist[[pred_idx]])[1]
+
+    if best_idx > 0 && best_sp == prey_sp
+        println("✅ SUCCESS: Predator $pred_idx correctly identified Focal Prey $best_idx.")
+        println("   - Distance: $(sqrt(best_dist)) meters")
+    else
+        println("❌ FAILURE: Predator $pred_idx did NOT find the focal prey.")
+    end
+    
+    # --- 3. RESOURCE PREY TEST ---
+    @info "\n--- Testing for RESOURCE prey detection... ---"
+
+    res_biomass_cpu = Array(model.resources.biomass)
+    pred_pool_x = pred_data_cpu.pool_x[pred_idx]
+    pred_pool_y = pred_data_cpu.pool_y[pred_idx]
+    pred_pool_z = pred_data_cpu.pool_z[pred_idx]
+    
+    res_biomass_cpu[pred_pool_x, pred_pool_y, pred_pool_z, res_sp] = 5000.0
+    copyto!(model.resources.biomass, res_biomass_cpu)
+
+    @info "Placed a dense patch of Resource ID $res_sp in cell ($pred_pool_x, $pred_pool_y, $pred_pool_z)."
+
+    calculate_distances_prey!(model, pred_sp, [pred_idx])
+
+    best_idx_res = Array(pred_data.best_prey_idx[[pred_idx]])[1]
+    best_sp_res = Array(pred_data.best_prey_sp[[pred_idx]])[1]
+    best_type_res = Array(pred_data.best_prey_type[[pred_idx]])[1]
+    best_dist_res = Array(pred_data.best_prey_dist[[pred_idx]])[1]
+    
+    println("\n--- TEST RESULTS ---")
+    if best_idx_res > 0 && best_sp_res == res_sp && best_type_res == 2
+        println("✅ SUCCESS: Predator $pred_idx correctly identified Resource Prey patch $best_sp_res.")
+        println("   - Nearest-Neighbor Distance: $(sqrt(best_dist_res)) meters")
+    else
+        println("❌ FAILURE: Predator $pred_idx did NOT find the resource prey patch.")
+        println("   - This confirms a bug within the `find_best_prey_kernel!`'s resource search logic.")
+    end
+    println("--------------------\n")
+    
+    res_biomass_cpu[pred_pool_x, pred_pool_y, pred_pool_z, res_sp] = 0.0
+    copyto!(model.resources.biomass, res_biomass_cpu)
+end

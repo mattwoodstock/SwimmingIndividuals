@@ -19,10 +19,10 @@ function generate_outputs(model::MarineModel)
     n_fish = length(model.fishing)
 
     # --- Create output arrays on the correct device (CPU or GPU) ---
-    mortalities = array_type(arch)(zeros(Int64, lonres, latres, depthres, model.n_species + model.n_resource, model.n_species))
-    Fmort = array_type(arch)(zeros(Int64, lonres, latres, depthres, n_fish, model.n_species))
-    consumption = array_type(arch)(zeros(Float64, lonres, latres, depthres, model.n_species + model.n_resource, model.n_species + model.n_resource))
-    abundance = array_type(arch)(zeros(Float64, lonres, latres, depthres, model.n_species + model.n_resource))
+    mortalities = array_type(arch)(zeros(Int32, lonres, latres, depthres, model.n_species + model.n_resource, model.n_species))
+    Fmort = array_type(arch)(zeros(Int32, lonres, latres, depthres, n_fish, model.n_species))
+    consumption = array_type(arch)(zeros(Float32, lonres, latres, depthres, model.n_species + model.n_resource, model.n_species + model.n_resource))
+    abundance = array_type(arch)(zeros(Float32, lonres, latres, depthres, model.n_species + model.n_resource))
     
     return MarineOutputs(mortalities, Fmort, consumption, abundance)
 end

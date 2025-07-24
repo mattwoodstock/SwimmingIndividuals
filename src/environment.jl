@@ -7,7 +7,7 @@ function generate_environment!(arch::Architecture, nc_file::String,plt_diags)
     envi_data = Dict{String, AbstractArray}()
     output_dir = "./results/Test/Environment"
     mkpath(output_dir)
-    @info "Saving environment plots to: $output_dir"
+    @info "Loading environment parameters and saving to: $output_dir, if necessary"
 
     for var_name in keys(ds)
         if var_name in ["lon", "lat", "depth", "time"]
@@ -115,7 +115,7 @@ end
 # Habitat Capacity and Agent Placement
 # ===================================================================
 
-function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int, n_resource::Int, files, arch::Architecture, plt_diags)
+function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_resource::Int32, files, arch::Architecture, plt_diags)
     prefs_df = CSV.read(files[files.File .== "envi_pref",:Destination][1], DataFrame)
     trait = Dict(pairs(eachcol(CSV.read(files[files.File .== "focal_trait",:Destination][1], DataFrame))))
     resource = Dict(pairs(eachcol(CSV.read(files[files.File .== "resource_trait",:Destination][1], DataFrame))))
@@ -132,7 +132,7 @@ function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int, n_resour
     lonres, latres, nmonths = size(ref_var)
     
     # --- 2. COMPUTE HABITAT ON CPU ---
-    capacities_cpu = ones(Float64, lonres, latres, nmonths, n_spec + n_resource)
+    capacities_cpu = ones(Float32, lonres, latres, nmonths, n_spec + n_resource)
 
     Threads.@threads for i in 1:length(spec_names)
         sp_name = spec_names[i]
@@ -220,7 +220,7 @@ function initial_ind_placement(df_cpu, sp, grid, n_selections, month, land_mask)
 
     capacity_slice = @view df_cpu[:, :, month, sp]
     
-    valid_cells = DataFrame(x=Int[], y=Int[], value=Float64[])
+    valid_cells = DataFrame(x=Int[], y=Int[], value=Float32[])
     for lon in 1:lonres, lat in 1:latres
         # The definitive check: Must have capacity > 0
         if capacity_slice[lon, lat] > 0
@@ -241,17 +241,20 @@ function initial_ind_placement(df_cpu, sp, grid, n_selections, month, land_mask)
             push!(x_values, valid_cells.x[selected_idx])
             push!(y_values, valid_cells.y[selected_idx])
         end
+        flipped_y = (latres .- y_values) .+ 1
 
         actual_x = lonmin .+ (x_values .- 1) .* cell_size .+ rand(n_selections) .* cell_size
-        actual_y = latmax .- (y_values .- 1) .* cell_size .- rand(n_selections) .* cell_size
+        actual_y = latmax .- (flipped_y .- 1) .* cell_size .- rand(n_selections) .* cell_size
 
         return (lons=actual_x, lats=actual_y, grid_x=x_values, grid_y=y_values)
     else
         @warn "No valid water-based habitat for species $sp in month $month. Placing randomly."
         x_values = rand(1:lonres, n_selections)
         y_values = rand(1:latres, n_selections)
+        flipped_y = (latres .- y_values) .+ 1
+
         actual_x = lonmin .+ (x_values .- 1) .* cell_size .+ rand(n_selections) .* cell_size
-        actual_y = latmax .- (y_values .- 1) .* cell_size .- rand(n_selections) .* cell_size
+        actual_y = latmax .- (flipped_y .- 1) .* cell_size .- rand(n_selections) .* cell_size
         return (lons=actual_x, lats=actual_y, grid_x=x_values, grid_y=y_values)
     end
 end

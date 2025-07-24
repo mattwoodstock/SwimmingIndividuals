@@ -2,7 +2,7 @@
 # Pathfinding and Movement Helpers (CPU-based)
 # ===================================================================
 
-function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple{Int,Int})
+function find_path(capacity::Matrix{Float32}, start::Tuple{Int,Int}, goal::Tuple{Int,Int})
     open_set = [start]
     came_from = Dict{Tuple{Int,Int}, Tuple{Int,Int}}()
     visited = Set{Tuple{Int,Int}}()
@@ -34,11 +34,12 @@ function find_path(capacity::Matrix{Float64}, start::Tuple{Int,Int}, goal::Tuple
     return nothing
 end
 
-function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tuple{Int, Int}}, max_distance::Float64, latmax::Float64, lonmin::Float64, cell_size::Float64, lonres::Int, latres::Int)
+function reachable_point(current_pos::Tuple{Float32, Float32}, path::Vector{Tuple{Int, Int}}, max_distance::Float64, latmax::Float64, lonmin::Float64, cell_size::Float64, lonres::Int, latres::Int)
     function grid_to_coords(cell::Tuple{Int, Int})
         lon_idx, lat_idx = cell
         lon = lonmin + (lon_idx - 1 + rand()) * cell_size
-        lat = latmax - (lat_idx - 1 + rand()) * cell_size 
+        flipped_lat_idx = (latres - lat_idx) + 1
+        lat = latmax - (flipped_lat_idx - 1 + rand()) * cell_size
         return (lat, lon)
     end
 
@@ -57,8 +58,8 @@ function reachable_point(current_pos::Tuple{Float64, Float64}, path::Vector{Tupl
             interp_lon = prev_lon + frac * (lon - prev_lon)
             
             grid_x = clamp(Int(floor((interp_lon - lonmin) / cell_size) + 1), 1, lonres)
-            grid_y = clamp(Int(floor((latmax - interp_lat) / cell_size) + 1), 1, latres)
-            
+            grid_y = clamp(latres - Int(floor((latmax - interp_lat) / cell_size)), 1, latres)
+
             return (interp_lat, interp_lon, grid_y, grid_x)
         end
         prev_lat, prev_lon = lat, lon
@@ -74,7 +75,7 @@ function nearest_suitable_habitat(habitat::Matrix{Float64}, start_latlon::Tuple{
     lonres, latres = size(habitat)
     
     get_neighbors(x, y) = [(x+dx, y+dy) for (dx, dy) in ((-1,0),(1,0),(0,-1),(0,1),(-1,-1),(-1,1),(1,-1),(1,1)) if 1<=x+dx<=lonres && 1<=y+dy<=latres]
-    random_point_in_cell(cell) = (latmax - (cell[2]-1+rand())*cellsize_deg, lonmin+(cell[1]-1+rand())*cellsize_deg)
+    random_point_in_cell(cell) = (latmax - ((latres - cell[2] + 1) - 1 + rand()) * cellsize_deg, lonmin + (cell[1] - 1 + rand()) * cellsize_deg)
 
     visited = falses(lonres, latres)
     queue = [start_pool]
@@ -114,8 +115,8 @@ function nearest_suitable_habitat(habitat::Matrix{Float64}, start_latlon::Tuple{
     end
 
     new_lon_idx = clamp(floor(Int, (new_latlon[2] - lonmin) / cellsize_deg) + 1, 1, lonres)
-    new_lat_idx = clamp(floor(Int, (latmax - new_latlon[1]) / cellsize_deg) + 1, 1, latres)
-    
+    new_lat_idx = clamp(latres - floor(Int, (latmax - new_latlon[1]) / cellsize_deg), 1, latres)
+
     return new_latlon[1], new_latlon[2], new_lon_idx, new_lat_idx
 end
 
@@ -404,7 +405,7 @@ function move_resources!(model::MarineModel, month::Int)
     total_biomass_per_sp = reshape(sum(model.resources.biomass, dims=(1,2,3)), n_res)
     capacities_for_month = array_type(arch)(@view model.capacities[:, :, month, (n_sp+1):(n_sp+n_res)])
     total_capacity_per_sp = reshape(sum(capacities_for_month, dims=(1,2)), n_res)
-    new_biomass_grid = array_type(arch)(zeros(Float64, lonres, latres, depthres, n_res))
+    new_biomass_grid = array_type(arch)(zeros(Float32, lonres, latres, depthres, n_res))
 
     kernel! = move_resources_kernel!(device(arch), (8,8,4), (lonres, latres, depthres))
     kernel!(new_biomass_grid, capacities_for_month, total_biomass_per_sp, total_capacity_per_sp)
