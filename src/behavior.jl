@@ -70,28 +70,39 @@ function behavior(model::MarineModel, sp::Int64, ind::Vector{Int32}, outputs::Ma
     update_visual_range!(model, sp)
 
     if behave_type == "dvm_strong"
-        dvm_action!(model, sp) # This kernel runs on all agents
+        dvm_action!(model, sp, false) # false indicates it is NOT a weak migrator
         
         # Find which agents are NOT migrating to pass them to the decision function
         mig_status_cpu = Array(sp_dat.mig_status)
         not_migrating_indices = findall(x -> x <= 0.0, mig_status_cpu)
-        
-        # Intersect with the list of currently living agents
         decision_inds = Int32.(intersect(ind, not_migrating_indices))
         
         if !isempty(decision_inds)
             decision(model, sp, decision_inds, outputs)
         end
-
+        
     elseif behave_type == "dvm_weak"
-        # This logic needs to be converted to a kernel for full GPU compliance.
-        # For now, we assume it runs on CPU or has been refactored.
-        dvm_action!(model, sp)
-        decision(model, sp, ind, outputs)
+        dvm_action!(model, sp, true) # true indicates it IS a weak migrator
+
+        mig_status_cpu = Array(sp_dat.mig_status)
+        not_migrating_indices = findall(x -> x <= 0.0, mig_status_cpu)
+        decision_inds = Int32.(intersect(ind, not_migrating_indices))
+
+        if !isempty(decision_inds)
+            decision(model, sp, decision_inds, outputs)
+        end
 
     elseif behave_type == "pelagic_diver"
         dive_action!(model, sp)
-        decision(model, sp, ind, outputs)
+
+        mig_status_cpu = Array(sp_dat.mig_status)
+        # Statuses are: 0.0 (surface rest), -1.0 (deep rest)
+        not_migrating_indices = findall(x -> x == 0.0 || x == -1.0, mig_status_cpu)
+        decision_inds = Int32.(intersect(ind, not_migrating_indices))
+
+        if !isempty(decision_inds)
+            decision(model, sp, decision_inds, outputs)
+        end
         
     elseif behave_type == "non_mig"
         decision(model, sp, ind, outputs)
@@ -100,19 +111,12 @@ function behavior(model::MarineModel, sp::Int64, ind::Vector{Int32}, outputs::Ma
     return nothing
 end
 
-function prefixsum!(out::CuArray{Int}, input::CuArray{Int})
-    result = CUDA.cumsum(input)         # Allocates new array
-    copyto!(out, result)                # Copy back into the preallocated output
-    return out
-end
-
 function find_foraging_indices!(
     time::CuArray{Float32},
     gut_fullness::CuArray{Float32},
-    max_fullness::CuArray{Float32},
     inds::CuArray{T}
 ) where {T <: Integer}
-    still_forage_mask = (time .> 0f0) .& (gut_fullness .< max_fullness)
+    still_forage_mask = (time .> 0f0) .& (gut_fullness .< 1)
     filtered_inds = inds[still_forage_mask]
     return filtered_inds
 end
@@ -127,56 +131,55 @@ function decision(model::MarineModel, sp::Int, ind::Vector{Int32}, outputs::Mari
     n = length(ind_gpu)
 
     gut_fullness_gpu = CuArray(Float32.(sp_dat.gut_fullness[ind]))
-    biomass_gpu = CuArray(Float32.(sp_dat.biomass_school[ind]))
-    max_fullness_gpu = 0.2f0 .* biomass_gpu
-    feed_trigger_gpu = gut_fullness_gpu ./ max.(1.0f-9, max_fullness_gpu)
 
     rand_vals = CUDA.rand(Float32, n)
-    eat_mask_gpu = feed_trigger_gpu .<= rand_vals
+    eat_mask_gpu = gut_fullness_gpu .<= rand_vals
     eating_gpu = ind_gpu[eat_mask_gpu]  # Initial foragers
 
     # Allocate a full-length time array on GPU (indexed by full predator index)
     time_gpu = CUDA.fill(Float32(model.dt * 60.0), length(sp_dat.alive))
 
-    # Preallocate buffers used in loop
-    buf_gut = similar(gut_fullness_gpu)
-    buf_biomass = similar(biomass_gpu)
-    buf_max_fullness = similar(max_fullness_gpu)
-    buf_time = similar(time_gpu, length(eating_gpu))
-    
     # -------- Foraging Loop --------
-    num_foraging_attempts = 5
+    num_foraging_attempts = model.foraging_attempts
     print("eat | ")
+
     for i in 1:num_foraging_attempts
-        isempty(eating_gpu) && break
+        if isempty(eating_gpu); break; end
 
-        # GPU: Identify prey
-        calculate_distances_prey!(model, sp, eating_gpu)
+        # Convert GPU indices to CPU for CPU-only function
+        eating = Array(eating_gpu)
 
-        resolve_consumption!(model, sp, Array(eating_gpu))  # Only works on CPU-side indices
+        # CPU: Identify prey
+        calculate_distances_prey!(model, sp, eating)
+
+        # CPU: Resolve conflicts and allocate rations
+        resolve_consumption!(model, sp, eating)
 
         # GPU: Apply consumption and update time
         apply_consumption!(model, sp, time_gpu, outputs)
 
-        # Filter: keep only those who consumed something
-        ration_vals = CuArray(Float32.(sp_dat.successful_ration[Array(eating_gpu)]))
+        ## Debugging if necessary. Mainly for me.
+        #debug_successful_ration(sp_dat, sp)
+        #debug_resource_biomass(model.resources.biomass, sp_dat)
+        #debug_post_consumption(model.individuals.animals[1].data, sp_dat, sp)
+
+        # Filter: Keep only individuals who ate something
+        ration_vals = CuArray(Float32.(sp_dat.successful_ration[eating]))
         nonzero_mask = ration_vals .> 0f0
-        eating_gpu = eating_gpu[nonzero_mask]  # Keep only individuals who ate something
+        eating_gpu = eating_gpu[nonzero_mask]
 
         # Stop if none left
         isempty(eating_gpu) && break
 
         # Recalculate who should continue foraging
         gut_fullness_now = CuArray(Float32.(sp_dat.gut_fullness[Array(eating_gpu)]))
-        biomass_now = CuArray(Float32.(sp_dat.biomass_school[Array(eating_gpu)]))
-        max_fullness_now = 0.2f0 .* biomass_now
-        time_now = CuArray(Float32.(time_gpu[eating_gpu]))
+        time_now = CuArray(Float32.(time_gpu[Array(eating_gpu)]))
 
         eating_gpu = find_foraging_indices!(
-            time_now, gut_fullness_now, max_fullness_now, eating_gpu
+            time_now, gut_fullness_now, eating_gpu
         )
-
     end
+
     print("move | ")
 
     # Movement based on remaining time
@@ -184,7 +187,6 @@ function decision(model::MarineModel, sp::Int, ind::Vector{Int32}, outputs::Mari
 
     return nothing
 end
-
 # ===================================================================
 # CPU-based Initialization Functions (used only during setup)
 # ===================================================================

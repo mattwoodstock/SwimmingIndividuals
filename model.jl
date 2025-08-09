@@ -1,14 +1,16 @@
-using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays, JLD2,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays,Interpolations, DelimitedFiles, StatsBase,Plots, Distributions
-using Profile, ProfileView, Cthulhu #Only use for benchmarking purposes
+using PlanktonIndividuals, Distributions, Random, CSV, DataFrames, StructArrays,Statistics,Dates,Optim,LinearAlgebra, Tables, CUDA, LoopVectorization, NCDatasets,StaticArrays,Interpolations, DelimitedFiles, StatsBase,Plots, Distributions, NearestNeighbors, QuadGK,Printf, HDF5, NCDatasets
+
+#using Profile, ProfileView, Cthulhu, BenchmarkTools #Only use for benchmarking purposes
 using PlanktonIndividuals.Grids
 using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
+using KernelAbstractions
 using KernelAbstractions: @kernel, @index
+using CUDA: @atomic, atomic_cas!, atomic_sub!, @cuprintf
 
 include("src/utilities.jl")
 include("src/create.jl")
 include("src/environment.jl")
 include("src/simulation.jl")
-include("src/update.jl")
 include("src/output.jl")
 include("src/behavior.jl")
 include("src/movement.jl")
@@ -18,100 +20,104 @@ include("src/fisheries.jl")
 include("src/energy.jl")
 include("src/timestep.jl")
 include("src/analysis.jl")
+include("src/update.jl")
 
 ## Load in necessary databases
 files = CSV.read("files.csv",DataFrame) #All files needed in the model. Collected like this so that this can be passed through without passing each individual dataframe. 
+scen_dir_row = filter(row -> row.File == "scen_dir", files)
+scen_dir = scen_dir_row[1, :Destination]
+files.Destination = [
+    row.File == "scen_dir" ? row.Destination : joinpath(scen_dir, row.Destination) 
+    for row in eachrow(files)
+]
+res_dir_row = filter(row -> row.File == "res_dir", files)
+res_dir_name = res_dir_row[1, :Destination]
+full_res_path = joinpath(scen_dir, res_dir_name)
+mkpath(full_res_path)
+
 
 trait = Dict(pairs(eachcol(CSV.read(files[files.File .== "focal_trait",:Destination][1],DataFrame)))) #Database of IBM species traits 
-pool_trait = Dict(pairs(eachcol(CSV.read(files[files.File .== "nonfocal_trait",:Destination][1],DataFrame)))) #Database of pooled species traits
-state = CSV.read(files[files.File .== "state",:Destination][1],DataFrame) #Database of state variables
+resource_trait = CSV.read(files[files.File .== "resource_trait",:Destination][1],DataFrame)
+params = CSV.read(files[files.File .== "params",:Destination][1],DataFrame) #Database of state variables
 grid = CSV.read(files[files.File .== "grid",:Destination][1],DataFrame) #Database of grid variables
 fisheries = CSV.read(files[files.File .== "fisheries",:Destination][1],DataFrame)
+envi_file = files[files.File .== "environment",:Destination][1]
 
 ## Convert values to match proper structure
-Nsp = parse(Int64,state[state.Name .== "numspec", :Value][1]) #Number of IBM species
-Npool = parse(Int64,state[state.Name .== "numpool", :Value][1]) #Number of pooled species/groups
-output_dt = parse(Int64,state[state.Name .== "output_dt", :Value][1]) #Number of pooled species/groups
-spinup = parse(Int64,state[state.Name .== "spinup", :Value][1]) #Number of pooled species/groups
+Nsp = parse(Int32,params[params.Name .== "numspec", :Value][1]) #Number of IBM species
+Nresource = parse(Int32,params[params.Name .== "numresource", :Value][1]) #Number of IBM species
+output_dt = parse(Int32,params[params.Name .== "output_dt", :Value][1]) #Number of pooled species/groups
+spinup = parse(Int32,params[params.Name .== "spinup", :Value][1]) #Number of timesteps for a burn-in
+plt_diags = parse(Int32,params[params.Name .== "plt_diags", :Value][1]) #Number of timesteps for a burn-in
+foraging_attempts = parse(Int32,params[params.Name .== "num_foraging_attempts", :Value][1]) #Number of timesteps for a burn-in
 
-Nall = Nsp + Npool #Number of all groups
+maxN = Int64(500000)  # Placeholder where the maximum number of individuals created is simply the maximum abundance
+arch_str = params[params.Name .== "architecture", :Value][1] #Architecture to use.
 
-maxN = 1 # Placeholder where the maximum number of individuals created is simply the maximum abundance
-arch = CPU() #Architecture to use.
+if arch_str == "GPU"
+    if CUDA.functional()
+        arch = GPU()
+        println("✅ Architecture successfully set to GPU.")
+    else
+        # Fallback to CPU if CUDA is not available or functional
+        @warn "GPU specified but CUDA is not functional. Falling back to CPU."
+        arch = CPU()
+    end
+elseif arch_str == "CPU"
+    arch = CPU()
+    println("✅ Architecture successfully set to CPU.")
+else
+    # Default to CPU if the setting is unrecognized
+    @warn "Architecture '$arch_str' not recognized. Defaulting to CPU."
+    arch = CPU()
+end
+
 t = 0.0 #Initial time
-n_iteration = parse(Int,state[state.Name .== "nts", :Value][1]) #Number of model iterations (i.e., timesteps) to run
-dt = parse(Int,state[state.Name .== "model_dt", :Value][1]) #minutes per time step. Keep this at one.
-n_iters = parse(Int16,state[state.Name .== "n_iter", :Value][1]) #Number of iterations to run
 
-## Create Output grid
-latres = grid[grid.Name .== "latres", :Value][1]
-lonres = grid[grid.Name .== "lonres", :Value][1]
-depthres = grid[grid.Name .== "depthres", :Value][1]
-
-latmin = grid[grid.Name .== "latmin", :Value][1]
-latmax = grid[grid.Name .== "latmax", :Value][1]
-lonmin = grid[grid.Name .== "lonmin", :Value][1]
-lonmax = grid[grid.Name .== "lonmax", :Value][1]
-depthmax = grid[grid.Name .== "depthmax", :Value][1]
-
-n_lat = Int(round((latmax - latmin) / latres))
-n_lon = Int(round((lonmax - lonmin) / lonres))
-n_depth = Int(round(depthmax / depthres))
-
-g = RectilinearGrid(size = (n_lat, n_lon, n_depth),landmask = nothing,x = (latmin, latmax),y = (lonmin, lonmax),z = (0.0, -depthmax))
-
-maxdepth = grid[grid.Name .== "depthmax", :Value][1]
-depthres = grid[grid.Name .== "depthres", :Value][1]
-lonmax = grid[grid.Name .== "lonmax", :Value][1]
-lonmin = grid[grid.Name .== "lonmin", :Value][1]
-latmax = grid[grid.Name .== "latmax", :Value][1]
-latmin = grid[grid.Name .== "latmin", :Value][1]
-lonres = grid[grid.Name .== "lonres", :Value][1]
-latres = grid[grid.Name .== "latres", :Value][1]
-
-cell_size = ((latmax-latmin)/latres) * ((lonmax-lonmin)/lonres) * (maxdepth/depthres) #cubic meters of water in each grid cell
+n_iteration = parse(Int32,params[params.Name .== "nts", :Value][1]) #Number of model iterations (i.e., timesteps) to run
+dt = parse(Int32,params[params.Name .== "model_dt", :Value][1]) #minutes per time step. Keep this at one.
+n_iters = parse(Int16,params[params.Name .== "n_iter", :Value][1]) #Number of iterations to run
 
 #Create environment struct
-envi = generate_environment!()
+envi = generate_environment!(arch, envi_file,plt_diags,files)
 
 #Create Depth Struct and Carry Through Grid
 depths = generate_depths(files)
 
-capacities = initial_habitat_capacity(envi,Nsp,files) #3D array (x,y,spec)
-pool_capacities = pool_habitat_capacity(envi,Npool,files)
-for iter in 1:n_iters
-    B = trait[:Biomass][1:Nsp] #Vector of IBM abundances for all species
-  
-    ## Create individuals
-    ### Focal species
-    inds = generate_individuals(trait, arch, Nsp, B, maxN,depths,capacities,grid)
+capacities = initial_habitat_capacity(envi,Nsp,Nresource,files,arch,plt_diags) #3D array (x,y,spec)
 
-    ### Nonfocal species/groups
-    pooled = generate_pools(arch, pool_trait, Npool, g::AbstractGrid,maxN,dt,pool_capacities,grid,depths)
+for iter in 1:n_iters
+    B = Float32.(trait[:Biomass][1:Nsp]) #Vector of IBM abundances for all species
+
+    ## Create individuals
+    inds = generate_individuals(trait, arch, Nsp, B, maxN,depths,capacities,dt,envi)
+
+    resources = initialize_resources(resource_trait,Nsp,Nresource,depths,capacities,arch)
 
     #Load in fisheries data
     fishery = load_fisheries(fisheries)
 
-    ## Create model object
     init_abund = fill(0,Nsp)
-    
+    bioms = fill(0.0,Nsp)
 
-    model = MarineModel(arch,envi,depths, fishery, t, 0,dt, inds, pooled, capacities,pool_capacities,maxN, Nsp, Npool, B,init_abund, g, files, output_dt, cell_size,spinup)
-
-    for i in 1:Nsp
-        model.abund[i] = length(model.individuals.animals[i].data.x)
+    for sp in 1:Nsp
+        init_abund[sp] = sum(inds.animals[sp].data.abundance)
+        bioms[sp] = sum(inds.animals[sp].data.biomass_school)
     end
 
-    println(model.abund)
+    ## Create model object
+    model = MarineModel(arch,envi,depths, fishery, t, 0,dt, inds,resources,resource_trait, capacities,maxN, Nsp,Nresource,init_abund,bioms,init_abund, files, output_dt,spinup,foraging_attempts,plt_diags)
 
+    ## For debugging purposes
+    #test_prey_detection(model)
+    
     ##Set up outputs in the simulation
-    outputs = generate_outputs(model, Nall, n_iteration, output_dt)
+    outputs = generate_outputs(model)
 
     # Set up simulation parameters
     sim = MarineSimulation(model, dt, n_iteration,iter,outputs)
 
     # Run model. Currently this is very condensed, but I kept the code for when we work with environmental factors
-    update!(sim)
+    runSI(sim)
     #reset_run(sim)
-    
 end

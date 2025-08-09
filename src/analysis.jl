@@ -107,19 +107,32 @@ function timestep_results(sim::MarineSimulation)
     ts = Int(model.iteration)
     run = Int(sim.run)
 
+    # Get the base results directory from the model's files DataFrame
+    files_df = model.files
+    res_dir = files_df[files_df.File .== "res_dir", :Destination][1]
+
+    # Construct full paths for output subdirectories
+    individual_dir = joinpath(res_dir, "Individual")
+    population_dir = joinpath(res_dir, "Population")
+
+    if ts == 1 && run == 1
+        # Recreate directories at the start of a run
+        isdir(individual_dir) && rm(individual_dir, recursive=true)
+        mkpath(individual_dir)
+        isdir(population_dir) && rm(population_dir, recursive=true)
+        mkpath(population_dir)
+    end
+
     # --- Gather individual data for CSV output ---
-    # This logic is inherently CPU-based and requires copying data.
-    Sp, Ind, x, y, z, lengths, abundance, biomass = [],[],[],[],[],[],[],[]
+    Sp, Ind, x, y, z, lengths, abundance, biomass, gut_fullness, ration,energy,cost = [],[],[],[],[],[],[],[],[],[],[],[],[]
 
     for (species_index, animal) in enumerate(model.individuals.animals)
         spec_dat = animal.data
         
-        # Findall must be on a CPU array
         cpu_alive_mask = Array(spec_dat.alive) .== 1.0
         alive_indices = findall(cpu_alive_mask)
         if isempty(alive_indices); continue; end
 
-        # Copy only the data for living individuals
         append!(Sp, fill(species_index, length(alive_indices)))
         append!(Ind, alive_indices)
         append!(x, Array(spec_dat.x[alive_indices]))
@@ -128,25 +141,32 @@ function timestep_results(sim::MarineSimulation)
         append!(lengths, Array(spec_dat.length[alive_indices]))
         append!(abundance, Array(spec_dat.abundance[alive_indices]))
         append!(biomass, Array(spec_dat.biomass_school[alive_indices]))
+        append!(gut_fullness, Array(spec_dat.gut_fullness[alive_indices]))
+        append!(ration, Array(spec_dat.ration[alive_indices]))
+        append!(energy, Array(spec_dat.energy[alive_indices]))
+        append!(cost, Array(spec_dat.cost[alive_indices]))
+
     end
 
     if !isempty(Sp)
-        # Create and write DataFrame on CPU
-        df = DataFrame(Species=Sp, Individual=Ind, X=x, Y=y, Z=z, Length=lengths, Abundance=abundance, Biomass=biomass)
-        CSV.write("results/Individual/IndividualResults_$run-$ts.csv", df)
+        df = DataFrame(Species=Sp, Individual=Ind, X=x, Y=y, Z=z, Length=lengths, Abundance=abundance, Biomass=biomass,Fullness = gut_fullness,Ration = ration, Energy = energy,Cost = cost)
+        # Use the constructed path for writing the CSV file
+        csv_path = joinpath(individual_dir, "IndividualResults_$run-$ts.csv")
+        CSV.write(csv_path, df)
     end
     
     # --- Calculate and save population-scale results ---
-    init_abundances!(model, outputs) # Calculate abundances before mortality rates
+    init_abundances!(model, outputs) 
     M = instantaneous_mortality(outputs, arch)
     F = fishing_mortality(outputs, arch)
     
-    # Copy results to CPU for saving to HDF5
     cpu_M = Array(M)
     cpu_F = Array(F)
     cpu_DC = Array(outputs.consumption)
 
-    h5open("results/Population/Instantaneous_Mort_$(run)-$(ts).h5", "w") do file
+    # Use the constructed path for writing the HDF5 file
+    h5_path = joinpath(population_dir, "Population_Results_$(run)-$(ts).h5")
+    h5open(h5_path, "w") do file
         write(file, "M", cpu_M)
         write(file, "F", cpu_F)
         write(file, "Diet", cpu_DC)
@@ -166,6 +186,18 @@ function fishery_results(sim::MarineSimulation)
     run = Int(sim.run)
     fisheries = sim.model.fishing
 
+    # Get the base results directory from the model's files DataFrame
+    files_df = sim.model.files
+    res_dir = files_df[files_df.File .== "res_dir", :Destination][1]
+    
+    # Construct full path for the fishery output subdirectory
+    fish_dir = joinpath(res_dir, "Fishery")
+
+    if ts == 1 && run == 1
+        isdir(fish_dir) && rm(fish_dir, recursive=true)
+        mkpath(fish_dir)
+    end
+
     name, quotas, catches_t, catches_ind = [], [], [], []
     
     for fishery in fisheries
@@ -176,29 +208,32 @@ function fishery_results(sim::MarineSimulation)
     end
 
     df = DataFrame(Name=name, Quota=quotas, Tonnage=catches_t, Individuals=catches_ind)
-    CSV.write("results/Fishery/FisheryResults_$run-$ts.csv", df)
+    # Use the constructed path for writing the CSV file
+    csv_path = joinpath(fish_dir, "FisheryResults_$run-$ts.csv")
+    CSV.write(csv_path, df)
 end
 
-function assemble_diagnostic_results(model::MarineModel, run::Int, ts::Int)
+function assemble_diagnostic_results(model::MarineModel, run::Int32, ts::Int32)
     
-    # --- 1. Set up run-specific output directory ---
-    output_dir = joinpath("./results/diags", "run_$run")
+    # Get the base results directory from the model's files DataFrame
+    files_df = model.files
+    res_dir = files_df[files_df.File .== "res_dir", :Destination][1]
+
+    # Construct the full path for the run-specific diagnostics directory
+    output_dir = joinpath(res_dir, "diags", "run_$run")
+    
     if ts == 1 && isdir(output_dir)
         rm(output_dir, recursive=true)
     end
     mkpath(output_dir)
 
     # --- 2. Assemble Agent-Based Results ---
-    
-    # Pre-allocate vectors to hold the data for all focal species
     sp_ids, agent_ids = Int[], Int[]
     x_coords, y_coords, z_coords = Float32[], Float32[], Float32[]
-    # ADDED: Vectors for pool_x and pool_y
     pool_x_coords, pool_y_coords = Int[], Int[]
-    daily_rations, repro_energy = Float32[], Float32[]
+    daily_rations, repro_energy, cost = Float32[], Float32[], Float32[]
     biomass_ind, biomass_school = Float32[], Float32[]
 
-    # Loop through each focal species to gather data for living agents
     for sp in 1:model.n_species
         agents = model.individuals.animals[sp].data
         
@@ -206,28 +241,25 @@ function assemble_diagnostic_results(model::MarineModel, run::Int, ts::Int)
         alive_indices = findall(cpu_alive_mask)
         if isempty(alive_indices); continue; end
 
-        # Append data for the living agents of this species
         append!(sp_ids, fill(sp, length(alive_indices)))
         append!(agent_ids, alive_indices)
         append!(x_coords, Array(agents.x[alive_indices]))
         append!(y_coords, Array(agents.y[alive_indices]))
         append!(z_coords, Array(agents.z[alive_indices]))
-        # ADDED: Append pool coordinates
         append!(pool_x_coords, Array(agents.pool_x[alive_indices]))
         append!(pool_y_coords, Array(agents.pool_y[alive_indices]))
         append!(daily_rations, Array(agents.ration[alive_indices]))
         append!(repro_energy, Array(agents.repro_energy[alive_indices]))
+        append!(cost, Array(agents.cost[alive_indices]))
         append!(biomass_ind, Array(agents.biomass_ind[alive_indices]))
         append!(biomass_school, Array(agents.biomass_school[alive_indices]))
     end
 
-    # Create the final agent results DataFrame
     agent_results_df = DataFrame(
         SpeciesID = sp_ids, AgentID = agent_ids, 
         X = x_coords, Y = y_coords, Z = z_coords,
-        # ADDED: Include pool coordinates in the DataFrame
         pool_x = pool_x_coords, pool_y = pool_y_coords,
-        DailyRation = daily_rations, ReproEnergy = repro_energy,
+        DailyRation = daily_rations, ReproEnergy = repro_energy, Cost = cost,
         IndividualBiomass = biomass_ind, SchoolBiomass = biomass_school
     )
     CSV.write(joinpath(output_dir, "agent_results_$ts.csv"), agent_results_df)

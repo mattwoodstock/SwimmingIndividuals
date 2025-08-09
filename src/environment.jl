@@ -2,18 +2,29 @@
 # Data Structures and Environment Loading
 # ===================================================================
 
-function generate_environment!(arch::Architecture, nc_file::String,plt_diags)
+function generate_environment!(arch::Architecture, nc_file::String, plt_diags, files::DataFrame)
     ds = NCDataset(nc_file)
     envi_data = Dict{String, AbstractArray}()
-    output_dir = "./results/Test/Environment"
-    mkpath(output_dir)
-    @info "Loading environment parameters and saving to: $output_dir, if necessary"
+
+    # Get the base results directory from the files DataFrame
+    res_dir = files[files.File .== "res_dir", :Destination][1]
+    # Construct the specific path for environment diagnostic plots
+    output_dir = joinpath(res_dir, "diags", "Environment")
+
+    # Only create/clear the directory if plotting is enabled
+    if plt_diags == 1
+        # Use isdir() to prevent errors if the directory doesn't exist yet
+        isdir(output_dir) && rm(output_dir, recursive=true)
+        mkpath(output_dir)
+        @info "Loading environment parameters and saving plots to: $(abspath(output_dir))"
+    else
+        @info "Loading environment parameters..."
+    end
 
     for var_name in keys(ds)
         if var_name in ["lon", "lat", "depth", "time"]
             continue
         end
-        
         
         data_cpu = ds[var_name]
         envi_data[var_name] = array_type(arch)(data_cpu)
@@ -115,7 +126,7 @@ end
 # Habitat Capacity and Agent Placement
 # ===================================================================
 
-function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_resource::Int32, files, arch::Architecture, plt_diags)
+function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_resource::Int32, files::DataFrame, arch::Architecture, plt_diags)
     prefs_df = CSV.read(files[files.File .== "envi_pref",:Destination][1], DataFrame)
     trait = Dict(pairs(eachcol(CSV.read(files[files.File .== "focal_trait",:Destination][1], DataFrame))))
     resource = Dict(pairs(eachcol(CSV.read(files[files.File .== "resource_trait",:Destination][1], DataFrame))))
@@ -150,10 +161,9 @@ function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_reso
                     env_var_grid = envi_data_cpu[var_name]
                     val = (ndims(env_var_grid) == 3) ? env_var_grid[lon, lat, month] : env_var_grid[lon, lat]
 
-                    # If the environmental data itself is missing, suitability is zero.
                     if ismissing(val)
                         suitability_total = 0.0
-                        break # No need to check other preferences for this cell
+                        break
                     end
                     
                     pref_min = pref_row.pref_min
@@ -162,11 +172,9 @@ function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_reso
                     pref_max = pref_row.pref_max
 
                     suitability_i = 0.0
-                    # Check if any preference value is missing. If so, this variable does not limit habitat.
                     if any(ismissing, [pref_min, opt_min, opt_max, pref_max])
                         suitability_i = 1.0 
                     else
-                        # Otherwise, calculate suitability normally.
                         if val >= opt_min && val <= opt_max
                             suitability_i = 1.0
                         elseif val > pref_min && val < opt_min
@@ -186,7 +194,13 @@ function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_reso
     
     # --- EXPORT MAPS OF HABITAT CAPACITY ---
     if plt_diags == 1
-        output_dir = "./results/Test/Capacities"
+        # Get the base results directory
+        res_dir = files[files.File .== "res_dir", :Destination][1]
+        # Construct the specific output path for capacity plots
+        output_dir = joinpath(res_dir, "diags", "Capacities")
+        
+        # Use isdir() to prevent errors if the directory doesn't exist yet
+        isdir(output_dir) && rm(output_dir, recursive=true)
         mkpath(output_dir)
 
         for i in 1:length(spec_names)
@@ -204,10 +218,10 @@ function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_reso
                 savefig(p, joinpath(output_dir, "$(sp_name)_month_$(month)_capacity.png"))
             end
         end
-        @info "Habitat capacity maps exported to $output_dir"
+        @info "Habitat capacity maps exported to $(abspath(output_dir))"
     end
 
-    # --- 3. UPDATE: Copy the final CPU result back to the target device (GPU) ---
+    # --- 3. Copy the final CPU result back to the target device (GPU) ---
     return array_type(arch)(capacities_cpu)
 end
 

@@ -49,28 +49,41 @@ function reachable_point(current_pos::Tuple{Float32, Float32}, path::Vector{Tupl
     for i in 1:length(path)
         lat, lon = grid_to_coords(path[i])
         d = haversine(prev_lat, prev_lon, lat, lon)
-        total_distance += d
+        
+        # If the animal has reached its maximum distance
+        if total_distance + d > max_distance
+            # A small epsilon to prevent numerical instability.
+            epsilon = 1e-6 
+            if d > epsilon
+                remaining_dist = max_distance - total_distance
+                frac = remaining_dist / d
 
-        if total_distance > max_distance
-            excess = total_distance - max_distance
-            frac = 1 - (excess / d)
-            interp_lat = prev_lat + frac * (lat - prev_lat)
-            interp_lon = prev_lon + frac * (lon - prev_lon)
+                interp_lat = prev_lat + frac * (lat - prev_lat)
+                interp_lon = prev_lon + frac * (lon - prev_lon)
             
-            grid_x = clamp(Int(floor((interp_lon - lonmin) / cell_size) + 1), 1, lonres)
-            grid_y = clamp(latres - Int(floor((latmax - interp_lat) / cell_size)), 1, latres)
+                grid_x = clamp(Int(floor((interp_lon - lonmin) / cell_size) + 1), 1, lonres)
+                grid_y = clamp(latres - Int(floor((latmax - interp_lat) / cell_size)), 1, latres)
 
-            return (interp_lat, interp_lon, grid_y, grid_x)
+                return (interp_lat, interp_lon, grid_y, grid_x)
+            else
+                # If d is too small, the animal has effectively not moved in this sub-step.
+                # Return its previous position to avoid instability.
+                grid_x = clamp(Int(floor((prev_lon - lonmin) / cell_size) + 1), 1, lonres)
+                grid_y = clamp(latres - Int(floor((latmax - prev_lat) / cell_size)), 1, latres)
+                return (prev_lat, prev_lon, grid_y, grid_x)
+            end
         end
+        
+        total_distance += d
         prev_lat, prev_lon = lat, lon
     end
 
+    # If the entire path is shorter than max_distance, move to the end of the path
     final_cell = path[end]
     final_lat, final_lon = grid_to_coords(final_cell)
     return (final_lat, final_lon, final_cell[2], final_cell[1])
 end
-
-function nearest_suitable_habitat(habitat::Matrix{Float64}, start_latlon::Tuple{Float64, Float64}, start_pool::Tuple{Int,Int}, max_distance_m::Float64, latmax::Float64, lonmin::Float64, cellsize_deg::Float64)
+function nearest_suitable_habitat(habitat::Matrix{<:Real}, start_latlon::Tuple{<:Real, <:Real}, start_pool::Tuple{<:Integer,<:Integer}, max_distance_m::Real, latmax::Real, lonmin::Real, cellsize_deg::Real)
     R = 6371000.0
     lonres, latres = size(habitat)
     
@@ -120,81 +133,158 @@ function nearest_suitable_habitat(habitat::Matrix{Float64}, start_latlon::Tuple{
     return new_latlon[1], new_latlon[2], new_lon_idx, new_lat_idx
 end
 
-function bl_per_s(length, speed; b=0.35, min_speed = 0.5)
-    return max.(speed .* length .^ (-b), min_speed)
-end
-
 # ===================================================================
 # Specialized Movement Kernels (DVM and Diving)
 # ===================================================================
 
 @kernel function dvm_action_kernel!(
-    alive, mig_status, z, target_z, pool_z, active,
-    p_gpu, maxdepth, depth_res_m, depthres, t, dt, sp
+    alive, mig_status, z, target_z, pool_z, active, gut_fullness, length,
+    is_weak_migrator::Bool, swim_speed_bls::Float32,
+    maxdepth, depth_res_m, depthres, t, dt
 )
     ind = @index(Global)
     @inbounds if alive[ind] == 1.0
+        
         my_status = mig_status[ind]
         my_z = z[ind]
-        swim_speed = 2.68f0
+        
+        agent_length_m = length[ind] / 1000.0f0
+        swim_speed = swim_speed_bls * agent_length_m
+        swim_speed = max(0.01f0, swim_speed)
+        swim_speed = 2.6f0
         z_increment = swim_speed * Float32(dt)
+        
         is_daytime = (360.0f0 <= t < 1080.0f0)
         
         if is_daytime
-            if my_status == 0.0f0
+            # --- DAYTIME: Descent is Mandatory ---
+            # This logic is unconditional and remains correct.
+            if my_status == 0.0f0      # If at surface, start descending
                 mig_status[ind] = 2.0f0
                 z[ind] = min(target_z[ind], my_z + z_increment)
-            elseif my_status == 2.0f0
+            elseif my_status == 2.0f0  # If descending, continue
                 z[ind] = min(target_z[ind], my_z + z_increment)
-                if z[ind] >= target_z[ind]; mig_status[ind] = -1.0f0; end
+                if z[ind] >= target_z[ind]; mig_status[ind] = -1.0f0; end # Arrived at depth
             end
         else
-            if my_status == -1.0f0
-                mig_status[ind] = 1.0f0
-                z[ind] = max(target_z[ind], my_z - z_increment)
+            # --- NIGHTTIME: Logic is now split by status ---
+            
+            # 1. Decision Point: Only for animals at depth right at the decision point
+            if my_status == -1.0f0 && (t < 1080.0f0 + dt) && (t >= 1080.0f0)
+                hunger_threshold = rand(Float32)
+                is_hungry = (gut_fullness[ind] < hunger_threshold)
+                
+                # Strong migrators always ascend. Weak migrators only ascend if hungry.
+                can_ascend = !is_weak_migrator || is_hungry
+                
+                if can_ascend
+                    # Begin the ascent
+                    mig_status[ind] = 1.0f0
+                    z[ind] = max(1.0f0, max(target_z[ind], my_z - z_increment))
+                end
+                # If can_ascend is false, the animal does nothing and remains at depth.
+
+            # 2. Continuation: For animals already ascending.
             elseif my_status == 1.0f0
-                z[ind] = max(target_z[ind], my_z - z_increment)
-                if z[ind] <= target_z[ind]; mig_status[ind] = 0.0f0; end
+                z[ind] = max(1.0f0, max(target_z[ind], my_z - z_increment))
+                if z[ind] <= target_z[ind]; mig_status[ind] = 0.0f0; end # Arrived at surface
             end
         end
         
+        # Update pool_z regardless of movement
         @inbounds pool_z[ind] = clamp(ceil(Int, z[ind] / depth_res_m), 1, depthres)
         @inbounds active[ind] += dt
     end
 end
 
-function dvm_action!(model::MarineModel, sp::Int)
+function dvm_action!(model::MarineModel, sp::Int, is_weak_migrator::Bool)
     arch = model.arch
     data = model.individuals.animals[sp].data
     p_cpu = model.individuals.animals[sp].p
     
-    p_gpu = (; (k => array_type(arch)(v.second) for (k, v) in pairs(p_cpu))...)
-    
+    swim_speed_bls = Float32(p_cpu.Swim_velo.second[sp])
+
     grid = model.depths.grid
     maxdepth = grid[grid.Name .== "depthmax", :Value][1]
     depthres = Int(grid[grid.Name .== "depthres", :Value][1])
     depth_res_m = maxdepth / depthres
     
-    is_daytime = (360.0 <= model.t < 1080.0)
-    dist_params = is_daytime ? model.depths.focal_day[sp, :] : model.depths.focal_night[sp, :]
-    
-    target_z_cpu = gaussmix(length(data.x), dist_params.mu1, dist_params.mu2, dist_params.mu3,
-                                           dist_params.sigma1, dist_params.sigma2, dist_params.sigma3,
-                                           dist_params.lambda1, dist_params.lambda2)
-    copyto!(data.target_z, Float32.(target_z_cpu))
+    t = model.t
+    dt = model.dt
 
+    # --- TARGET ASSIGNMENT LOGIC ---
+    # A new target is assigned to ALL living agents at the precise transition times.
+    
+    # Check for Dawn Transition (6 AM)
+    if t >= 360.0 && t < 360.0 + dt
+        dist_params = model.depths.focal_day[sp, :]
+        # Generate new DEEP targets for all living agents
+        new_targets = gaussmix(length(data.x), 
+                               dist_params.mu1, dist_params.mu2, dist_params.mu3,
+                               dist_params.sigma1, dist_params.sigma2, dist_params.sigma3,
+                               dist_params.lambda1, dist_params.lambda2)
+        # Update the entire target_z array on the device
+        copyto!(data.target_z, Float32.(new_targets))
+    end
+
+    # Check for Dusk Transition (6 PM)
+    if t >= 1080.0 && t < 1080.0 + dt
+        dist_params = model.depths.focal_night[sp, :]
+        # Generate new SHALLOW targets for all living agents
+        new_targets = gaussmix(length(data.x), 
+                               dist_params.mu1, dist_params.mu2, dist_params.mu3,
+                               dist_params.sigma1, dist_params.sigma2, dist_params.sigma3,
+                               dist_params.lambda1, dist_params.lambda2)
+        # Update the entire target_z array on the device
+        copyto!(data.target_z, Float32.(new_targets))
+    end
+    
+    # --- KERNEL LAUNCH ---
     kernel! = dvm_action_kernel!(device(arch), 256, (length(data.x),))
+    
     kernel!(
-        data.alive, data.mig_status, data.z, data.target_z, data.pool_z, data.active,
-        p_gpu, maxdepth, depth_res_m, depthres, model.t, model.dt, sp
+        data.alive, data.mig_status, data.z, data.target_z, data.pool_z, data.active, data.gut_fullness,
+        data.length,
+        is_weak_migrator, 
+        swim_speed_bls,
+        maxdepth, depth_res_m, depthres, t, dt
     )
+    
     KernelAbstractions.synchronize(device(arch))
 end
 
+# This is a GPU-compliant helper function used by the kernel.
+@inline function gaussmix_gpu(
+    mu1, mu2, mu3,
+    sigma1, sigma2, sigma3,
+    lambda1, lambda2
+)
+    # Generate three random numbers
+    u1 = rand(Float32)
+    u2 = rand(Float32)
+
+    # Choose which Gaussian distribution to sample from
+    if u1 < lambda1
+        return mu1 + sigma1 * sqrt(-2.0f0 * log(u2)) * cos(2.0f0 * pi * u1)
+    elseif u1 < lambda1 + lambda2
+        return mu2 + sigma2 * sqrt(-2.0f0 * log(u2)) * cos(2.0f0 * pi * u1)
+    else
+        return mu3 + sigma3 * sqrt(-2.0f0 * log(u2)) * cos(2.0f0 * pi * u1)
+    end
+end
+
+# This is a GPU-compliant helper to get a random value from a uniform distribution.
+@inline function uniform_rand_depth_gpu(min_depth::Float32, max_depth::Float32)
+    return min_depth + rand(Float32) * (max_depth - min_depth)
+end
+
 @kernel function dive_action_kernel!(
-    alive, mig_status, interval, z, dives_remaining, gut_fullness,
+    alive, mig_status, interval, z, gut_fullness,
     biomass_school, length_arr, target_z, pool_z, active,
-    surface_interval, dive_interval, swim_velo, dive_max, dive_min,
+    surface_interval_mean, dive_interval_mean, swim_velo, 
+    day_mu1, day_mu2, day_mu3, day_sigma1, day_sigma2, day_sigma3, day_lambda1, day_lambda2,
+    night_mu1, night_mu2, night_mu3, night_sigma1, night_sigma2, night_sigma3, night_lambda1, night_lambda2,
+    day_min_z, day_max_z, night_min_z, night_max_z,
     depth_res_m, depthres, t, dt
 )
     ind = @index(Global)
@@ -202,46 +292,90 @@ end
         my_status = mig_status[ind]
         my_interval = interval[ind]
         my_z = z[ind]
-        my_dives_remaining = dives_remaining[ind]
         my_fullness = gut_fullness[ind]
-        my_biomass = biomass_school[ind]
         
         dive_velo_ms = swim_velo * (length_arr[ind] / 1000.0f0) * 60.0f0
         z_increment = dive_velo_ms * Float32(dt)
+        is_daytime = (360.0f0 <= t < 1080.0f0)
 
-        if my_status == 0.0f0 && my_dives_remaining > 0
+        if my_status == 0.0f0
+            if my_interval == 0.0f0
+                rand_interval = surface_interval_mean + randn(Float32) * (surface_interval_mean * 0.2f0)
+                target_z[ind] = max(1.0f0, rand_interval)
+            end
+
             my_interval += dt
-            max_fullness = 0.2f0 * my_biomass
-            fullness_ratio = max_fullness > 0 ? my_fullness / max_fullness : 1.0f0
-            dive_prob = 1.0f0 - (1.0f0 / (1.0f0 + exp(-5.0f0 * (fullness_ratio - 0.5f0))))
-            if my_interval >= surface_interval && rand(Float32) < dive_prob
+            target_surface_interval = target_z[ind]
+
+            hunger_threshold = rand(Float32)
+            is_hungry = (my_fullness < hunger_threshold)
+                        
+            if my_interval >= target_surface_interval && is_hungry
                 mig_status[ind] = 1.0f0
                 interval[ind] = 0.0f0
-                target_z[ind] = rand(Float32) * (dive_max - dive_min) + dive_min
+
+                new_target = my_z
+                attempts = 0
+
+                while new_target <= my_z && attempts < 10
+                    new_target = if is_daytime
+                        uniform_rand_depth_gpu(day_min_z,day_max_z)
+                    else
+                        uniform_rand_depth_gpu(night_min_z,night_max_z)
+                    end
+                    attempts += 1
+                end
+                target_z[ind] = max(1.0f0, new_target)
             else
                 interval[ind] = my_interval
             end
+
         elseif my_status == 1.0f0
             z[ind] = min(target_z[ind], my_z + z_increment)
-            if z[ind] >= target_z[ind]; mig_status[ind] = -1.0f0; end
+            if z[ind] >= target_z[ind]
+                mig_status[ind] = -1.0f0
+                interval[ind] = 0.0f0
+            end
+            @inbounds active[ind] += dt
+
+
         elseif my_status == -1.0f0
+            if my_interval == 0.0f0
+                rand_interval = dive_interval_mean + randn(Float32) * (dive_interval_mean * 0.2f0)
+                target_z[ind] = max(1.0f0, rand_interval)
+            end
+
             my_interval += dt
-            if my_interval >= dive_interval
+            target_dive_interval = target_z[ind]
+
+            if my_interval >= target_dive_interval
                 mig_status[ind] = 2.0f0
                 interval[ind] = 0.0f0
             else
                 interval[ind] = my_interval
             end
+
         elseif my_status == 2.0f0
             z[ind] = max(1.0f0, my_z - z_increment)
             if z[ind] <= 1.0f0
-                mig_status[ind] = 0.0f0
-                dives_remaining[ind] -= 1
+                mig_status[ind] = 3.0f0
+                z[ind] = 1.0f0
+                interval[ind] = 0.0f0
             end
+            @inbounds active[ind] += dt
+        
+        elseif my_status == 3.0f0
+            new_resting_depth = is_daytime ?
+                gaussmix_gpu(day_mu1, day_mu2, day_mu3, day_sigma1, day_sigma2, day_sigma3, day_lambda1, day_lambda2) :
+                gaussmix_gpu(night_mu1, night_mu2, night_mu3, night_sigma1, night_sigma2, night_sigma3, night_lambda1, night_lambda2)
+            
+            z[ind] = max(1.0f0, new_resting_depth)
+            
+            mig_status[ind] = 0.0f0
+            interval[ind] = 0.0f0
         end
         
         @inbounds pool_z[ind] = clamp(ceil(Int, z[ind] / depth_res_m), 1, depthres)
-        @inbounds active[ind] += dt
     end
 end
 
@@ -250,28 +384,49 @@ function dive_action!(model::MarineModel, sp::Int)
     data = model.individuals.animals[sp].data
     p_cpu = model.individuals.animals[sp].p
     
-    surface_interval = p_cpu.Surface_Interval.second[sp]
-    dive_interval = p_cpu.Dive_Interval.second[sp]
+    # --- 1. Gather all necessary parameters ---
+    surface_interval_mean = p_cpu.Surface_Interval.second[sp]
+    dive_interval_mean = p_cpu.Dive_Interval.second[sp]
     swim_velo = p_cpu.Swim_velo.second[sp]
-    dive_max = p_cpu.Dive_Max.second[sp]
-    dive_min = p_cpu.Dive_Min.second[sp]
+
+    day_min_z = Float32(p_cpu.Dive_Min_Day.second[sp])
+    day_max_z = Float32(p_cpu.Dive_Max_Day.second[sp])
+    night_min_z = Float32(p_cpu.Dive_Min_Night.second[sp])
+    night_max_z = Float32(p_cpu.Dive_Max_Night.second[sp])
+    
+    day_dist_params = model.depths.focal_day[sp, :]
+    night_dist_params = model.depths.focal_night[sp, :]
+    
+    # Extract all parameters for the daytime distribution
+    day_mu1 = Float32(day_dist_params.mu1); day_mu2 = Float32(day_dist_params.mu2); day_mu3 = Float32(day_dist_params.mu3)
+    day_sigma1 = Float32(day_dist_params.sigma1); day_sigma2 = Float32(day_dist_params.sigma2); day_sigma3 = Float32(day_dist_params.sigma3)
+    day_lambda1 = Float32(day_dist_params.lambda1); day_lambda2 = Float32(day_dist_params.lambda2)
+
+    # Extract all parameters for the nighttime distribution
+    night_mu1 = Float32(night_dist_params.mu1); night_mu2 = Float32(night_dist_params.mu2); night_mu3 = Float32(night_dist_params.mu3)
+    night_sigma1 = Float32(night_dist_params.sigma1); night_sigma2 = Float32(night_dist_params.sigma2); night_sigma3 = Float32(night_dist_params.sigma3)
+    night_lambda1 = Float32(night_dist_params.lambda1); night_lambda2 = Float32(night_dist_params.lambda2)
+    # ==========================================================
     
     grid = model.depths.grid
     depthres = Int(grid[grid.Name .== "depthres", :Value][1])
     depth_res_m = grid[grid.Name .== "depthmax", :Value][1] / depthres
 
+    # --- 2. Launch the Dive Action Kernel ---
     kernel! = dive_action_kernel!(device(arch), 256, (length(data.x),))
     kernel!(
-        data.alive, data.mig_status, data.interval, data.z, data.dives_remaining,
+        data.alive, data.mig_status, data.interval, data.z,
         data.gut_fullness, data.biomass_school, data.length, data.target_z,
         data.pool_z, data.active,
-        surface_interval, dive_interval, swim_velo, dive_max, dive_min,
+        surface_interval_mean, dive_interval_mean, swim_velo, 
+        # Pass all the unpacked scalar parameters instead of the DataFrameRows
+        day_mu1, day_mu2, day_mu3, day_sigma1, day_sigma2, day_sigma3, day_lambda1, day_lambda2,
+        night_mu1, night_mu2, night_mu3, night_sigma1, night_sigma2, night_sigma3, night_lambda1, night_lambda2,
+        day_min_z, day_max_z, night_min_z, night_max_z,
         depth_res_m, depthres, model.t, model.dt
     )
     KernelAbstractions.synchronize(device(arch))
 end
-
-
 
 # ===================================================================
 # General Habitat-Seeking Movement
@@ -283,26 +438,35 @@ function movement_toward_habitat!(model::MarineModel, sp::Int, time::AbstractArr
     animal_data = model.individuals.animals[sp].data
     animal_param = model.individuals.animals[sp].p
     
+    # Copy all necessary position data, including Z and the new target coordinates
     cpu_time = Array(time)
-    cpu_x, cpu_y = Array(animal_data.x), Array(animal_data.y)
-    cpu_pool_x, cpu_pool_y = Array(animal_data.pool_x), Array(animal_data.pool_y)
+    cpu_x, cpu_y, cpu_z = Array(animal_data.x), Array(animal_data.y), Array(animal_data.z)
+    cpu_pool_x, cpu_pool_y, cpu_pool_z = Array(animal_data.pool_x), Array(animal_data.pool_y), Array(animal_data.pool_z)
+    
+    # Assumes these fields have been added to your agent's data structure
+    cpu_target_pool_x, cpu_target_pool_y = Array(animal_data.target_pool_x), Array(animal_data.target_pool_y)
+    
     cpu_length = Array(animal_data.length)
     cpu_alive = Array(animal_data.alive)
     cpu_active = Array(animal_data.active)
 
-    new_x, new_y = copy(cpu_x), copy(cpu_y)
-    new_pool_x, new_pool_y = copy(cpu_pool_x), copy(cpu_pool_y)
+    # Create arrays to store the new positions
+    new_x, new_y, new_z = copy(cpu_x), copy(cpu_y), copy(cpu_z)
+    new_pool_x, new_pool_y, new_pool_z = copy(cpu_pool_x), copy(cpu_pool_y), copy(cpu_pool_z)
+    new_target_pool_x, new_target_pool_y = copy(cpu_target_pool_x), copy(cpu_target_pool_y)
     
+    # Get grid parameters
     month = model.environment.ts
-    # The habitat array is (lon, lat)
     habitat = Array(model.capacities[:, :, month, sp])
     grid = model.depths.grid
     latmax = grid[grid.Name .== "yulcorner", :Value][1]
     lonmin = grid[grid.Name .== "xllcorner", :Value][1]
     cell_size = grid[grid.Name .== "cellsize", :Value][1]
     lonres, latres = size(habitat)
+    maxdepth = grid[grid.Name .== "depthmax", :Value][1]
+    depthres = Int(grid[grid.Name .== "depthres", :Value][1])
+    depth_res_m = maxdepth / depthres
 
-    # Precompute list of all valid habitat cells across the entire grid
     habitat_cells = [(x=i, y=j, value=habitat[i,j]) for i in 1:lonres, j in 1:latres if habitat[i,j] > 0]
     
     if !isempty(habitat_cells)
@@ -315,41 +479,60 @@ function movement_toward_habitat!(model::MarineModel, sp::Int, time::AbstractArr
             if cpu_alive[ind] == 1.0 && cpu_time[ind] > 0
                 
                 cpu_active[ind] += cpu_time[ind] / 60.0
-
                 start_x, start_y = cpu_pool_x[ind], cpu_pool_y[ind]
+
                 cur_x, cur_y = cpu_x[ind], cpu_y[ind]
                 len_m = cpu_length[ind] / 1000.0
-                swim_speed_ms = bl_per_s(len_m*100, animal_param.Swim_velo[2][sp]) * len_m
+                swim_speed_ms = animal_param.Swim_velo[2][sp] * len_m
                 max_dist = swim_speed_ms * cpu_time[ind]
 
-                # If agent is in unsuitable habitat, find the NEAREST valid cell
+                vertical_shift = (rand(Float32) * 10.0f0) - 5.0f0
+                vertical_shift = clamp(vertical_shift, -max_dist, max_dist)
+                max_horizontal_dist = max(0.0, max_dist - abs(vertical_shift))
+
+                potential_new_z = cpu_z[ind] + vertical_shift
+                new_z[ind] = clamp(potential_new_z, 1.0f0, Float32(maxdepth))
+                new_pool_z[ind] = clamp(ceil(Int, new_z[ind] / depth_res_m), 1, depthres)
+
                 if habitat[start_x, start_y] == 0
-                    res = nearest_suitable_habitat(habitat, (cur_y, cur_x), (start_x, start_y), max_dist, latmax, lonmin, cell_size)
+                    res = nearest_suitable_habitat(habitat, (cur_y, cur_x), (start_x, start_y), max_horizontal_dist, latmax, lonmin, cell_size)
                     if res !== nothing
-                        # Note: nearest_suitable_habitat returns (lat, lon, lon_idx, lat_idx)
                         new_y[ind], new_x[ind], new_pool_x[ind], new_pool_y[ind] = res
                     end
                 else
-                    # Agent is in suitable habitat, so it will pick a better spot globally
-                    r = (rand()^4) * total_val
-                    idx = findfirst(x -> x >= r, cumvals)
-                    if idx !== nothing
-                        target_x, target_y = habitat_cells[idx].x, habitat_cells[idx].y
-                        
-                        path = find_path(habitat, (start_x, start_y), (target_x, target_y))
+                    # 1. Check if the agent needs a new long-term target.
+                    has_no_target = (cpu_target_pool_x[ind] == 0)
+                    has_reached_target = (start_x == cpu_target_pool_x[ind] && start_y == cpu_target_pool_y[ind])
 
-
-                        
-                        if path !== nothing && !isempty(path)
-                            # reachable_point returns (lat, lon, lat_idx, lon_idx)
-                            res_lat, res_lon, res_pool_y, res_pool_x = reachable_point((cur_y, cur_x), path, max_dist, latmax, lonmin, cell_size, lonres, latres)
-                            
-                            # Assign to the correct variables
-                            new_y[ind] = res_lat
-                            new_x[ind] = res_lon
-                            new_pool_y[ind] = res_pool_y
-                            new_pool_x[ind] = res_pool_x
+                    if has_no_target || has_reached_target
+                        # Select a new long-term target and store it.
+                        r = (rand()^4) * total_val
+                        idx = findfirst(x -> x >= r, cumvals)
+                        if idx !== nothing
+                            new_target_pool_x[ind] = habitat_cells[idx].x
+                            new_target_pool_y[ind] = habitat_cells[idx].y
                         end
+                    end
+                    
+                    # 2. Find the path to the current long-term target.
+                    target_x_int = Int(new_target_pool_x[ind])
+                    target_y_int = Int(new_target_pool_y[ind])
+                    long_term_target = (target_x_int, target_y_int)
+                    path = find_path(habitat, (start_x, start_y), long_term_target)
+                    
+                    # 3. Take a single step along the path.
+                    if path !== nothing && length(path) > 1
+                        # Create a short path representing just the next step
+                        next_step_path = [path[1], path[2]]
+                        
+                        # Move the maximum possible horizontal distance along this single step
+                        res_lat, res_lon, res_pool_y, res_pool_x = reachable_point((cur_y, cur_x), next_step_path, max_horizontal_dist, latmax, lonmin, cell_size, lonres, latres)
+                        
+                        new_y[ind] = res_lat
+                        new_x[ind] = res_lon
+                        new_pool_y[ind] = res_pool_y
+                        new_pool_x[ind] = res_pool_x
+
                     end
                 end
             end
@@ -359,8 +542,12 @@ function movement_toward_habitat!(model::MarineModel, sp::Int, time::AbstractArr
     # --- 3. UPDATE DEVICE ARRAYS WITH RESULTS ---
     copyto!(animal_data.x, new_x)
     copyto!(animal_data.y, new_y)
+    copyto!(animal_data.z, new_z)
     copyto!(animal_data.pool_x, new_pool_x)
     copyto!(animal_data.pool_y, new_pool_y)
+    copyto!(animal_data.pool_z, new_pool_z)
+    copyto!(animal_data.target_pool_x, new_target_pool_x)
+    copyto!(animal_data.target_pool_y, new_target_pool_y)
     copyto!(animal_data.active, cpu_active)
 
     return nothing

@@ -14,6 +14,7 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
         ration = zeros(Float32,maxN), alive = zeros(Float32,maxN),
         vis_prey = zeros(Float32,maxN), mature = zeros(Float32,maxN),
         age=zeros(Float32,maxN),
+        generation = zeros(Int32,maxN),
         cell_id = zeros(Int, maxN),
         sorted_id = zeros(Int, maxN),
         repro_energy = zeros(Float32, maxN),
@@ -28,16 +29,15 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
         mig_status = zeros(Float32, maxN),
         target_z = zeros(Float32, maxN),
         interval = zeros(Float32, maxN),
-        dives_remaining = zeros(Int, maxN)
+        target_pool_x = zeros(Float32, maxN),
+        target_pool_y = zeros(Float32, maxN)
     )
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:W_mat,:SpeciesLong, 
-                 :LWR_a, :Larval_Size,:Max_Prey, :Max_Size, :Dive_Max,:School_Size,:Taxa,
-                 :Larval_Duration, :Sex_Ratio,:SpeciesShort,:FLR_b, :Dive_Min,:Handling_Time,
-                 :FLR_a,:Energy_density, :Hatch_Survival, :MR_type, :Swim_velo, :Biomass, :Type)
+    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:W_mat,:SpeciesLong, :LWR_a, :Larval_Size,:Max_Prey, :Max_Size,:School_Size,:Taxa, :Larval_Duration, :Sex_Ratio,:SpeciesShort,:FLR_b, :Handling_Time,:Dive_Min_Night,:FLR_a,:Energy_density,:Min_Size, :Hatch_Survival, :MR_type, :Dive_Min_Day, :Dive_Max_Day, :Swim_velo, :Biomass,:Dive_Max_Night, :Type)
     p = NamedTuple{param_names}(params)
+
     return plankton(data, p)
 end
 
@@ -60,12 +60,13 @@ function initialize_individuals(plank, B::Float32, sp::Int, depths::MarineDepths
     target_b = B * 1e6 * area_km2
     school_size = plank.p.School_Size[2][sp]
     max_size = plank.p.Max_Size[2][sp]
+    min_size = plank.p.Min_Size[2][sp]
 
     cpu_lengths, cpu_biomass_ind, cpu_biomass_school = Float32[], Float32[], Float32[]
     
     # --- 2. Generate core data on the CPU until target biomass is met ---
     current_b = 0.0
-    μ, σ = lognormal_params_from_maxsize(max_size)
+    μ, σ = lognormal_params_from_minmax(min_size,max_size)
     dist = LogNormal(μ, σ)
     while current_b < target_b
         new_length = rand(dist)
@@ -102,7 +103,6 @@ function initialize_individuals(plank, B::Float32, sp::Int, depths::MarineDepths
         max_weight = plank.p.LWR_a[2][sp] * (max_size / 10)^plank.p.LWR_b[2][sp]
         cpu_mature = min.(1.0, cpu_biomass_ind ./ (plank.p.W_mat[2][sp] * max_weight))
         cpu_vis_prey = visual_range_preys_init(cpu_lengths, cpu_z, plank.p.Min_Prey[2][sp], plank.p.Max_Prey[2][sp], n_agents) .* dt
-        remaining_dives = 1440/(plank.p.Surface_Interval[2][sp] + plank.p.Dive_Interval[2][sp])
         
         # --- 4. Copy all data from CPU arrays to the target device (CPU or GPU) in one batch ---
         copyto!(plank.data.length, 1, cpu_lengths, 1, n_agents)
@@ -119,10 +119,10 @@ function initialize_individuals(plank, B::Float32, sp::Int, depths::MarineDepths
         copyto!(plank.data.vis_prey, 1, cpu_vis_prey, 1, n_agents)
         # Initialize other fields
         @views plank.data.alive[1:n_agents] .= 1.0
+        @views plank.data.generation[1:n_agents] .= 1
         @views plank.data.energy[1:n_agents] .= plank.data.biomass_school[1:n_agents] .* plank.p.Energy_density[2][sp] .* 0.2
-        @views plank.data.gut_fullness[1:n_agents] .= 0.2
-        @views plank.data.age[1:n_agents] .= plank.p.Larval_Duration[2][sp]
-        @views plank.data.dives_remaining[1:n_agents] .= remaining_dives
+        @views plank.data.gut_fullness[1:n_agents] .= CUDA.rand(Float32, n_agents)
+        @views plank.data.age[1:n_agents] .= plank.p.Larval_Duration[2][sp]+1
         
         # Set remaining unused slots to non-alive
         @views plank.data.alive[n_agents+1:end] .= 0.0
@@ -246,6 +246,8 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
     new_x, new_y, new_z = zeros(total_eggs), zeros(total_eggs), zeros(total_eggs)
     new_pool_x, new_pool_y, new_pool_z = zeros(Int, total_eggs), zeros(Int, total_eggs), zeros(Int, total_eggs)
     new_length = zeros(total_eggs)
+    new_generation = zeros(Int, total_eggs)
+
     
     current_idx = 1
     for i in 1:length(parent_data.x)
@@ -258,8 +260,9 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
             new_pool_x[indices] .= parent_data.pool_x[i]
             new_pool_y[indices] .= parent_data.pool_y[i]
             new_pool_z[indices] .= parent_data.pool_z[i]
-            rand_lengths = rand(Float32, num_eggs) .* p_cpu.Larval_Size.second[sp]
+            rand_lengths = rand(Float32, num_eggs) .* p_cpu.Min_Size.second[sp]
             new_length[indices] .= rand_lengths
+            new_generation[indices] .= parent_data.generation[i] .+ 1
             current_idx += num_eggs
         end
     end
@@ -272,9 +275,9 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
         biomass_ind=new_biomass_ind,
         biomass_school=new_biomass_ind .* p_cpu.School_Size.second[sp],
         energy = new_biomass_ind .* p_cpu.School_Size.second[sp] .* p_cpu.Energy_density.second[sp] .* 0.2,
-        gut_fullness = fill(0.2, total_eggs),
+        gut_fullness = fill(1, total_eggs),
         age = zeros(total_eggs),
-        pool_x=new_pool_x, pool_y=new_pool_y, pool_z=new_pool_z
+        pool_x=new_pool_x, pool_y=new_pool_y, pool_z=new_pool_z,generation=new_generation
     )
 end
 
@@ -291,7 +294,7 @@ function process_reproduction!(model::MarineModel, sp::Int32, spawn_val::Real)
     parent_data_cpu = (
         x = Array(data.x[repro_inds]), y = Array(data.y[repro_inds]), z = Array(data.z[repro_inds]),
         pool_x = Array(data.pool_x[repro_inds]), pool_y = Array(data.pool_y[repro_inds]), pool_z = Array(data.pool_z[repro_inds]),
-        biomass_ind = Array(data.biomass_ind[repro_inds])
+        biomass_ind = Array(data.biomass_ind[repro_inds]),generation = Array(data.generation[repro_inds])
     )
 
     new_offspring = calculate_new_offspring_cpu(p_cpu, parent_data_cpu, repro_energy_all[repro_inds], spawn_val, sp)

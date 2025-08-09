@@ -86,6 +86,7 @@ mutable struct MarineModel
     files::DataFrame
     output_dt::Int32
     spinup::Int32
+    foraging_attempts::Int32
     plt_diags::Int32
 end
 

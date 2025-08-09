@@ -15,6 +15,8 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
         pool_y = Array(agent_data_device.pool_y), pool_z = Array(agent_data_device.pool_z),
         active = Array(agent_data_device.active), ration = Array(agent_data_device.ration),
         alive = Array(agent_data_device.alive), vis_prey = Array(agent_data_device.vis_prey),
+        target_pool_x = Array(agent_data_device.target_pool_x),
+        target_pool_y = Array(agent_data_device.target_pool_y),
         mature = Array(agent_data_device.mature), age = Array(agent_data_device.age),
         cell_id = Array(agent_data_device.cell_id), sorted_id = Array(agent_data_device.sorted_id),
         repro_energy = Array(agent_data_device.repro_energy),
@@ -29,7 +31,7 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
         mig_status = Array(agent_data_device.mig_status),
         target_z = Array(agent_data_device.target_z),
         interval = Array(agent_data_device.interval),
-        dives_remaining = Array(agent_data_device.dives_remaining),
+        generation = Array(agent_data_device.generation)
     )
     temp_cpu = Array(temp)
 
@@ -43,15 +45,16 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
     spinup_check = model.iteration > model.spinup
 
     # Use CPU multi-threading for the main calculation loop
-    #Threads.@threads for ind in 1:length(data_cpu.x)
     @Threads.threads for ind in 1:length(data_cpu.x)
-
         if data_cpu.alive[ind] == 1.0
             # --- Gather Agent Properties (from CPU copies) ---
             my_temp = temp_cpu[ind]
             my_consumed = data_cpu.ration[ind]
             my_weight = data_cpu.biomass_school[ind]
-            my_active_time = min(0.0, data_cpu.active[ind] / dt)
+            
+            # Correctly calculate the proportion of active time
+            my_active_time = clamp(data_cpu.active[ind] / dt, 0.0, 1.0)
+            
             my_z = data_cpu.z[ind]
             my_length = data_cpu.length[ind]
             my_energy = data_cpu.energy[ind]
@@ -70,15 +73,36 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
                 max_fmr = (420.0 * (my_weight / 1000.0)^0.75) * (dt / 1440.0) / 4184.0
                 R = min_fmr + (max_fmr - min_fmr) * my_active_time
             elseif energy_type_code == 3 # "deepsea"
-                oxy = 13.6
+                # Define conversion constants
+                oxy_joules_per_mg = 13.6
+                joules_per_kcal = 4184.0
+
                 depth = max(1.0, my_z)
-                if my_weight > 0; log_weight = log(my_weight); else continue; end
+                if my_weight <= 0; continue; end
+                log_weight = log(my_weight)
                 inv_temp = 1000.0 / (273.15 + my_temp)
                 log_depth = log(depth)
+                
+                # This formula calculates the natural log of the weight-specific respiration rate
+                # The output unit is assumed to be mg O₂ per kg of wet weight per hour.
                 lnr = (taxa_code == 1 ? 19.491 + 0.885 * log_weight - 5.770 * inv_temp - 0.261 * log_depth :
                        taxa_code == 2 ? 28.326 + 0.779 * log_weight - 7.903 * inv_temp - 0.365 * log_depth :
                        18.775 + 0.766 * log_weight - 5.265 * inv_temp - 0.113 * log_depth)
-                R = (exp(lnr) / 1140.0 * (oxy * 1000.0)) / 60.0 * dt
+                
+                # Convert from log-space to linear-space
+                rate_mg_per_kg_per_hr = exp(lnr)
+                
+                # Convert weight from grams to kilograms for scaling
+                my_weight_kg = my_weight / 1000.0
+                
+                # Calculate the rate for the whole school in mg O₂ per hour
+                rate_mg_per_ind_per_hr = rate_mg_per_kg_per_hr * my_weight_kg
+                
+                # Convert from oxygen consumption to energy (kcal) per hour
+                rate_kcal_per_hr = (rate_mg_per_ind_per_hr * oxy_joules_per_mg) / joules_per_kcal
+                
+                # Scale the hourly rate to the timestep duration (dt is in minutes)
+                R = rate_kcal_per_hr * (dt / 60.0)
             else # Default
                 R0 = 0.02; k = 8.617e-5; TK = my_temp + 273.15
                 rmr = R0 * my_weight^0.75 * exp(-0.65 / (k * TK))
@@ -94,10 +118,10 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
                 continue
             end
             data_cpu.cost[ind] = total_waste_and_cost
-
             my_energy += net_energy
 
-            evac_prop = min(0.0, 0.053 * exp(0.073 * my_temp))
+            evac_prop = min(1.0, 0.053 * exp(0.073 * my_temp))
+
             if evac_prop < 1.0
                 data_cpu.gut_fullness[ind] *= exp((dt / 60.0) * log(1.0 - evac_prop))
             else
@@ -138,9 +162,9 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices)
         parent_data_for_repro = (
             x = data_cpu.x[repro_inds], y = data_cpu.y[repro_inds], z = data_cpu.z[repro_inds],
             pool_x = data_cpu.pool_x[repro_inds], pool_y = data_cpu.pool_y[repro_inds], pool_z = data_cpu.pool_z[repro_inds],
-            biomass_ind = data_cpu.biomass_ind[repro_inds]
+            biomass_ind = data_cpu.biomass_ind[repro_inds], generation = data_cpu.generation[repro_inds]
         )
-        new_offspring = calculate_new_offspring_cpu(p_cpu, parent_data_for_repro, data_cpu.repro_energy[repro_inds], spawn_val,sp)
+        new_offspring = calculate_new_offspring_cpu(p_cpu, parent_data_for_repro, data_cpu.repro_energy[repro_inds], spawn_val, sp)
         
         if new_offspring !== nothing
             num_new = length(new_offspring.x)

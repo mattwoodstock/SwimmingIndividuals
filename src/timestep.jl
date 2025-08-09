@@ -40,9 +40,8 @@ function TimeStep!(sim::MarineSimulation)
         cpu_alive = Array(species_data.alive)
         cpu_age = Array(species_data.age)
         
-        living::Vector{Int32} = findall(x -> x == 1, cpu_alive)
-        # This is not used later, but if needed, it's now safe:
-        # to_model = findall(i -> cpu_alive[i] == 1 && cpu_age[i] >= species_chars.Larval_Duration[2][spec], eachindex(cpu_alive))
+        larval_duration = species_chars.Larval_Duration[2][spec]
+        living::Vector{Int32} = findall(i -> cpu_alive[i] == 1 && cpu_age[i] >= larval_duration, eachindex(cpu_alive))
 
         if !isempty(living)
             # --- Population stats (requires GPU->CPU transfer for sum/mean) ---
