@@ -59,8 +59,8 @@ end
 mutable struct MarineDepths
     focal_day::DataFrame
     focal_night::DataFrame 
-    patch_day::DataFrame
-    patch_night::DataFrame
+    resource_day::DataFrame
+    resource_night::DataFrame
     grid::DataFrame
 end
 
@@ -88,6 +88,7 @@ mutable struct MarineModel
     spinup::Int32
     foraging_attempts::Int32
     plt_diags::Int32
+    size_bin_thresholds::AbstractMatrix{Float32}
 end
 
 
@@ -191,4 +192,125 @@ function generate_random_directions(n::Int)
     dy = sin.(φ) .* sin.(θ)
     dz = cos.(φ)
     return dx, dy, dz
+end
+
+function resize_agent_storage!(model::MarineModel, sp::Int, new_maxN::Int)
+    arch = model.arch
+    current_data = model.individuals.animals[sp].data
+    current_maxN = length(current_data.x)
+
+    # Ensure we are actually growing the arrays
+    if new_maxN <= current_maxN
+        @warn "Resize called with new_maxN ($new_maxN) <= current_maxN ($current_maxN). No action taken."
+        return
+    end
+
+    @info "Resizing agent storage for species $sp: $current_maxN -> $new_maxN"
+
+    # --- 1. Create a new, larger StructArray on the target architecture ---
+    fields = propertynames(current_data)
+    
+    # Create new empty arrays with the new size
+    new_arrays = Tuple(similar(getproperty(current_data, f), new_maxN) for f in fields)
+    
+    # Construct the new StructArray
+    new_device_data = StructArray{eltype(current_data)}(new_arrays)
+
+    # --- 2. Copy data from the old arrays to the new, larger arrays ---
+    for field in fields
+        current_array = getproperty(current_data, field)
+        new_array = getproperty(new_device_data, field)
+        
+        # Copy the existing data to the start of the new array
+        copyto!(@view(new_array[1:current_maxN]), current_array)
+    end
+    
+    # --- 3. Replace the old data field in the model ---
+    # Because 'plankton' is a mutable struct, we can directly replace its 'data' field.
+    # This is simpler and more efficient than rebuilding the parent structures.
+    model.individuals.animals[sp].data = new_device_data
+    
+    return nothing
+end
+
+"""
+    create_size_bin_matrix(agent_traits, resource_traits, n_bins, arch)
+
+Creates a matrix of size bin thresholds. Each column corresponds to a species,
+and the thresholds are calculated by dividing the species' size range
+(Min_Size to Max_Size) into 'n_bins' logarithmically-spaced intervals.
+"""
+function create_size_bin_matrix(agent_traits, resource_traits, n_bins::Int32, arch)
+    # Combine all species into one list for processing
+    all_species_traits = vcat(DataFrame(agent_traits), resource_traits, cols=:union)
+
+    n_total_species = nrow(all_species_traits)
+    
+    # The number of thresholds is always one less than the number of bins
+    n_thresholds = n_bins - 1
+    
+    # Create a CPU matrix to hold the thresholds
+    thresholds_cpu = zeros(Float32, n_thresholds, n_total_species)
+
+    for i in 1:n_total_species
+        min_s = all_species_traits.Min_Size[i]
+        max_s = all_species_traits.Max_Size[i]
+        
+        # Avoid errors with log(0) if a species has a min size of 0
+        if min_s <= 0; min_s = 0.1f0; end
+
+        log_min = log(min_s)
+        log_max = log(max_s)
+        log_step = (log_max - log_min) / n_bins
+
+        for j in 1:n_thresholds
+            thresholds_cpu[j, i] = exp(log_min + j * log_step)
+        end
+    end
+
+    # Return the matrix uploaded to the target device (e.g., GPU)
+    return array_type(arch)(thresholds_cpu)
+end
+
+"""
+    find_species_size_bin(value, species_idx, bins_matrix)
+
+An @inline device function to be used inside a GPU kernel. It determines which
+size bin a given `value` (e.g., an agent's length) falls into for a specific
+species by looking up the correct column in the `bins_matrix`.
+"""
+@inline function find_species_size_bin(value, species_idx, bins_matrix)
+    # The number of thresholds is the number of rows in the matrix
+    num_thresholds = size(bins_matrix, 1)
+    
+    # Loop through the thresholds in the column for the given species
+    for i in 1:num_thresholds
+        # `bins_matrix[i, species_idx]` accesses the threshold for this bin and species
+        if value < bins_matrix[i, species_idx]
+            return i # Belongs to bin 1, 2, ..., n-1
+        end
+    end
+    
+    # If the value is larger than all thresholds, it belongs in the last bin
+    return num_thresholds + 1 
+end
+
+@inline function normcdf(z::Float32)
+    # This now correctly calls the GPU-specific error function from CUDA.jl
+    return 0.5f0 * (1.0f0 + CUDA.erf(z / 1.41421356237f0))
+end
+
+@inline function custom_erf(x::Float32)
+    p  = 0.3275911f0
+    a1 = 0.254829592f0; a2 = -0.284496736f0; a3 = 1.421413741f0
+    a4 = -1.453152027f0; a5 = 1.061405429f0
+    sign = ifelse(x >= 0.0f0, 1.0f0, -1.0f0)
+    x_abs = abs(x)
+    t = 1.0f0 / (1.0f0 + p * x_abs)
+    y = 1.0f0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * exp(-x_abs * x_abs)
+    return sign * y
+end
+
+@inline function normcdf(z::Float32)
+    return 0.5f0 * (1.0f0 + custom_erf(z / 1.41421356237f0))
 end

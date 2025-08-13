@@ -25,9 +25,9 @@ function generate_environment!(arch::Architecture, nc_file::String, plt_diags, f
         if var_name in ["lon", "lat", "depth", "time"]
             continue
         end
-        
-        data_cpu = ds[var_name]
-        envi_data[var_name] = array_type(arch)(data_cpu)
+
+        data_cpu_array = Array(ds[var_name])  # load into CPU
+        envi_data[var_name] = array_type(arch)(data_cpu_array)  # send to CPU or GPU
 
         # Plotting logic
         if plt_diags == 1
@@ -120,7 +120,6 @@ function individual_temp!(model::MarineModel, sp::Int)
 
     return temps_out
 end
-
 
 # ===================================================================
 # Habitat Capacity and Agent Placement

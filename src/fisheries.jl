@@ -39,7 +39,8 @@ end
     # Deconstructed agent data arrays
     alive, x, y, z, length_arr, abundance, biomass_ind, biomass_school,
     # Other arrays and parameters
-    Fmort_inds, spec_char_gpu, fishery_params_gpu, sp::Int
+    Fmort_inds, spec_char_gpu, fishery_params_gpu, sp::Int,
+    remaining_quota_gpu::AbstractArray{Float32, 1} # Accept the remaining quota
 )
     ind = @index(Global)
 
@@ -58,42 +59,45 @@ end
                 selectivity = 1.0 / (1.0 + exp(-fishery_params_gpu.slope * (length_arr[ind] - fishery_params_gpu.l50)))
                 
                 if rand(Float32) <= selectivity
-                    # --- ALL FILTERS PASSED: Calculate Catch ---
+                    # --- ALL FILTERS PASSED: Calculate Potential Catch ---
                     abund = abundance[ind]
                     k = spec_char_gpu.School_Size[sp] / 2.0
                     density_effect = abund^2 / (abund^2 + k^2)
                     
                     possible_inds = floor(Int, abund)
-                    catch_inds = floor(Int, rand(Float32) * possible_inds * density_effect)
+                    potential_catch_inds = floor(Int, rand(Float32) * possible_inds * density_effect)
 
-                    if catch_inds > 0
-                        biomass_removed = catch_inds * biomass_ind[ind]
+                    if potential_catch_inds > 0
+                        potential_biomass_removed = potential_catch_inds * biomass_ind[ind]
                         
-                        # --- FIX: Use a robust atomic subtraction and correction pattern ---
-                        # This avoids the complex CAS loop and is guaranteed to be GPU-compliant.
+                        # 1. Try to subtract the desired biomass from the shared quota counter.
+                        # This atomically returns the value of the counter *before* the subtraction.
+                        claimed_quota_before_sub = @atomic remaining_quota_gpu[1] -= potential_biomass_removed
                         
-                        # Atomically subtract the desired amount. This returns the ORIGINAL value.
-                        old_biomass = @atomic biomass_school[ind] -= biomass_removed
-                        
-                        # Now, check if we overdrew the account (subtracted more than was available)
-                        if old_biomass < biomass_removed
-                            # We took too much. Atomically add back the difference to set biomass to zero.
-                            biomass_to_return = biomass_removed - old_biomass
-                            @atomic biomass_school[ind] += biomass_to_return
-                        end
-                        
-                        # The actual amount of biomass successfully removed is the minimum of what we wanted and what was there.
-                        actual_biomass_removed = min(biomass_removed, old_biomass)
+                        # 2. Determine the actual catch based on what was available.
+                        # The actual biomass we can take is the smaller of what we wanted and what was left.
+                        actual_biomass_removed = min(potential_biomass_removed, claimed_quota_before_sub)
 
                         if actual_biomass_removed > 0
+                            # 3. If we took too much, atomically add the difference back to the counter.
+                            if actual_biomass_removed < potential_biomass_removed
+                                biomass_to_return = potential_biomass_removed - actual_biomass_removed
+                                @atomic remaining_quota_gpu[1] += biomass_to_return
+                            end
+
+                            # 4. Proceed with the *actual* catch, which is now quota-limited.
                             actual_inds_caught = floor(Int, actual_biomass_removed / biomass_ind[ind])
                             
                             if actual_inds_caught > 0
+                                @atomic Fmort_inds[ind] += actual_inds_caught
+                                
+                                # Atomically update agent state
+                                @atomic biomass_school[ind] -= actual_biomass_removed
                                 old_abund = @atomic abundance[ind] -= Float32(actual_inds_caught)
+                                
                                 if old_abund - actual_inds_caught <= 0
                                     alive[ind] = 0.0
                                 end
-                                @atomic Fmort_inds[ind] += actual_inds_caught
                             end
                         end
                     end
@@ -102,7 +106,6 @@ end
         end
     end
 end
-
 
 # LAUNCHER: Deconstructs complex objects before calling the kernel
 function fishing!(model::MarineModel, sp::Int, day::Int, outputs::MarineOutputs)
@@ -122,6 +125,13 @@ function fishing!(model::MarineModel, sp::Int, day::Int, outputs::MarineOutputs)
             continue
         end
 
+        # Convert quota (tons) to biomass (grams)
+        remaining_quota_biomass = (fishery.quota - fishery.cumulative_catch) * 1e6
+        
+        # Create a GPU-side, single-element array to hold the remaining quota.
+        # This allows atomic operations inside the kernel.
+        remaining_quota_gpu = array_type(arch)([Float32(remaining_quota_biomass)])
+
         sel = fishery.selectivities[spec_name]
         fishery_params_gpu = (
             area = fishery.area,
@@ -132,22 +142,28 @@ function fishing!(model::MarineModel, sp::Int, day::Int, outputs::MarineOutputs)
 
         kernel! = fishing_kernel!(device(arch), 256, (length(spec_dat.x),))
         
-        # Launch the kernel with deconstructed arrays
         kernel!(
             spec_dat.alive, spec_dat.x, spec_dat.y, spec_dat.z, spec_dat.length,
             spec_dat.abundance, spec_dat.biomass_ind, spec_dat.biomass_school,
-            Fmort_inds, spec_char_gpu, fishery_params_gpu, sp
+            Fmort_inds, spec_char_gpu, fishery_params_gpu, sp,
+            remaining_quota_gpu # Pass the remaining quota to the kernel
         )
 
+        # --- Post-kernel processing remains largely the same ---
         total_inds_caught = Int(sum(Fmort_inds))
         if total_inds_caught > 0
             cpu_biomass_ind = Array(spec_dat.biomass_ind)
             cpu_fmort_inds = Array(Fmort_inds)
-            avg_biomass_ind = mean(cpu_biomass_ind[cpu_fmort_inds .> 0])
-            total_biomass_caught = total_inds_caught * avg_biomass_ind
             
-            fishery.cumulative_inds += total_inds_caught
-            fishery.cumulative_catch += total_biomass_caught / 1e6
+            # Filter to only include agents that were actually caught
+            caught_agent_indices = findall(cpu_fmort_inds .> 0)
+            if !isempty(caught_agent_indices)
+                avg_biomass_ind = mean(cpu_biomass_ind[caught_agent_indices])
+                total_biomass_caught = total_inds_caught * avg_biomass_ind
+                
+                fishery.cumulative_inds += total_inds_caught
+                fishery.cumulative_catch += total_biomass_caught / 1e6
+            end
             
             fill!(Fmort_inds, 0)
         end

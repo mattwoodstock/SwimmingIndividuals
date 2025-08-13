@@ -176,6 +176,8 @@ function timestep_results(sim::MarineSimulation)
     fill!(outputs.mortalities, 0)
     fill!(outputs.Fmort, 0)
     fill!(outputs.consumption, 0.0)
+    fill!(outputs.Smort, 0.0)
+
     
     return nothing
 end

@@ -501,7 +501,7 @@ function movement_toward_habitat!(model::MarineModel, sp::Int, time::AbstractArr
                     end
                 else
                     # 1. Check if the agent needs a new long-term target.
-                    has_no_target = (cpu_target_pool_x[ind] == 0)
+                    has_no_target = (cpu_target_pool_x[ind] < 1 || cpu_target_pool_y[ind] < 1)
                     has_reached_target = (start_x == cpu_target_pool_x[ind] && start_y == cpu_target_pool_y[ind])
 
                     if has_no_target || has_reached_target
@@ -601,4 +601,88 @@ function move_resources!(model::MarineModel, month::Int)
     model.resources.biomass .= new_biomass_grid
     model.resources.capacity .= new_biomass_grid
     return nothing
+end
+
+@kernel function sum_by_column_kernel!(
+    column_totals,
+    biomass_grid,
+    dvm_flags
+)
+    lon, lat, sp = @index(Global, NTuple)
+    
+    # Only perform the sum for species that migrate
+    if dvm_flags[sp] == 1
+        total = 0.0f0
+        for z in 1:size(biomass_grid, 3)
+            total += biomass_grid[lon, lat, z, sp]
+        end
+        column_totals[lon, lat, sp] = total
+    end
+end
+
+@kernel function redistribute_by_profile_kernel!(
+    biomass_grid,
+    column_totals,
+    normalized_profiles,
+    dvm_flags
+)
+    lon, lat, depth, sp = @index(Global, NTuple)
+
+    # Only perform the redistribution for species that migrate
+    if dvm_flags[sp] == 1
+        total_in_column = column_totals[lon, lat, sp]
+        vertical_proportion = normalized_profiles[depth, sp]
+        
+        # Assign the new biomass based on the total and the profile
+        biomass_grid[lon, lat, depth, sp] = total_in_column * vertical_proportion
+    end
+end
+
+function vertical_resource_movement!(model::MarineModel)
+    arch = model.arch
+    g = model.depths.grid
+    n_res = Int(model.n_resource)
+    depthres = Int(g.Value[g.Name .== "depthres"])
+    lonres = Int(g.Value[g.Name .== "lonres"])
+    latres = Int(g.Value[g.Name .== "latres"])
+
+    # --- 1. Determine Time of Day and Select Profiles ---
+    # (Assuming model.t is minutes from midnight, 0-1440)
+    is_night = model.t < 360 || model.t > 1080 # (Before 6 AM or after 6 PM)
+    
+    profile_source = is_night ? model.depths.resource_night : model.depths.resource_day
+
+    # --- 2. Prepare Normalized Profiles on CPU ---
+    max_depth = Int(g.Value[g.Name .== "depthmax"])
+    depth_res_m = max_depth / depthres
+    depths_m = [(d - 0.5f0) * depth_res_m for d in 1:depthres]
+    
+    vertical_profiles_cpu = zeros(Float32, depthres, n_res)
+    for res_sp in 1:n_res
+        mu1 = profile_source[res_sp, "mu1"]; mu2 = profile_source[res_sp, "mu2"]
+        sigma1 = profile_source[res_sp, "sigma1"]; sigma2 = profile_source[res_sp, "sigma2"]
+        lambda1 = profile_source[res_sp, "lambda1"]
+        
+        profile = lambda1 .* pdf.(Normal(mu1, sigma1), depths_m) .+ (1-lambda1) .* pdf.(Normal(mu2, sigma2), depths_m)
+        sum_prof = sum(profile)
+        if sum_prof > 0
+            vertical_profiles_cpu[:, res_sp] .= profile ./ sum_prof
+        end
+    end
+
+    # --- 3. Upload Data to GPU ---
+    dvm_flags_gpu = array_type(arch)(model.resource_trait.DVM_flag)
+    normalized_profiles_gpu = array_type(arch)(vertical_profiles_cpu)
+    column_totals_gpu = array_type(arch)(zeros(Float32, lonres, latres, n_res))
+
+    # --- 4. Launch Kernels ---
+    # Kernel 1: Sum biomass in each column for migrating species
+    kernel_sum = sum_by_column_kernel!(device(arch), (8, 8, 1), (lonres, latres, n_res))
+    kernel_sum(column_totals_gpu, model.resources.biomass, dvm_flags_gpu)
+    
+    # Kernel 2: Redistribute the summed biomass according to the new profile
+    kernel_redist = redistribute_by_profile_kernel!(device(arch), (8, 8, 4, 1), size(model.resources.biomass))
+    kernel_redist(model.resources.biomass, column_totals_gpu, normalized_profiles_gpu, dvm_flags_gpu)
+
+    KernelAbstractions.synchronize(device(arch))
 end

@@ -17,8 +17,17 @@ function TimeStep!(sim::MarineSimulation)
     month_index = month(current_date)
     day_index = dayofyear(current_date)
 
+    # Move resource groups, if necessary. Only functoinal at less than 12 hour timestep
     if month_index != envi.ts
         move_resources!(model, month_index)
+    end
+
+    is_night_now = model.t < 360 || model.t > 1080
+    t_previous = (model.t - sim.ΔT + 1440) % 1440 # Handle midnight wrap-around
+    was_night_before = t_previous < 360 || t_previous > 1080
+    
+    if is_night_now != was_night_before
+        vertical_resource_movement!(model)
     end
 
     if day_index == 1
@@ -33,6 +42,19 @@ function TimeStep!(sim::MarineSimulation)
     
     # Loop over focal species
     for spec in 1:species
+        if model.iteration % 10 == 0
+            # Get current population and capacity
+            n_alive = count(x -> x == 1.0, Array(model.individuals.animals[spec].data.alive))
+            current_maxN = length(model.individuals.animals[spec].data.x)
+            resize_threshold = 0.90 # 90% capacity
+
+            # If population exceeds the threshold, resize the storage
+            if n_alive > current_maxN * resize_threshold
+                new_maxN = floor(Int, current_maxN * 1.5) # Increase capacity by 50%
+                resize_agent_storage!(model, spec, new_maxN)
+            end
+        end
+
         species_data = model.individuals.animals[spec].data
         species_chars = model.individuals.animals[spec].p
 
@@ -62,7 +84,7 @@ function TimeStep!(sim::MarineSimulation)
 
             print("energy | ")
 
-            energy!(model, spec, ind_temp, living) # Assuming energy! is the new kernel launcher
+            energy!(model, spec, ind_temp, living,outputs) # Assuming energy! is the new kernel launcher
 
             print("fish | ")
             if (model.iteration > model.spinup)
@@ -70,16 +92,19 @@ function TimeStep!(sim::MarineSimulation)
             end
         end
         
-        # Age all individuals (this broadcast is fine)
+        # Age all individuals
         species_data.age .+= (model.dt / 1440)
     end
 
     print("resources | ")
-    # --- Resource procedure (using new kernel launchers) ---
-    resource_predation!(model, outputs) # This function still needs optimization
-    resource_growth!(model)
+    # --- Resource procedure (using kernel launchers) ---
+    if (model.iteration > model.spinup)
+        resource_predation!(model, outputs)
+    end
     resource_mortality!(model)
-    
+
+    resource_growth!(model)
+   
     println("results | ")
 
     if (model.t % model.output_dt == 0)

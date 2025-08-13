@@ -9,9 +9,10 @@ The fields are defined as `AbstractArray` to be compatible with both
 CPU `Array`s and GPU `CuArray`s.
 """
 mutable struct MarineOutputs
-    mortalities::AbstractArray{Int32,5}
-    Fmort::AbstractArray{Int32,5}
-    consumption::AbstractArray{Float32,5}
+    mortalities::AbstractArray{Int32,7}
+    Fmort::AbstractArray{Int32,6}
+    Smort::AbstractArray{Int32,5}
+    consumption::AbstractArray{Float32,7}
     abundance::AbstractArray{Float32,4}
 end
 
