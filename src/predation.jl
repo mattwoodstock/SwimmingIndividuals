@@ -791,8 +791,11 @@ end
             if total_biomass_eaten_potential > 0.0f0
                 ind_biomass = animal_data.biomass_ind[i]
                 if ind_biomass > 0.0f0
-                    inds_removed = floor(Int32, total_biomass_eaten_potential / ind_biomass)
-                          
+                    individuals_requested_float = total_biomass_eaten_potential / ind_biomass
+                    individuals_available = animal_data.abundance[i]
+                    inds_removed_float = min(individuals_requested_float, individuals_available)
+                    inds_removed = floor(Int32, inds_removed_float)
+
                     if inds_removed > 0
                         actual_biomass_removed = min(inds_removed * ind_biomass, animal_data.biomass_school[i])
                         
