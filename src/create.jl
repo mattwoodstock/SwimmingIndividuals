@@ -35,9 +35,8 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:W_mat,:SpeciesLong, :LWR_a, :Larval_Size,:Max_Prey, :Max_Size,:School_Size,:Taxa, :Larval_Duration, :Sex_Ratio,:SpeciesShort,:FLR_b, :Handling_Time,:Dive_Min_Night,:FLR_a,:Energy_density,:Min_Size, :Hatch_Survival, :MR_type, :Dive_Min_Day, :Dive_Max_Day, :Swim_velo, :Biomass,:Dive_Max_Night, :Type)
+    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:W_mat,:SpeciesLong, :LWR_a, :Larval_Size,:Max_Prey, :Max_Size,:School_Size,:Taxa, :Larval_Duration, :Max_Stomach, :Sex_Ratio,:SpeciesShort,:FLR_b, :Handling_Time,:Dive_Min_Night,:FLR_a,:Energy_density,:Min_Size, :Hatch_Survival, :MR_type, :Dive_Min_Day, :Dive_Max_Day, :Swim_velo, :Biomass,:Dive_Max_Night, :Type)
     p = NamedTuple{param_names}(params)
-
     return plankton(data, p)
 end
 
@@ -191,7 +190,7 @@ end
         
         if final_biomass > 0
             resource_biomass[lon, lat, depth_idx, res_sp] = final_biomass
-            resource_capacity[lon, lat, depth_idx, res_sp] = final_biomass * 2.0f0 # Example: capacity is 2x initial biomass
+            resource_capacity[lon, lat, depth_idx, res_sp] = final_biomass * 2.0f0
         end
     end
 end
@@ -283,10 +282,12 @@ end
     rate = per_timestep_rates[sp]
 
     if biomass > 0 && capacity > 0
-        @inbounds biomass_grid[lon, lat, depth, sp] = biomass + rate * biomass * (1.0 - biomass / capacity)
+        #@inbounds biomass_grid[lon, lat, depth, sp] = biomass + rate * biomass * (1.0 - biomass / capacity)
     elseif biomass <= 1E-9 && capacity > 0 #Assure that biomass should not be 0 for future growth
-        @inbounds biomass_grid[lon, lat, depth, sp] = 1E-9
+        #@inbounds biomass_grid[lon, lat, depth, sp] = 1E-9
     end
+    @inbounds biomass_grid[lon, lat, depth, sp] = capacity # Placeholder for testing
+
 end
 
 # Launcher for resource growth

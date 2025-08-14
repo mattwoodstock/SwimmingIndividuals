@@ -47,6 +47,11 @@ mutable struct Fishery
     area::Tuple{Tuple{Float32, Float32}, Tuple{Float32, Float32}, Tuple{Float32, Float32}}
     slot_limit::Tuple{Float32, Float32}
     bag_limit::Int32
+    effort_days::Int
+    mean_length_catch::Float64
+    mean_weight_catch::Float64
+    bycatch_tonnage::Float64
+    bycatch_inds::Int
 end
 
 # A flexible struct to hold any environmental data loaded from a NetCDF file
@@ -243,14 +248,15 @@ and the thresholds are calculated by dividing the species' size range
 function create_size_bin_matrix(agent_traits, resource_traits, n_bins::Int32, arch)
     # Combine all species into one list for processing
     all_species_traits = vcat(DataFrame(agent_traits), resource_traits, cols=:union)
-
     n_total_species = nrow(all_species_traits)
     
-    # The number of thresholds is always one less than the number of bins
+    # The number of internal thresholds is one less than the number of bins
     n_thresholds = n_bins - 1
     
-    # Create a CPU matrix to hold the thresholds
-    thresholds_cpu = zeros(Float32, n_thresholds, n_total_species)
+    # --- CHANGE: Create a matrix to hold min, max, and all thresholds ---
+    # The total number of rows will be n_thresholds + 2 (for min and max)
+    # which is equivalent to n_bins + 1
+    thresholds_cpu = zeros(Float32, n_bins + 1, n_total_species)
 
     for i in 1:n_total_species
         min_s = all_species_traits.Min_Size[i]
@@ -259,13 +265,21 @@ function create_size_bin_matrix(agent_traits, resource_traits, n_bins::Int32, ar
         # Avoid errors with log(0) if a species has a min size of 0
         if min_s <= 0; min_s = 0.1f0; end
 
+        # --- CHANGE: Populate the first and last rows with Min/Max Size ---
+        thresholds_cpu[1, i] = min_s
+        thresholds_cpu[end, i] = max_s
+        # --- END CHANGE ---
+
         log_min = log(min_s)
         log_max = log(max_s)
         log_step = (log_max - log_min) / n_bins
 
+        # --- CHANGE: Populate the intermediate rows with the thresholds ---
         for j in 1:n_thresholds
-            thresholds_cpu[j, i] = exp(log_min + j * log_step)
+            # The thresholds are placed in rows 2 through n_thresholds + 1
+            thresholds_cpu[j + 1, i] = exp(log_min + j * log_step)
         end
+        # --- END CHANGE ---
     end
 
     # Return the matrix uploaded to the target device (e.g., GPU)
@@ -280,24 +294,23 @@ size bin a given `value` (e.g., an agent's length) falls into for a specific
 species by looking up the correct column in the `bins_matrix`.
 """
 @inline function find_species_size_bin(value, species_idx, bins_matrix)
-    # The number of thresholds is the number of rows in the matrix
-    num_thresholds = size(bins_matrix, 1)
-    
-    # Loop through the thresholds in the column for the given species
-    for i in 1:num_thresholds
-        # `bins_matrix[i, species_idx]` accesses the threshold for this bin and species
+    # The number of bins is the number of rows in the matrix minus one.
+    n_bins = size(bins_matrix, 1) - 1
+
+    # The actual bin thresholds start at the second row of the matrix.
+    # We loop from the first threshold (row 2) up to the last one (row `n_bins`).
+    for i in 2:n_bins
+        # Check if the value is less than the upper threshold of the current bin.
+        # The threshold for bin `i-1` is at row `i`.
         if value < bins_matrix[i, species_idx]
-            return i # Belongs to bin 1, 2, ..., n-1
+            # Example: If value is less than the threshold at row 2, it's in bin 1.
+            return i - 1
         end
     end
     
-    # If the value is larger than all thresholds, it belongs in the last bin
-    return num_thresholds + 1 
-end
-
-@inline function normcdf(z::Float32)
-    # This now correctly calls the GPU-specific error function from CUDA.jl
-    return 0.5f0 * (1.0f0 + CUDA.erf(z / 1.41421356237f0))
+    # If the value is greater than or equal to the last threshold (at row `n_bins`),
+    # it belongs in the last bin (`n_bins`).
+    return n_bins
 end
 
 @inline function custom_erf(x::Float32)
@@ -311,6 +324,19 @@ end
     return sign * y
 end
 
-@inline function normcdf(z::Float32)
-    return 0.5f0 * (1.0f0 + custom_erf(z / 1.41421356237f0))
+@inline function calculate_proportion_in_bin(lower_bound::Float32, upper_bound::Float32, μ::Float32, σ::Float32)
+        sqrt2 = 1.41421356237f0
+
+    if lower_bound < 1.0f-20 
+        # If the lower bound is effectively zero, calculate CDF at the upper bound
+        z_upper = (CUDA.log(upper_bound) - μ) / σ
+        return 0.5f0 * (1.0f0 + custom_erf(z_upper / sqrt2))
+    else
+        # Otherwise, calculate the difference between the two CDFs
+        z_lower = (CUDA.log(lower_bound) - μ) / σ
+        z_upper = (CUDA.log(upper_bound) - μ) / σ
+        cdf_upper = 0.5f0 * (1.0f0 + custom_erf(z_upper / sqrt2))
+        cdf_lower = 0.5f0 * (1.0f0 + custom_erf(z_lower / sqrt2))
+        return cdf_upper - cdf_lower
+    end
 end

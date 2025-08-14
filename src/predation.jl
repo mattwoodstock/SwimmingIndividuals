@@ -220,7 +220,8 @@ end
 # --- STEP 2: Resolve Consumption Conflicts (CPU Referee) ---
 function resolve_consumption!(model::MarineModel, sp::Int, to_eat::Vector{Int32})
     pred_data = model.individuals.animals[sp].data
-    
+    pred_char = model.individuals.animals[sp].p
+
     best_prey_idx_cpu = Array(pred_data.best_prey_idx[to_eat])
     best_prey_sp_cpu = Array(pred_data.best_prey_sp[to_eat])
     best_prey_type_cpu = Array(pred_data.best_prey_type[to_eat])
@@ -251,7 +252,7 @@ function resolve_consumption!(model::MarineModel, sp::Int, to_eat::Vector{Int32}
         available_biomass = total_biomass - claimed_biomass
         if available_biomass <= 0; continue; end
 
-        max_stomach = 0.05 * pred_biomass_cpu[i]
+        max_stomach = pred_char.Max_Stomach.second[sp] * pred_biomass_cpu[i]
         current_stomach = pred_gut_full_cpu[i]
         stomach_space = max(0.0, (1.0 - current_stomach)*max_stomach)
         
@@ -285,7 +286,8 @@ end
     size_bin_thresholds::CuDeviceMatrix{Float32},
     swim_velo::Float32, handling_time::Float32, time_array,
     predator_sp_idx::Int, n_species::Int32,
-    grid_params 
+    grid_params,
+    max_stomach::Float32 
 ) where {N}
     pred_idx = @index(Global)
 
@@ -431,7 +433,7 @@ end
                     # Predator's ration is in JOULES
                     @atomic ration[pred_idx] += effective_ration
                     # Gut fullness is a biomass ratio, so use the converted biomass value
-                    @atomic gut_fullness[pred_idx] += effective_biomass / (biomass_school[pred_idx] * 0.05f0)
+                    @atomic gut_fullness[pred_idx] += effective_biomass / (biomass_school[pred_idx] * max_stomach)
 
                     # --- Prey state updates (in biomass) ---
                     if prey_type == 1
@@ -488,6 +490,7 @@ function apply_consumption!(model::MarineModel, sp::Int, time::CuArray{Float32},
     # Extract predator traits as scalars
     swim_velo = Float32(model.individuals.animals[sp].p.Swim_velo[2][sp])
     handling_time = Float32(model.individuals.animals[sp].p.Handling_Time[2][sp])
+    max_stomach = Float32(model.individuals.animals[sp].p.Max_Stomach[2][sp])
 
     grid = model.depths.grid
     grid_params = (
@@ -542,7 +545,8 @@ function apply_consumption!(model::MarineModel, sp::Int, time::CuArray{Float32},
         time,
         sp,
         n_species,
-        grid_params
+        grid_params,
+        max_stomach
     )
 
     KernelAbstractions.synchronize(device(arch))
@@ -610,12 +614,9 @@ end
     resource_biomass,
     animals_all::Tuple,
     consumption_array,
-    resource_size_bins,
     size_bin_thresholds::CuDeviceMatrix{Float32},
-    max_size_global::Float32,
     n_species::Int32,
     n_resources::Int32,
-    n_resource_size_bins::Int32,
     n_thresholds::Int32,
     resource_traits::CuDeviceMatrix{Float32},
     agent_energy_densities,
@@ -624,40 +625,25 @@ end
     depth_res_m::Float32
 )
     x, y, z, r = @index(Global, NTuple)
+
+    n_resource_size_bins = n_thresholds + 1
     
     total_predator_biomass::Float32 = resource_biomass[x, y, z, r]
+
     if total_predator_biomass > 1.0f-9
-        pred_μ = resource_traits[r, 8]; pred_σ = resource_traits[r, 9]
+        pred_μ = Float32(resource_traits[r,8])
+        pred_σ = Float32(resource_traits[r,9])
 
         for pred_bin in 1:n_resource_size_bins
-            local lower_bound_pred::Float32
-            if pred_bin == 1
-                lower_bound_pred = 0.0f0
-            else
-                lower_bound_pred = resource_size_bins[pred_bin - 1]
-            end
+            lower_bound_pred = size_bin_thresholds[pred_bin, n_species + r]
+            upper_bound_pred = size_bin_thresholds[pred_bin+1, n_species + r]
+            predator_mean_size = lower_bound_pred + (upper_bound_pred - lower_bound_pred) * rand(Float32)
 
-            local upper_bound_pred::Float32
-            if pred_bin > n_thresholds
-                upper_bound_pred = Inf32
-            else
-                upper_bound_pred = resource_size_bins[pred_bin]
-            end
-            
-            local proportion_in_bin::Float32
-            if lower_bound_pred < 1.0f-20 
-                z_upper = (log(upper_bound_pred) - pred_μ) / pred_σ
-                proportion_in_bin = normcdf(z_upper)
-            else
-                z_lower = (log(lower_bound_pred) - pred_μ) / pred_σ
-                z_upper = (log(upper_bound_pred) - pred_μ) / pred_σ
-                proportion_in_bin = normcdf(z_upper) - normcdf(z_lower)
-            end
+            proportion_in_bin = calculate_proportion_in_bin(lower_bound_pred, upper_bound_pred, pred_μ, pred_σ)
             
             pred_biom::Float32 = total_predator_biomass * proportion_in_bin
 
             if pred_biom > 1.0f-9
-                predator_mean_size = (lower_bound_pred + min(upper_bound_pred, max_size_global)) / 2.0f0
                 min_prey_ratio = resource_traits[r, 1]; max_prey_ratio = resource_traits[r, 2]
                 min_prey_size = min_prey_ratio * predator_mean_size
                 max_prey_size = max_prey_ratio * predator_mean_size
@@ -684,30 +670,15 @@ end
                         energy_density_r = resource_traits[prey_r, 7]
                         for prey_bin in 1:n_resource_size_bins
                             local lower_bound_prey::Float32
-                            if prey_bin == 1
-                                lower_bound_prey = 0.0f0
-                            else
-                                lower_bound_prey = resource_size_bins[prey_bin - 1]
-                            end
-
                             local upper_bound_prey::Float32
-                            if prey_bin > n_thresholds
-                                upper_bound_prey = Inf32
-                            else
-                                upper_bound_prey = resource_size_bins[prey_bin]
-                            end
 
-                            prey_mean_size = (lower_bound_prey + min(upper_bound_prey, max_size_global)) / 2.0f0
+                            lower_bound_prey = size_bin_thresholds[prey_bin,n_species + prey_r]
+                            upper_bound_prey = size_bin_thresholds[prey_bin+1,n_species +prey_r]
+                            prey_mean_size = lower_bound_prey + (upper_bound_prey - lower_bound_prey) * rand(Float32)
+
                             if prey_mean_size >= min_prey_size && prey_mean_size <= max_prey_size
-                                local proportion_in_prey_bin::Float32
-                                if lower_bound_prey < 1.0f-20
-                                    z_upper_prey = (log(upper_bound_prey) - prey_μ) / prey_σ
-                                    proportion_in_prey_bin = normcdf(z_upper_prey)
-                                else
-                                    z_lower_prey = (log(lower_bound_prey) - prey_μ) / prey_σ
-                                    z_upper_prey = (log(upper_bound_prey) - prey_μ) / prey_σ
-                                    proportion_in_prey_bin = normcdf(z_upper_prey) - normcdf(z_lower_prey)
-                                end
+                                proportion_in_prey_bin = calculate_proportion_in_bin(lower_bound_prey, upper_bound_prey, prey_μ, prey_σ)
+
                                 biomass_in_prey_bin = total_prey_biomass * proportion_in_prey_bin
                                 total_resource_energy += biomass_in_prey_bin * energy_density_r
                             end
@@ -720,7 +691,7 @@ end
                     max_ingestion = resource_traits[r, 3]; h_time = resource_traits[r, 4]
                     cell_volume_m3 = (cell_size_deg * 111320.0f0)^2.0f0 * depth_res_m
                     a = max_ingestion; N = total_available_energy / cell_volume_m3
-                    consumption_rate_per_biomass = (a * N) / (1.0f0 + a * h_time * N)
+                    consumption_rate_per_biomass = ((a * N) / (1.0f0 + a * h_time * N)) * (dt/1440)
                     total_consumption_J = min(consumption_rate_per_biomass * pred_biom, max_ingestion * pred_biom)
                     
                     if total_agent_energy > 1.0f-9
@@ -754,30 +725,15 @@ end
                                 total_consumed_from_this_prey_r::Float32 = 0.0f0
                                 for prey_bin in 1:n_resource_size_bins
                                     local lower_bound_prey::Float32
-                                    if prey_bin == 1
-                                        lower_bound_prey = 0.0f0
-                                    else
-                                        lower_bound_prey = resource_size_bins[prey_bin - 1]
-                                    end
-
                                     local upper_bound_prey::Float32
-                                    if prey_bin > n_thresholds
-                                        upper_bound_prey = Inf32
-                                    else
-                                        upper_bound_prey = resource_size_bins[prey_bin]
-                                    end
 
-                                    prey_mean_size = (lower_bound_prey + min(upper_bound_prey, max_size_global)) / 2.0f0
+                                    lower_bound_prey = size_bin_thresholds[prey_bin,n_species + prey_r]
+                                    upper_bound_prey = size_bin_thresholds[prey_bin+1,n_species +prey_r]
+                                    prey_mean_size = lower_bound_prey + (upper_bound_prey - lower_bound_prey) * rand(Float32)
+
                                     if prey_mean_size >= min_prey_size && prey_mean_size <= max_prey_size
-                                        local proportion_in_prey_bin::Float32
-                                        if lower_bound_prey < 1.0f-20
-                                            z_upper_prey = (log(upper_bound_prey) - prey_μ) / prey_σ
-                                            proportion_in_prey_bin = normcdf(z_upper_prey)
-                                        else
-                                            z_lower_prey = (log(lower_bound_prey) - prey_μ) / prey_σ
-                                            z_upper_prey = (log(upper_bound_prey) - prey_μ) / prey_σ
-                                            proportion_in_prey_bin = normcdf(z_upper_prey) - normcdf(z_lower_prey)
-                                        end
+                                        proportion_in_prey_bin = calculate_proportion_in_bin(lower_bound_prey, upper_bound_prey, prey_μ, prey_σ)
+
                                         biomass_in_prey_bin = total_prey_biomass * proportion_in_prey_bin
                                         if biomass_in_prey_bin > 0.0f0
                                             prop_energy_from_this_bin = (biomass_in_prey_bin * energy_density_r) / total_resource_energy
@@ -806,21 +762,17 @@ end
     end
 end
 
-
 # --- 3. Kernel 2: Apply and Log Mortality ---
 @kernel function apply_and_log_mortality!(
     animal_data,
     agent_biomass_eaten_grid,
     consumption_array,
     size_bin_thresholds::CuDeviceMatrix{Float32},
-    resource_traits::CuDeviceMatrix{Float32},
-    resource_size_bins,
-    max_size_global::Float32,
-    n_resource_size_bins::Int32,
     sp_idx::Int32,
     n_species::Int32
 )
     i = @index(Global)
+
     if i <= length(animal_data.x) && animal_data.alive[i] == 1.0f0
         x, y, z = animal_data.pool_x[i], animal_data.pool_y[i], animal_data.pool_z[i]
 
@@ -863,18 +815,9 @@ end
                                     predator_dim_idx = n_species + r
                                     
                                     local predator_mean_size::Float32
-                                    n_thresholds = length(resource_size_bins)
-                                    if pred_bin == 1
-                                        lower_bound = 0.0f0
-                                    else
-                                        lower_bound = resource_size_bins[pred_bin - 1]
-                                    end
-                                    if pred_bin > n_thresholds
-                                        upper_bound = max_size_global
-                                    else
-                                        upper_bound = resource_size_bins[pred_bin]
-                                    end
-                                    predator_mean_size = (lower_bound + upper_bound) / 2.0f0
+                                    lower_bound = size_bin_thresholds[pred_bin,predator_dim_idx]
+                                    upper_bound = size_bin_thresholds[pred_bin+1,predator_dim_idx]
+                                    predator_mean_size = lower_bound + (upper_bound - lower_bound) * rand(Float32)
                                     
                                     pred_size_bin_for_output = find_species_size_bin(predator_mean_size, predator_dim_idx, size_bin_thresholds)
                                     my_length = animal_data.length[i]
@@ -916,19 +859,10 @@ function resource_predation!(model::MarineModel, output::MarineOutputs)
         depth_res_m = Float32(g[g.Name .== "depthmax", :Value][1] / depthres)
     )
 
-    min_size_global = minimum(rt.Min_Size)
-    max_size_global = maximum(rt.Max_Size)
-    max_size_global_f32 = Float32(max_size_global)
-    log_min = log(min_size_global)
-    log_max = log(max_size_global)
+    size_bin_thresholds = model.size_bin_thresholds
+    n_thresholds = Int32(size(size_bin_thresholds,1)-2)
+    n_resource_size_bins = n_thresholds + 1
     
-    num_res_thresholds  = 9 
-    log_step_res = (log_max - log_min) / (num_res_thresholds + 1)
-    resource_size_bins_cpu = Float32[exp(log_min + i * log_step_res) for i in 1:num_res_thresholds]
-    resource_size_bins_gpu = array_type(arch)(resource_size_bins_cpu)
-    n_resource_size_bins = Int32(length(resource_size_bins_cpu) + 1)
-    n_thresholds = Int32(length(resource_size_bins_cpu))
-
     resource_total_biomass = model.resources.biomass 
     agent_biomass_eaten_grid = array_type(arch)(zeros(Float32, lonres, latres, depthres, n_res, n_resource_size_bins, n_sp))
 
@@ -942,10 +876,10 @@ function resource_predation!(model::MarineModel, output::MarineOutputs)
         traits_cpu[r, length(trait_order) + 1] = Float32(μ)
         traits_cpu[r, length(trait_order) + 2] = Float32(σ)
     end
+
     resource_traits_matrix = array_type(arch)(traits_cpu)
     agent_energy_densities_gpu = array_type(arch)([Float32(animal.p.Energy_density.second[sp]) for (sp, animal) in enumerate(model.individuals.animals)])
     animals_all = Tuple(animal.data for animal in model.individuals.animals)
-    size_bin_thresholds = model.size_bin_thresholds
 
     # Call Kernel 1
     kernel_calc = calculate_potential_mortality!(device(arch), (8,8,4,1), (lonres, latres, depthres, n_res))
@@ -954,12 +888,9 @@ function resource_predation!(model::MarineModel, output::MarineOutputs)
         resource_total_biomass,
         animals_all,
         output.consumption,
-        resource_size_bins_gpu,
         size_bin_thresholds,
-        max_size_global_f32,
         Int32(n_sp),
         Int32(n_res),
-        n_resource_size_bins,
         n_thresholds,
         resource_traits_matrix,
         agent_energy_densities_gpu,
@@ -978,10 +909,6 @@ function resource_predation!(model::MarineModel, output::MarineOutputs)
                 agent_biomass_eaten_grid, 
                 output.consumption,
                 size_bin_thresholds,
-                resource_traits_matrix,
-                resource_size_bins_gpu,
-                max_size_global_f32,
-                n_resource_size_bins,
                 Int32(sp_idx),
                 Int32(n_sp)
             )

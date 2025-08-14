@@ -201,16 +201,27 @@ function fishery_results(sim::MarineSimulation)
     end
 
     name, quotas, catches_t, catches_ind = [], [], [], []
-    
-    for fishery in fisheries
+    effort, cpue, mean_len, bycatch_t, bycatch_n = [], [], [], [], []  
+
+    for fishery in sim.model.fishing
         push!(name, fishery.name)
         push!(quotas, fishery.quota)
         push!(catches_t, fishery.cumulative_catch)
         push!(catches_ind, fishery.cumulative_inds)
+        
+        push!(effort, fishery.effort_days)
+        current_cpue = fishery.effort_days > 0 ? fishery.cumulative_catch / fishery.effort_days : 0.0
+        push!(cpue, current_cpue)
+        push!(mean_len, fishery.mean_length_catch)
+        push!(bycatch_t, fishery.bycatch_tonnage)
+        push!(bycatch_n, fishery.bycatch_inds)
     end
 
-    df = DataFrame(Name=name, Quota=quotas, Tonnage=catches_t, Individuals=catches_ind)
-    # Use the constructed path for writing the CSV file
+    df = DataFrame(
+        Name=name, Quota=quotas, Tonnage=catches_t, Individuals=catches_ind,
+        Effort_Days=effort, CPUE_T_per_Day=cpue, Mean_Length_mm=mean_len,
+        Bycatch_Tonnage=bycatch_t, Bycatch_Individuals=bycatch_n
+    )    # Use the constructed path for writing the CSV file
     csv_path = joinpath(fish_dir, "FisheryResults_$run-$ts.csv")
     CSV.write(csv_path, df)
 end

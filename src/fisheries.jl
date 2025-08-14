@@ -1,14 +1,10 @@
-function load_fisheries(df::DataFrame)
+function load_fisheries(df::DataFrame,dt::Int32)
     grouped = groupby(df, :FisheryName)
     fisheries = Fishery[]
 
     for g in grouped
         name = g.FisheryName[1]
-        quota = g.Quota[1]
-        season = (g.StartDay[1], g.EndDay[1])
-        area = ((g.XMin[1], g.XMax[1]), (g.YMin[1], g.YMax[1]), (g.ZMin[1], g.ZMax[1]))
-        slot_limit = (g.SlotMin[1], g.SlotMax[1])
-        daily_bag_limit = g.BagLimit[1] * g.NVessel[1]
+        bag_limit = Int32(ceil(g.BagLimit[1] * g.NVessel[1] * (dt/1440)))
 
         targets = g.Species[g.Role .== "target"]
         bycatch = g.Species[g.Role .== "bycatch"]
@@ -23,82 +19,72 @@ function load_fisheries(df::DataFrame)
             collect(targets),
             collect(bycatch),
             selectivities,
-            quota,
-            0.0,  # initialize cumulative catch
-            0,
-            season,
-            area,
-            slot_limit,
-            daily_bag_limit
+            g.Quota[1],
+            0.0,  # cumulative_catch
+            0,    # cumulative_inds
+            (g.StartDay[1], g.EndDay[1]),
+            ((g.XMin[1], g.XMax[1]), (g.YMin[1], g.YMax[1]), (g.ZMin[1], g.ZMax[1])),
+            (g.SlotMin[1], g.SlotMax[1]),
+            bag_limit,
+            0,    # effort_days
+            0.0,  # mean_length_catch
+            0.0,  # mean_weight_catch
+            0.0,  # bycatch_tonnage
+            0     # bycatch_inds
         ))
     end
     return fisheries
 end
 
 @kernel function fishing_kernel!(
-    # Deconstructed agent data arrays
-    alive, x, y, z, length_arr, abundance, biomass_ind, biomass_school,
-    # Other arrays and parameters
-    Fmort_inds, spec_char_gpu, fishery_params_gpu, sp::Int,
-    remaining_quota_gpu::AbstractArray{Float32, 1} # Accept the remaining quota
+    alive, x, y, z, length, abundance, biomass_ind,
+    caught_inds, caught_lengths, caught_is_bycatch,
+    fishery_params,
+    remaining_quota,
+    remaining_bag_limit
 )
-    ind = @index(Global)
+    i = @index(Global) # Each thread handles one agent
 
-    @inbounds if alive[ind] == 1.0
-        # --- Filter 1: Is the agent in the right place? ---
-        in_area = (fishery_params_gpu.area[1][1] <= x[ind] <= fishery_params_gpu.area[1][2] &&
-                   fishery_params_gpu.area[2][1] <= y[ind] <= fishery_params_gpu.area[2][2] &&
-                   fishery_params_gpu.area[3][1] <= z[ind] <= fishery_params_gpu.area[3][2])
+    if alive[i] == 1.0f0
+        # Check if agent is within the fishery's geographic area
+        # Note: This is a simplified check; a real model might use a polygon check
+        if fishery_params.area[1] <= x[i] <= fishery_params.area[2] &&
+           fishery_params.area[3] <= y[i] <= fishery_params.area[4]
 
-        if in_area
-            # --- Filter 2: Is the agent the right size? ---
-            in_slot = fishery_params_gpu.slot_limit[1] <= length_arr[ind] <= fishery_params_gpu.slot_limit[2]
+            # Calculate selectivity (capture probability based on size)
+            selectivity = 1.0f0 / (1.0f0 + exp(-fishery_params.slope * (length[i] - fishery_params.l50)))
 
-            if in_slot
-                # --- Filter 3: Gear Selectivity (probabilistic) ---
-                selectivity = 1.0 / (1.0 + exp(-fishery_params_gpu.slope * (length_arr[ind] - fishery_params_gpu.l50)))
-                
-                if rand(Float32) <= selectivity
-                    # --- ALL FILTERS PASSED: Calculate Potential Catch ---
-                    abund = abundance[ind]
-                    k = spec_char_gpu.School_Size[sp] / 2.0
-                    density_effect = abund^2 / (abund^2 + k^2)
+            # Perform a random draw to see if this school is caught
+            if rand(Float32) < selectivity
+                # Check if the fish is within the legal slot limit
+                if fishery_params.slot_limit[1] <= length[i] <= fishery_params.slot_limit[2]
                     
-                    possible_inds = floor(Int, abund)
-                    potential_catch_inds = floor(Int, rand(Float32) * possible_inds * density_effect)
+                    # 1. Determine how many individuals from this school could be caught
+                    #    This is the minimum of the school's size and the remaining bag limit.
+                    #    The result is a float because abundance is a float.
+                    potential_catch = min(abundance[i], Float32(remaining_bag_limit[1]))
 
-                    if potential_catch_inds > 0
-                        potential_biomass_removed = potential_catch_inds * biomass_ind[ind]
+                    # 2. Round DOWN to the nearest whole number to get the actual number to catch.
+                    inds_to_catch = floor(Int32, potential_catch)
+
+                    if inds_to_catch > 0
+                        # Check if this catch exceeds the total quota
+                        biomass_of_catch = inds_to_catch * biomass_ind[i]
                         
-                        # 1. Try to subtract the desired biomass from the shared quota counter.
-                        # This atomically returns the value of the counter *before* the subtraction.
-                        claimed_quota_before_sub = @atomic remaining_quota_gpu[1] -= potential_biomass_removed
+                        # Use atomic operations to safely "claim" the catch
+                        quota_before = @atomic remaining_quota[1] -= biomass_of_catch
                         
-                        # 2. Determine the actual catch based on what was available.
-                        # The actual biomass we can take is the smaller of what we wanted and what was left.
-                        actual_biomass_removed = min(potential_biomass_removed, claimed_quota_before_sub)
-
-                        if actual_biomass_removed > 0
-                            # 3. If we took too much, atomically add the difference back to the counter.
-                            if actual_biomass_removed < potential_biomass_removed
-                                biomass_to_return = potential_biomass_removed - actual_biomass_removed
-                                @atomic remaining_quota_gpu[1] += biomass_to_return
-                            end
-
-                            # 4. Proceed with the *actual* catch, which is now quota-limited.
-                            actual_inds_caught = floor(Int, actual_biomass_removed / biomass_ind[ind])
+                        # If we didn't bust the quota, the catch is successful
+                        if quota_before >= biomass_of_catch
+                            @atomic remaining_bag_limit[1] -= inds_to_catch
                             
-                            if actual_inds_caught > 0
-                                @atomic Fmort_inds[ind] += actual_inds_caught
-                                
-                                # Atomically update agent state
-                                @atomic biomass_school[ind] -= actual_biomass_removed
-                                old_abund = @atomic abundance[ind] -= Float32(actual_inds_caught)
-                                
-                                if old_abund - actual_inds_caught <= 0
-                                    alive[ind] = 0.0
-                                end
-                            end
+                            # Record the successful catch
+                            caught_inds[i] = inds_to_catch
+                            caught_lengths[i] = length[i]
+                            caught_is_bycatch[i] = fishery_params.is_bycatch
+                        else
+                            # We busted the quota, so undo the subtraction
+                            @atomic remaining_quota[1] += biomass_of_catch
                         end
                     end
                 end
@@ -106,7 +92,7 @@ end
         end
     end
 end
-
+# LAUNCHER: Deconstructs complex objects before calling the kernel
 # LAUNCHER: Deconstructs complex objects before calling the kernel
 function fishing!(model::MarineModel, sp::Int, day::Int, outputs::MarineOutputs)
     arch = model.arch
@@ -114,58 +100,83 @@ function fishing!(model::MarineModel, sp::Int, day::Int, outputs::MarineOutputs)
     spec_char_cpu = model.individuals.animals[sp].p
     spec_name = spec_char_cpu.SpeciesLong.second[sp]
 
-    Fmort_inds = array_type(arch)(zeros(Int, length(spec_dat.x)))
+    # These temporary arrays are correct
+    caught_inds = array_type(arch)(zeros(Int32, length(spec_dat.x))) # Use Int32
+    caught_lengths = array_type(arch)(zeros(Float32, length(spec_dat.x)))
+    caught_is_bycatch = array_type(arch)(zeros(Int8, length(spec_dat.x)))
+    
     spec_char_gpu = (; (k => array_type(arch)(v.second) for (k, v) in pairs(spec_char_cpu))...)
 
-    for (fish_idx, fishery) in enumerate(model.fishing)
-        if !(fishery.season[1] <= day <= fishery.season[2]) || fishery.cumulative_catch >= fishery.quota
-            continue
-        end
-        if !(spec_name in fishery.target_species || spec_name in fishery.bycatch_species)
-            continue
-        end
-
-        # Convert quota (tons) to biomass (grams)
-        remaining_quota_biomass = (fishery.quota - fishery.cumulative_catch) * 1e6
+    for fishery in model.fishing
+        is_active_today = (fishery.season[1] <= day <= fishery.season[2] && fishery.cumulative_catch < fishery.quota)
         
-        # Create a GPU-side, single-element array to hold the remaining quota.
-        # This allows atomic operations inside the kernel.
-        remaining_quota_gpu = array_type(arch)([Float32(remaining_quota_biomass)])
-
-        sel = fishery.selectivities[spec_name]
-        fishery_params_gpu = (
-            area = fishery.area,
-            slot_limit = fishery.slot_limit,
-            l50 = sel.L50,
-            slope = sel.slope
-        )
-
-        kernel! = fishing_kernel!(device(arch), 256, (length(spec_dat.x),))
-        
-        kernel!(
-            spec_dat.alive, spec_dat.x, spec_dat.y, spec_dat.z, spec_dat.length,
-            spec_dat.abundance, spec_dat.biomass_ind, spec_dat.biomass_school,
-            Fmort_inds, spec_char_gpu, fishery_params_gpu, sp,
-            remaining_quota_gpu # Pass the remaining quota to the kernel
-        )
-
-        # --- Post-kernel processing remains largely the same ---
-        total_inds_caught = Int(sum(Fmort_inds))
-        if total_inds_caught > 0
-            cpu_biomass_ind = Array(spec_dat.biomass_ind)
-            cpu_fmort_inds = Array(Fmort_inds)
+        if is_active_today
+            is_target = spec_name in fishery.target_species
+            is_bycatch_flag = spec_name in fishery.bycatch_species
             
-            # Filter to only include agents that were actually caught
-            caught_agent_indices = findall(cpu_fmort_inds .> 0)
-            if !isempty(caught_agent_indices)
-                avg_biomass_ind = mean(cpu_biomass_ind[caught_agent_indices])
-                total_biomass_caught = total_inds_caught * avg_biomass_ind
+            if is_target || is_bycatch_flag
+                fishery.effort_days += 1
                 
-                fishery.cumulative_inds += total_inds_caught
-                fishery.cumulative_catch += total_biomass_caught / 1e6
+                remaining_quota_biomass = (fishery.quota - fishery.cumulative_catch) * 1e6
+                remaining_quota_gpu = array_type(arch)([Float32(remaining_quota_biomass)])
+                remaining_bag_limit_gpu = array_type(arch)([Int32(fishery.bag_limit)])
+
+                sel = fishery.selectivities[spec_name]
+                fishery_params_gpu = (
+                    area = (
+                        Float32(fishery.area[1][1]), # min_lon
+                        Float32(fishery.area[1][2]), # max_lon
+                        Float32(fishery.area[2][1]), # min_lat
+                        Float32(fishery.area[2][2])  # max_lat
+                    ),
+                    slot_limit = (Float32(fishery.slot_limit[1]), Float32(fishery.slot_limit[2])),
+                    l50 = Float32(sel.L50),
+                    slope = Float32(sel.slope),
+                    is_bycatch = Int8(is_bycatch_flag)
+                )
+
+                kernel! = fishing_kernel!(device(arch), 256, (length(spec_dat.x),))
+                
+                kernel!(
+                    spec_dat.alive, spec_dat.x, spec_dat.y, spec_dat.z, spec_dat.length,
+                    spec_dat.abundance, spec_dat.biomass_ind,
+                    caught_inds, caught_lengths, caught_is_bycatch,
+                    fishery_params_gpu,
+                    remaining_quota_gpu,
+                    remaining_bag_limit_gpu 
+                )
+                
+                # --- Post-kernel processing ---
+                total_inds_caught = Int(round(sum(caught_inds)))
+                if total_inds_caught > 0
+                    cpu_biomass_ind = Array(spec_dat.biomass_ind)
+                    cpu_caught_inds = Array(caught_inds)
+                    cpu_caught_lengths = Array(caught_lengths)
+                    cpu_caught_is_bycatch = Array(caught_is_bycatch)
+                    
+                    caught_mask = cpu_caught_inds .> 0
+                    
+                    total_biomass_caught_g = sum(cpu_caught_inds[caught_mask] .* cpu_biomass_ind[caught_mask])
+                    total_biomass_caught_t = total_biomass_caught_g / 1e6
+
+                    fishery.cumulative_inds += total_inds_caught
+                    fishery.cumulative_catch += total_biomass_caught_t
+
+                    current_total_len = fishery.mean_length_catch * (fishery.cumulative_inds - total_inds_caught)
+                    new_total_len = sum(cpu_caught_lengths[caught_mask] .* cpu_caught_inds[caught_mask])
+                    fishery.mean_length_catch = (current_total_len + new_total_len) / fishery.cumulative_inds
+
+                    bycatch_inds_this_step = sum(cpu_caught_inds[caught_mask .& (cpu_caught_is_bycatch .== 1)])
+                    bycatch_biomass_this_step_g = sum(cpu_caught_inds[caught_mask .& (cpu_caught_is_bycatch .== 1)] .* cpu_biomass_ind[caught_mask .& (cpu_caught_is_bycatch .== 1)])
+                    
+                    fishery.bycatch_inds += bycatch_inds_this_step
+                    fishery.bycatch_tonnage += bycatch_biomass_this_step_g / 1e6
+                end
+                
+                fill!(caught_inds, 0)
+                fill!(caught_lengths, 0.0f0)
+                fill!(caught_is_bycatch, 0)
             end
-            
-            fill!(Fmort_inds, 0)
         end
     end
     KernelAbstractions.synchronize(device(arch))
