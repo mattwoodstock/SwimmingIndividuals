@@ -1,0 +1,12 @@
+Name,Value,Description
+architecture,GPU,Can either be CPU or GPU
+numspec,2,Number of Modeled Species
+numresource,6,Number of resource groups
+nts,336,Number of Time Steps (minutes) model and spinup
+output_dt,30,Interval between Timestep Outputs
+spinup,0,Number of time steps of the spinup
+model_dt,30,Number of minutes between time steps
+output_size_bins,1,Number of size bins for species' outputs (only applies to arrays).
+n_iter,1,Number of model iterations to run
+num_foraging_attempts, 10, Number of foraging attempts to cycle through. Includes tradeoff between realism and performance
+plt_diags,1,0 = Do not plot diagnostics : 1 = plot diagnostics
