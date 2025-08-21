@@ -1,0 +1,4 @@
+SpeciesLong,Min_Size,Max_Size,Biomass,LWR_a,LWR_b,Growth,Z,Energy_density,Min_Prey,Max_Prey,Daily_Ration,Handling_Time
+Prey1,50,300,0.5,8.0E-2,3.2,15,0.2,5000,1.00E-02,0.3,0.06,0.1
+Prey2,300,800,0.5,8.0E-2,3.2,15,0.2,5000,1.00E-02,0.3,0.06,0.1
+Prey3,800,2000,0.5,3.2,3.2,0.2,5000,1.00E-02,0.3,0.06,0.1,0.1

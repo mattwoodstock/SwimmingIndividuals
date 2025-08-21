@@ -1,0 +1,16 @@
+species,variable,pref_min,opt_min,opt_max,pref_max
+Dive1,temp-surf,3,15,32,36
+Dive1,bathymetry,400,1000,3000,6000
+Dive1,salinity,20,22,36,40
+Dive2,temp-surf,3,15,32,36
+Dive2,bathymetry,150,200,300,400
+Dive2,salinity,20,22,36,40
+Prey1,temp-surf,3,15,32,36
+Prey1,bathymetry,150,1000,3000,6000
+Prey1,salinity,20,22,36,40
+Prey2,temp-surf,3,15,32,36
+Prey2,bathymetry,150,1000,3000,6000
+Prey2,salinity,20,22,36,40
+Prey3,temp-surf,3,15,32,36
+Prey3,bathymetry,150,1000,3000,6000
+Prey3,salinity,20,22,36,40

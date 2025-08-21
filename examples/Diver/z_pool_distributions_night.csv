@@ -1,0 +1,4 @@
+SpeciesLong,SpeciesShort,Type,mu1,mu2,mu3,sigma1,sigma2,sigma3,lambda1,lambda2,lambda3
+Prey1,sp1,Distribution,50,150,250,20,50,50,.33,.33,.34
+Prey2,sp1,Distribution,250,350,450,75,75,100,.33,.33,.34
+Prey3,sp1,Distribution,500,700,900,100,150,150,.33,.33,.34
