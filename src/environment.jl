@@ -34,14 +34,14 @@ function generate_environment!(arch::Architecture, nc_file::String, plt_diags, f
             @info "Loading and plotting environmental variable: $var_name"
 
             local surface_slice
-            if ndims(data_cpu) >= 3
-                if ndims(data_cpu) == 4
-                    surface_slice = data_cpu[:, :, 1, 1]
+            if ndims(data_cpu_array) >= 3
+                if ndims(data_cpu_array) == 4
+                    surface_slice = data_cpu_array[:, :, 1, 1]
                 else # 3D
-                    surface_slice = data_cpu[:, :, 1]
+                    surface_slice = data_cpu_array[:, :, 1]
                 end
-            elseif ndims(data_cpu) == 2
-                surface_slice = data_cpu
+            elseif ndims(data_cpu_array) == 2
+                surface_slice = data_cpu_array
             else
                 @warn "Skipping plot for variable '$var_name' with unsupported dimensions."
                 continue
@@ -208,7 +208,7 @@ function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_reso
                 capacity_slice = capacities_cpu[:, :, month, i]
                 p = heatmap(
                     capacity_slice', 
-                    title = "Habitat Capacity: $sp_name - Month $month",
+                    title = "",
                     xlabel = "Longitude Index",
                     ylabel = "Latitude Index",
                     c = :viridis,

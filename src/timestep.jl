@@ -30,8 +30,13 @@ function TimeStep!(sim::MarineSimulation)
         vertical_resource_movement!(model)
     end
 
+    previous_date = current_date + Day(sim.ΔT - 1)
+    if current_date != previous_date
+        # A new day has started, reset the counter FOR EACH SPECIES
+        model.daily_birth_counters = zeros(Int,species)
+    end
+
     if day_index == 1
-        # This operation is fine as it's on a small CPU array of structs
         (fishery -> (fishery.cumulative_catch = 0; fishery.cumulative_inds = 0)).(fisheries)
     end
 
@@ -64,17 +69,15 @@ function TimeStep!(sim::MarineSimulation)
         
         larval_duration = species_chars.Larval_Duration[2][spec]
         living::Vector{Int32} = findall(i -> cpu_alive[i] == 1 && cpu_age[i] >= larval_duration, eachindex(cpu_alive))
+        alive::Vector{Int32} = findall(i -> cpu_alive[i] == 1, eachindex(cpu_alive))
 
         if !isempty(living)
             # --- Population stats (requires GPU->CPU transfer for sum/mean) ---
-            model.abund[spec] = sum(Array(species_data.abundance[living]))
-            model.bioms[spec] = sum(Array(species_data.biomass_school[living]))
-            print(length(living))
+            model.abund[spec] = sum(Array(species_data.abundance[alive]))
+            model.bioms[spec] = sum(Array(species_data.biomass_school[alive]))
+            print(length(alive))
             print("  Abundance: ")
-            print(model.abund[spec])
-            print("  Mean Length: ")
-            println(mean(Array(species_data.length[living])))
-
+            println(model.abund[spec])
 
             # --- Main agent update loop ---
             print("behave | ")
@@ -84,7 +87,7 @@ function TimeStep!(sim::MarineSimulation)
 
             print("energy | ")
 
-            energy!(model, spec, ind_temp, living,outputs) # Assuming energy! is the new kernel launcher
+            energy!(model, spec, ind_temp, living,outputs,current_date) # Assuming energy! is the new kernel launcher
 
             print("fish | ")
             if (model.iteration > model.spinup)
@@ -102,21 +105,19 @@ function TimeStep!(sim::MarineSimulation)
         resource_predation!(model, outputs)
     end
     resource_mortality!(model)
-
-    resource_growth!(model)
+    resource_growth!(model,current_date)
    
     println("results | ")
 
     if (model.t % model.output_dt == 0)
         timestep_results(sim)
+        resource_results(model,sim.run,model.iteration)
+
         if (model.iteration > model.spinup)
             fishery_results(sim)
         end
     end
 
-    if model.plt_diags == 1 ## Gather diagnostic-based results to make sure the model works after code revisions
-        assemble_diagnostic_results(model,sim.run,model.iteration)
-    end
 
     # --- Reset per-timestep accumulators ---
     for spec in 1:species
@@ -124,8 +125,8 @@ function TimeStep!(sim::MarineSimulation)
         model.individuals.animals[spec].data.active .= 0.0
     end
 
-    # Annual reset (this is fine)
+    # Annual reset
     if day_index == 365
-        (fishery -> (fishery.cumulative_catch = 0; fishery.cumulative_inds = 0)).(fisheries)
+        (fishery -> (fishery.cumulative_catch = 0; fishery.cumulative_inds = 0; fishery.effort_days = 0; fishery.bycatch_tonnage = 0; fishery.bycatch_inds = 0)).(fisheries)
     end
 end

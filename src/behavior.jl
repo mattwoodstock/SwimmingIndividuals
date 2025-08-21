@@ -126,6 +126,23 @@ function decision(model::MarineModel, sp::Int, ind::Vector{Int32}, outputs::Mari
     sp_dat = model.individuals.animals[sp].data
     arch = model.arch
 
+    lonres = Int(grid[grid.Name .== "lonres", :Value][1])
+    latres = Int(grid[grid.Name .== "latres", :Value][1])
+
+    # ---- VALIDATION CHECK 1: Before Foraging ----
+    # Check for corrupted coordinates before starting the predation logic.
+    cpu_pool_x_pre = Array(sp_dat.pool_x)
+    cpu_pool_y_pre = Array(sp_dat.pool_y)
+    valid_indices = Int32[]
+    for i in ind
+        px, py = cpu_pool_x_pre[i], cpu_pool_y_pre[i]
+        if 1 <= px <= lonres && 1 <= py <= latres
+            push!(valid_indices, i)
+        else
+            @warn "PRE-FORAGE CORRUPTION DETECTED: Agent $(i) of species $sp has invalid coordinates ($px, $py). Excluding from foraging."
+        end
+    end
+
     # ---- Move relevant data to GPU once ----
     ind_gpu = CuArray(Int32.(ind))
     n = length(ind_gpu)
@@ -159,9 +176,6 @@ function decision(model::MarineModel, sp::Int, ind::Vector{Int32}, outputs::Mari
         apply_consumption!(model, sp, time_gpu, outputs)
 
         ## Debugging if necessary. Mainly for me.
-        #debug_successful_ration(sp_dat, sp)
-        #debug_resource_biomass(model.resources.biomass, sp_dat)
-        #debug_post_consumption(model.individuals.animals[1].data, sp_dat, sp)
 
         # Filter: Keep only individuals who ate something
         ration_vals = CuArray(Float32.(sp_dat.successful_ration[eating]))
@@ -180,7 +194,17 @@ function decision(model::MarineModel, sp::Int, ind::Vector{Int32}, outputs::Mari
         )
     end
 
+    cpu_pool_x_post = Array(sp_dat.pool_x)
+    cpu_pool_y_post = Array(sp_dat.pool_y)
+    for i in ind
+        px, py = cpu_pool_x_post[i], cpu_pool_y_post[i]
+        if !(1 <= px <= lonres && 1 <= py <= latres)
+            @warn "POST-FORAGE CORRUPTION DETECTED: Agent $(i) of species $sp has invalid coordinates ($px, $py) after consumption."
+        end
+    end
+
     print("move | ")
+    
 
     # Movement based on remaining time
     movement_toward_habitat!(model, sp, time_gpu)

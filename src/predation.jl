@@ -341,7 +341,6 @@ end
             if effective_ration > 0.0f0
                 effective_biomass = effective_ration / prey_energy_density
 
-                # --- CHANGE: Determine size bins for BOTH predator and prey ---
                 prey_type = best_prey_type[pred_idx]
                 prey_sp_idx = best_prey_sp[pred_idx]
                 
@@ -364,7 +363,6 @@ end
                 
                 prey_dim_idx = (prey_type == 1) ? prey_sp_idx : n_species + prey_sp_idx
                 prey_size_bin = find_species_size_bin(prey_size, prey_dim_idx, size_bin_thresholds)
-                # --- END CHANGE ---
 
                 px, py, pz = pool_x[pred_idx], pool_y[pred_idx], pool_z[pred_idx]
                 
@@ -400,6 +398,15 @@ end
                             max_possible_dist = swim_v * time_left
                             total_move_distance = min(total_move_distance, max_possible_dist)
 
+                            current_pool_x = pool_x[pred_idx]
+                            current_pool_y = pool_y[pred_idx]
+                            
+                            cell_lon_min = grid_params.lonmin + (current_pool_x - 1) * grid_params.cell_size_deg
+                            cell_lon_max = cell_lon_min + grid_params.cell_size_deg
+
+                            cell_lat_min = grid_params.latmin + (current_pool_y - 1) * grid_params.cell_size_deg
+                            cell_lat_max = cell_lat_min + grid_params.cell_size_deg
+
                             rand_x = randn(Float32); rand_y = randn(Float32); rand_z = randn(Float32)
                             norm = sqrt(rand_x*rand_x + rand_y*rand_y + rand_z*rand_z)
                             dir_x, dir_y, dir_z = (norm > 0.0f0) ? (rand_x/norm, rand_y/norm, rand_z/norm) : (1.0f0, 0.0f0, 0.0f0)
@@ -413,8 +420,11 @@ end
                             offset_lat_deg = offset_y_m / 111320.0f0
                             offset_lon_deg = offset_x_m / (111320.0f0 * cos(current_lat_rad))
                             
-                            new_lon = x[pred_idx] + offset_lon_deg
-                            new_lat = clamp(current_lat + offset_lat_deg, -90.0f0, 90.0f0)
+                            potential_new_lon = x[pred_idx] + offset_lon_deg
+                            potential_new_lat = clamp(current_lat + offset_lat_deg, -90.0f0, 90.0f0)
+
+                            new_lon = clamp(potential_new_lon, cell_lon_min, cell_lon_max)
+                            new_lat = clamp(potential_new_lat, cell_lat_min, cell_lat_max)
                             
                             current_z = z[pred_idx]
                             z_min_boundary = max(1.0f0, current_z - 5.0f0)
@@ -424,8 +434,6 @@ end
                             
                             x[pred_idx] = new_lon; y[pred_idx] = new_lat; z[pred_idx] = new_z
 
-                            pool_x[pred_idx] = clamp(floor(Int32, (new_lon - grid_params.lonmin) / grid_params.cell_size_deg) + 1, 1, grid_params.lonres)
-                            pool_y[pred_idx] = clamp(grid_params.latres - floor(Int32, (grid_params.latmax - new_lat) / grid_params.cell_size_deg), 1, grid_params.latres)
                             pool_z[pred_idx] = clamp(ceil(Int32, new_z / grid_params.depth_res_m), 1, grid_params.depthres)
                         end
                     end
@@ -468,11 +476,9 @@ end
                     # --- Time budget update ---
                     num_consumed = prey_ind_biomass > 0f0 ? floor(Int, effective_biomass / prey_ind_biomass) : 0
                     time_spent_handling = num_consumed * handling_time
-                    @atomic active[pred_idx] += time_spent_handling / 60.0f0
                     time_array[pred_idx] -= time_spent_handling
                 end
             else
-                @atomic active[pred_idx] += time_left / 60.0f0
                 time_array[pred_idx] = 0f0
             end
             successful_ration[pred_idx] = 0f0
@@ -498,7 +504,7 @@ function apply_consumption!(model::MarineModel, sp::Int, time::CuArray{Float32},
         latres = Int(grid[grid.Name .== "latres", :Value][1]),
         depthres = Int(grid[grid.Name .== "depthres", :Value][1]),
         lonmin = grid[grid.Name .== "xllcorner", :Value][1],
-        latmax = grid[grid.Name .== "yulcorner", :Value][1],
+        latmin = grid[grid.Name .== "yllcorner", :Value][1],
         cell_size_deg = grid[grid.Name .== "cellsize", :Value][1],
         depth_res_m = grid[grid.Name .== "depthmax", :Value][1] / Int(grid[grid.Name .== "depthres", :Value][1])
     )

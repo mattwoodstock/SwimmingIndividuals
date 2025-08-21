@@ -5,7 +5,7 @@
 function construct_individuals(arch::Architecture, params::Dict, maxN)
     # Defines the full data structure for an agent.
     rawdata = StructArray(
-        x = zeros(Float32,maxN), y = zeros(Float32,maxN), z = zeros(Float32,maxN),
+        unique_id = zeros(Int, maxN), x = zeros(Float32,maxN), y = zeros(Float32,maxN), z = zeros(Float32,maxN),
         length = zeros(Float32,maxN), abundance = zeros(Float64,maxN),
         biomass_ind = zeros(Float32,maxN), biomass_school = zeros(Float32,maxN),
         energy = zeros(Float32,maxN), gut_fullness = zeros(Float32,maxN),
@@ -40,9 +40,7 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
     return plankton(data, p)
 end
 
-function initialize_individuals(arch,plank, B::Float32, sp::Int, depths::MarineDepths, capacities, dt, envi::MarineEnvironment,params::Dict)
-    # This function uses the "Gather, Compute, Update" pattern to be architecture-compliant.
-    
+function initialize_individuals(arch, plank, B::Float32, sp::Int, depths::MarineDepths, capacities, dt, envi::MarineEnvironment, params::Dict, start_date::Date)
     # --- 1. Pre-calculate constants and create temporary CPU arrays ---
     grid = depths.grid
     night_profs = depths.focal_night
@@ -83,15 +81,24 @@ function initialize_individuals(arch,plank, B::Float32, sp::Int, depths::MarineD
 
     if n_agents > current_maxN
         @info "Initial population ($n_agents) exceeds initial capacity ($current_maxN). Resizing buffer..."
-                
-        # Create a new, correctly-sized plankton object
-        # This replaces the old, small one.
-        plank = construct_individuals(arch, params, n_agents)
+        new_agents = Int(ceil(n_agents * 1.2)) #Creates 20% more agents than necessary
+        plank = construct_individuals(arch, params, new_agents)
     end
 
     # --- 3. Generate remaining data in efficient, vectorized calls on the CPU ---
     if n_agents > 0
         cpu_abundance = fill(Float32(school_size), n_agents)
+
+        # --- Generate unique IDs for the initial population ---
+        cpu_unique_ids = zeros(Int64, n_agents)
+        date_int = parse(Int, Dates.format(start_date, "mmddyy"))
+        species_counter = 0
+
+        for i in 1:n_agents
+            species_counter += 1
+            # Formula for CCCCSSMMDDYY format
+            cpu_unique_ids[i] = (Int64(species_counter) * 100000000) + (Int64(sp) * 1000000) + Int64(date_int)
+        end
         
         land_mask = coalesce.(Array(envi.data["bathymetry"]), 0.0) .> 0
         res = initial_ind_placement(Array(capacities), sp, grid, n_agents, 1, land_mask)
@@ -108,6 +115,7 @@ function initialize_individuals(arch,plank, B::Float32, sp::Int, depths::MarineD
         cpu_vis_prey = visual_range_preys_init(cpu_lengths, cpu_z, plank.p.Min_Prey[2][sp], plank.p.Max_Prey[2][sp], n_agents) .* dt
         
         # --- 4. Copy all data from CPU arrays to the target device (CPU or GPU) in one batch ---
+        copyto!(plank.data.unique_id, 1, cpu_unique_ids, 1, n_agents)
         copyto!(plank.data.length, 1, cpu_lengths, 1, n_agents)
         copyto!(plank.data.biomass_ind, 1, cpu_biomass_ind, 1, n_agents)
         copyto!(plank.data.biomass_school, 1, cpu_biomass_school, 1, n_agents)
@@ -120,31 +128,37 @@ function initialize_individuals(arch,plank, B::Float32, sp::Int, depths::MarineD
         copyto!(plank.data.pool_z, 1, cpu_pool_z, 1, n_agents)
         copyto!(plank.data.mature, 1, cpu_mature, 1, n_agents)
         copyto!(plank.data.vis_prey, 1, cpu_vis_prey, 1, n_agents)
+        
         # Initialize other fields
         @views plank.data.alive[1:n_agents] .= 1.0
         @views plank.data.generation[1:n_agents] .= 1
-        @views plank.data.energy[1:n_agents] .= plank.data.biomass_school[1:n_agents] .* plank.p.Energy_density[2][sp] .* 0.1
+        @views plank.data.energy[1:n_agents] .= plank.data.biomass_ind[1:n_agents] .* plank.data.abundance[1:n_agents] .* plank.p.Energy_density[2][sp] .* 0.2
         @views plank.data.gut_fullness[1:n_agents] .= CUDA.rand(Float32, n_agents)
         @views plank.data.age[1:n_agents] .= plank.p.Larval_Duration[2][sp]+1
         
         # Set remaining unused slots to non-alive
         @views plank.data.alive[n_agents+1:end] .= 0.0
     end
-    return plank
+    return plank, species_counter
 end
 
-function generate_individuals(params::Dict, arch::Architecture, Nsp::Int32, B::Vector{Float32}, maxN::Int64, depths::MarineDepths, capacities, dt::Int32, envi::MarineEnvironment)
+function generate_individuals(params::Dict, arch::Architecture, Nsp::Int32, B::Vector{Float32}, maxN::Int64, depths::MarineDepths, capacities, dt::Int32, envi::MarineEnvironment, start_date::Date)
     plank_names = Symbol[]
     plank_data=[]
+
+    daily_birth_counters = zeros(Int,Nsp)
+
     for i in 1:Nsp
         name = Symbol("sp"*string(i))
         plank = construct_individuals(arch, params, maxN)
-        plank = initialize_individuals(arch,plank, B[i], i, depths, capacities, dt, envi,params)
+        plank, species_counter = initialize_individuals(arch, plank, B[i], i, depths, capacities, dt, envi, params, start_date)
+        daily_birth_counters[i] = species_counter
         push!(plank_names, name)
         push!(plank_data, plank)
     end
+
     planks = NamedTuple{Tuple(plank_names)}(plank_data)
-    return individuals(planks)
+    return individuals(planks), daily_birth_counters
 end
 
 # ===================================================================
@@ -155,42 +169,37 @@ end
     resource_biomass, 
     resource_capacity, 
     capacities, 
-    total_biomass_targets,
-    total_capacity_sum,
+    total_capacity_targets,
+    total_suitability_sum,
     normalized_vertical_profiles,
     n_spec
 )
     lon, lat, depth_idx, res_sp = @index(Global, NTuple)
 
-    # Get the total biomass target for this species
-    target_biomass = total_biomass_targets[res_sp]
+    total_K = total_capacity_targets[res_sp]
+    total_sum = total_suitability_sum[res_sp]
     
-    # Get the sum of all habitat suitability values across the map for this species
-    total_sum = total_capacity_sum[res_sp]
-    
-    if target_biomass > 0 && total_sum > 0
-        # Calculate the average annual habitat suitability for this specific cell (lon, lat)
+    if total_K > 0 && total_sum > 0
         avg_capacity_local = 0.0f0
         for month in 1:size(capacities, 3)
             avg_capacity_local += capacities[lon, lat, month, res_sp + n_spec]
         end
         avg_capacity_local /= size(capacities, 3)
 
-        # Determine this horizontal cell's proportion of the total suitability
         horizontal_proportion = avg_capacity_local / total_sum
-        
-        # Allocate a portion of the total biomass to this water column (lon, lat)
-        column_biomass = target_biomass * horizontal_proportion
-        
-        # Get the vertical proportion for this specific depth layer
+        column_capacity = total_K * horizontal_proportion
         vertical_proportion = normalized_vertical_profiles[depth_idx, res_sp]
         
-        # Calculate the final biomass for this specific 3D cell
-        final_biomass = column_biomass * vertical_proportion
+        # 1. Calculate the stable carrying capacity for this cell
+        final_capacity = column_capacity * vertical_proportion
         
-        if final_biomass > 0
+        if final_capacity > 0
+            # 2. Set the initial biomass to a fraction of the capacity (e.g., 50%)
+            initial_biomass_fraction = 0.5f0
+            final_biomass = final_capacity * initial_biomass_fraction
+            
             resource_biomass[lon, lat, depth_idx, res_sp] = final_biomass
-            resource_capacity[lon, lat, depth_idx, res_sp] = final_biomass * 2.0f0
+            resource_capacity[lon, lat, depth_idx, res_sp] = final_capacity
         end
     end
 end
@@ -211,13 +220,20 @@ function initialize_resources(
     lonmin = grid[findfirst(grid.Name .== "xllcorner"), :Value][1]
     latmax = grid[findfirst(grid.Name .== "yulcorner"), :Value][1]
     latmin = grid[findfirst(grid.Name .== "yllcorner"), :Value][1]
-
     mean_lat_rad = deg2rad((latmin + latmax) / 2.0)
     km_per_deg_lat = 111.32
     km_per_deg_lon = 111.32 * cos(mean_lat_rad)
     area_km2 = abs(latmax - latmin) * km_per_deg_lat * abs(lonmax - lonmin) * km_per_deg_lon
 
-    total_biomass_targets_cpu = Float32.(traits.Biomass .* area_km2 .* 1e6)
+    # The 'Biomass' column is now treated as the total carrying capacity (K) in mt/km^2
+    total_capacity_targets_cpu = Float32.(traits.Biomass .* area_km2 .* 1e6)
+
+    total_suitability_sum_cpu = zeros(Float32, n_resource)
+    capacities_cpu = Array(capacities)
+    for res_sp in 1:n_resource
+        avg_capacity_map = mean(capacities_cpu[:, :, :, res_sp + n_spec], dims=3)[:,:,1]
+        total_suitability_sum_cpu[res_sp] = sum(avg_capacity_map)
+    end
     # --- 1. PREPARE DISTRIBUTION DATA ON CPU ---
 
     total_capacity_sum_cpu = zeros(Float32, n_resource)
@@ -252,20 +268,19 @@ function initialize_resources(
     end
 
     # --- 2. UPLOAD DATA TO GPU ---
-    total_biomass_targets = array_type(arch)(total_biomass_targets_cpu)
-    total_capacity_sum = array_type(arch)(total_capacity_sum_cpu)
+    total_capacity_targets = array_type(arch)(total_capacity_targets_cpu)
+    total_suitability_sum = array_type(arch)(total_suitability_sum_cpu)
     normalized_vertical_profiles = array_type(arch)(vertical_profiles_cpu)
 
     # --- 3. LAUNCH THE KERNEL ---
-    # FIX: Ensure all launch dimensions are Int64 to prevent MethodError
     kernel_dims = (lonres, latres, depthres, Int64(n_resource))
     kernel! = initialize_resources_kernel!(device(arch), (8, 8, 4, 1), kernel_dims)
     kernel!(
         resource_biomass, 
         resource_capacity, 
         capacities, 
-        total_biomass_targets,
-        total_capacity_sum,
+        total_capacity_targets,
+        total_suitability_sum,
         normalized_vertical_profiles,
         n_spec
     )
@@ -282,24 +297,37 @@ end
     rate = per_timestep_rates[sp]
 
     if biomass > 0 && capacity > 0
-        #@inbounds biomass_grid[lon, lat, depth, sp] = biomass + rate * biomass * (1.0 - biomass / capacity)
+        @inbounds biomass_grid[lon, lat, depth, sp] = biomass + rate * biomass * (1.0 - biomass / capacity)
     elseif biomass <= 1E-9 && capacity > 0 #Assure that biomass should not be 0 for future growth
-        #@inbounds biomass_grid[lon, lat, depth, sp] = 1E-9
+        @inbounds biomass_grid[lon, lat, depth, sp] = 1E-9
     end
-    @inbounds biomass_grid[lon, lat, depth, sp] = capacity # Placeholder for testing
-
 end
 
 # Launcher for resource growth
-function resource_growth!(model::MarineModel)
+# Launcher for resource growth
+function resource_growth!(model::MarineModel,current_date)
     arch = model.arch
-    # Growth rates from the trait table are treated as ANNUAL rates
+    
+    # --- 1. Get the seasonal multipliers for the current month ---
+    # Read the seasonality file (this could be done once at the start of the simulation)
+    seasonality_df = CSV.read(model.files[model.files.File .== "growth_seasonality", :Destination][1], DataFrame)
+    
+    # Get the multipliers for the current month
+    current_month_name = Dates.monthname(current_date)
+    monthly_multipliers = seasonality_df[!, current_month_name]
+
+    # --- 2. Calculate the adjusted growth rates ---
+    # Get the base annual growth rates from the main trait file
     annual_growth_rates = model.resource_trait.Growth
     
-    # Convert annual rate to a per-timestep rate
+    # Apply the seasonal multiplier to the base rates
+    adjusted_annual_rates = annual_growth_rates .* monthly_multipliers
+    
+    # Convert the adjusted annual rate to a per-timestep rate
     minutes_per_year = 365.0f0 * 1440.0f0
-    per_timestep_rates = array_type(arch)(Float32.(annual_growth_rates ./ (minutes_per_year / model.dt)))
+    per_timestep_rates = array_type(arch)(Float32.(adjusted_annual_rates ./ (minutes_per_year / model.dt)))
 
+    # --- 3. Launch the kernel ---
     kernel! = resource_growth_kernel!(device(arch), (8, 8, 4, 1), size(model.resources.biomass))
     kernel!(model.resources.biomass, model.resources.capacity, per_timestep_rates)
     KernelAbstractions.synchronize(device(arch))
@@ -308,91 +336,114 @@ end
 # ===================================================================
 # Reproduction System
 # ===================================================================
-
-# CPU-only function to calculate new offspring properties
-function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spawn_val, sp)
+function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spawn_val, sp, current_date::Date, daily_births::Int)
+    # --- 1. Calculate eggs per parent (Unchanged) ---
     egg_volume = 0.15 .* parent_data.biomass_ind .^ 0.14
     egg_energy = 2.15 .* egg_volume .^ 0.77
     spent_energy = repro_energy_list .* spawn_val
-
     num_eggs_per_parent = floor.(Int, spent_energy ./ (egg_energy .+ 1f-9) .* p_cpu.Sex_Ratio.second[sp] .* p_cpu.Hatch_Survival.second[sp])
 
-    total_eggs = sum(num_eggs_per_parent)
-    if total_eggs == 0; return nothing; end
+    # 2. Find the indices of parents that are actually producing eggs
+    producing_parents_mask = num_eggs_per_parent .> 0
+    if !any(producing_parents_mask); return nothing; end
 
-    new_x, new_y, new_z = zeros(total_eggs), zeros(total_eggs), zeros(total_eggs)
-    new_pool_x, new_pool_y, new_pool_z = zeros(Int, total_eggs), zeros(Int, total_eggs), zeros(Int, total_eggs)
-    new_length = zeros(total_eggs)
-    new_generation = zeros(Int, total_eggs)
+    parent_indices = (1:length(parent_data.x))[producing_parents_mask]
+    num_eggs_to_create = num_eggs_per_parent[producing_parents_mask]
 
-    current_idx = 1
-    for i in 1:length(parent_data.x)
-        num_eggs = num_eggs_per_parent[i]
-        if num_eggs > 0
-            indices = current_idx:(current_idx + num_eggs - 1)
-            new_x[indices] .= parent_data.x[i]
-            new_y[indices] .= parent_data.y[i]
-            new_z[indices] .= parent_data.z[i]
-            new_pool_x[indices] .= parent_data.pool_x[i]
-            new_pool_y[indices] .= parent_data.pool_y[i]
-            new_pool_z[indices] .= parent_data.pool_z[i]
-            rand_lengths = fill(Float32(p_cpu.Larval_Size.second[sp]), num_eggs)
-            new_length[indices] .= rand_lengths
-            new_generation[indices] .= parent_data.generation[i] .+ 1
-            current_idx += num_eggs
-        end
-    end
+    # The number of new agents is the number of parents that spawned
+    total_new_agents = length(parent_indices)
+    if total_new_agents == 0; return nothing; end
 
-    new_biomass_ind = p_cpu.LWR_a.second[sp] .* (new_length ./ 10.0) .^ p_cpu.LWR_b.second[sp]
+    # 3. Initialize empty vectors sized for the new AGENTS
+    new_unique_ids = zeros(Int64, total_new_agents)
+    new_x = zeros(Float32, total_new_agents)
+    new_y = zeros(Float32, total_new_agents)
+    new_z = zeros(Float32, total_new_agents)
+    new_pool_x = zeros(Int, total_new_agents)
+    new_pool_y = zeros(Int, total_new_agents)
+    new_pool_z = zeros(Int, total_new_agents)
+    new_generation = zeros(Int, total_new_agents)
+    new_abundance = zeros(Float32, total_new_agents)
+    new_biomass_school = zeros(Float32, total_new_agents)
+    new_energy = zeros(Float32, total_new_agents)
     
-    return (
-        x=new_x, y=new_y, z=new_z, length=new_length,
-        abundance=fill(Float32(p_cpu.School_Size.second[sp]), total_eggs),
-        biomass_ind=new_biomass_ind,
-        biomass_school=new_biomass_ind .* p_cpu.School_Size.second[sp],
-        energy = new_biomass_ind .* p_cpu.School_Size.second[sp] .* p_cpu.Energy_density.second[sp] .* 0.1,
-        gut_fullness = fill(1, total_eggs),
-        age = zeros(total_eggs),
-        pool_x=new_pool_x, pool_y=new_pool_y, pool_z=new_pool_z,generation=new_generation
-    )
-end
+    # 4. Setup for ID generation
+    date_int = parse(Int, Dates.format(current_date, "mmddyy"))
+    total_eggs_this_step = 0
 
-# Manages the GPU/CPU data transfer for reproduction
-function process_reproduction!(model::MarineModel, sp::Int32, spawn_val::Real)
-    arch = model.arch
-    data = model.individuals.animals[sp].data
-    p_cpu = model.individuals.animals[sp].p
+    # 5. Loop through each PRODUCING PARENT to create one new agent
+    for (i, parent_idx) in enumerate(parent_indices)
+        num_eggs = num_eggs_to_create[i]
+        total_eggs_this_step += num_eggs
+        
+        # A. Generate a unique ID for this new agent
+        new_id = (Int64(daily_births + i) * 100000000) + (Int64(sp) * 1000000) + Int64(date_int)
+        new_unique_ids[i] = new_id
 
-    repro_energy_all = Array(data.repro_energy)
-    repro_inds = findall(repro_energy_all .> 0)
-    if isempty(repro_inds); return; end
+        # B. Inherit location and generation from the parent
+        new_x[i] = parent_data.x[parent_idx]
+        new_y[i] = parent_data.y[parent_idx]
+        new_z[i] = parent_data.z[parent_idx]
+        new_pool_x[i] = parent_data.pool_x[parent_idx]
+        new_pool_y[i] = parent_data.pool_y[parent_idx]
+        new_pool_z[i] = parent_data.pool_z[parent_idx]
+        new_generation[i] = parent_data.generation[parent_idx] + 1
 
-    parent_data_cpu = (
-        x = Array(data.x[repro_inds]), y = Array(data.y[repro_inds]), z = Array(data.z[repro_inds]),
-        pool_x = Array(data.pool_x[repro_inds]), pool_y = Array(data.pool_y[repro_inds]), pool_z = Array(data.pool_z[repro_inds]),
-        biomass_ind = Array(data.biomass_ind[repro_inds]),generation = Array(data.generation[repro_inds])
-    )
+        # C. The new agent's abundance is the number of eggs from THIS parent
+        new_abundance[i] = Float32(num_eggs)
+        
+        # D. Calculate biomass and energy for this agent based on its total abundance
+        larval_size = Float32(p_cpu.Larval_Size.second[sp])
+        lwr_a = p_cpu.LWR_a.second[sp]
+        lwr_b = p_cpu.LWR_b.second[sp]
+        energy_ed = p_cpu.Energy_density.second[sp]
+        
+        biomass_ind = lwr_a * (larval_size / 10.0f0) ^ lwr_b
+        biomass_sch = biomass_ind * num_eggs
+        
+        new_biomass_school[i] = biomass_sch
+        new_energy[i] = biomass_ind * num_eggs * energy_ed * 0.2f0
+    end
 
-    new_offspring = calculate_new_offspring_cpu(p_cpu, parent_data_cpu, repro_energy_all[repro_inds], spawn_val, sp)
-    if new_offspring === nothing; return; end
+    daily_births += total_new_agents
+
+    # --- 6. Calculate remaining properties and return the NamedTuple ---
+    larval_size = Float32(p_cpu.Larval_Size.second[sp])
+    lwr_a = p_cpu.LWR_a.second[sp]
+    lwr_b = p_cpu.LWR_b.second[sp]
     
-    num_new = length(new_offspring.x)
-    if num_new == 0; return; end
-
-    dead_slots = findall(Array(data.alive) .== 0)
-    num_to_add = min(num_new, length(dead_slots))
-    if num_to_add < num_new
-        @warn "Not enough space for all new offspring. Discarding $(num_new - num_to_add) individuals."
-    end
-
-    if num_to_add > 0
-        slots_to_fill = @view dead_slots[1:num_to_add]
-        for (field, values) in pairs(new_offspring)
-            dest_view = @view getproperty(data, field)[slots_to_fill]
-            source_view = @view values[1:num_to_add]
-            copyto!(dest_view, source_view)
-        end
-        @view(data.alive[slots_to_fill]) .= 1.0
-    end
-    @view(data.repro_energy[repro_inds]) .= 0.0
+return (
+        unique_id = new_unique_ids,
+        x = new_x, y = new_y, z = new_z,
+        length = fill(larval_size, total_new_agents),
+        abundance = new_abundance,
+        biomass_ind = fill(lwr_a * (larval_size / 10.0f0) ^ lwr_b, total_new_agents),
+        biomass_school = new_biomass_school,
+        energy = new_energy,
+        gut_fullness = fill(1.0f0, total_new_agents),
+        age = zeros(Float32, total_new_agents),
+        pool_x = new_pool_x, pool_y = new_pool_y, pool_z = new_pool_z,
+        generation = new_generation,
+        cost = zeros(Float32, total_new_agents),
+        active = zeros(Float32, total_new_agents),
+        ration = zeros(Float32, total_new_agents),
+        vis_prey = zeros(Float32, total_new_agents),
+        target_pool_x = zeros(Int32, total_new_agents),
+        target_pool_y = zeros(Int32, total_new_agents),
+        mature = zeros(Float32, total_new_agents),
+        cell_id = zeros(Int32, total_new_agents),
+        sorted_id = zeros(Int32, total_new_agents),
+        repro_energy = zeros(Float32, total_new_agents),
+        best_prey_dist = fill(Inf32, total_new_agents),
+        best_prey_idx = zeros(Int32, total_new_agents),
+        best_prey_sp = zeros(Int32, total_new_agents),
+        best_prey_type = zeros(Int32, total_new_agents),
+        successful_ration = zeros(Float32, total_new_agents),
+        temp_idx = zeros(Int32, total_new_agents),
+        cell_starts = zeros(Int32, total_new_agents),
+        cell_ends = zeros(Int32, total_new_agents),
+        mig_status = zeros(Int32, total_new_agents),
+        target_z = zeros(Float32, total_new_agents),
+        interval = zeros(Float32, total_new_agents)
+    ), daily_births
 end

@@ -26,3 +26,33 @@ end
         @inbounds biomass_grid[lon, lat, depth, sp] = biomass * per_timestep_survival_rates[sp]
     end
 end
+
+"""
+    remove_dead_agents!(model::MarineModel)
+
+Resizes the agent StructArray for each species to remove all individuals
+that are not alive (`alive == 0.0`). This should be called periodically
+to manage memory and improve performance.
+"""
+function remove_dead_agents!(model::MarineModel)
+    println("--- Starting Dead Agent Removal ---")
+    for sp in 1:model.n_species
+        # Bring data to the CPU to perform the resize operation
+        animal_data_cpu = Array(model.individuals.animals[sp].data)
+        total_before = length(animal_data_cpu)
+
+        # Find the indices of all agents that are still alive
+        alive_indices = findall(a -> a.alive == 1.0f0, animal_data_cpu)
+        
+        # Create a new, smaller StructArray containing only the living agents
+        new_animal_data = animal_data_cpu[alive_indices]
+        
+        # Copy the resized data back to the GPU
+        model.individuals.animals[sp].data = arch_array(model.arch, new_animal_data)
+
+        # Print a summary of the operation
+        total_after = length(new_animal_data)
+        println("Species $sp: Removed $(total_before - total_after) dead agents. Total agents reduced from $total_before to $total_after.")
+    end
+    println("--- Dead Agent Removal Complete ---")
+end

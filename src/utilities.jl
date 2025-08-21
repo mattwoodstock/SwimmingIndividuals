@@ -30,8 +30,11 @@ end
 # Defines the gear selectivity for a species within a fishery
 struct Selectivity
     species::String
-    L50::Float32
-    slope::Float32
+    sel_type::Int8 # 1=logistic, 2=knife_edge, 3=dome_shaped
+    p1::Float32    # L50 for logistic/knife_edge, L50_1 for dome
+    p2::Float32    # Slope for logistic, Slope_1 for dome
+    p3::Float32    # L50_2 for dome
+    p4::Float32    # Slope_2 for dome
 end
 
 # Defines a single fishery's regulations and properties
@@ -94,8 +97,8 @@ mutable struct MarineModel
     foraging_attempts::Int32
     plt_diags::Int32
     size_bin_thresholds::AbstractMatrix{Float32}
+    daily_birth_counters::Vector{Int}
 end
-
 
 # ===================================================================
 # Helper and Utility Functions
@@ -141,12 +144,25 @@ function lognormal_params_from_maxsize(max_size::Real)
 end
 
 function lognormal_params_from_minmax(min_size::Real, max_size::Real)
+    # Ensure min_size is positive to avoid log(0) errors
     min_size = max(min_size, 1e-6)
-    if min_size >= max_size; max_size = min_size * 1.1; end
+    
+    # Ensure max_size is always greater than min_size
+    if min_size >= max_size
+        max_size = min_size * 1.1
+    end
+
     log_min, log_max = log(min_size), log(max_size)
-    z = 1.96
+    
+    # Use the z-score for the 97.5th percentile to cover 95% of the distribution
+    z = 1.96 
+    
+    # The mean of the log-transformed values
     μ = (log_max + log_min) / 2.0
+    
+    # The standard deviation of the log-transformed values
     σ = (log_max - log_min) / (2.0 * z)
+    
     return μ, σ
 end
 
