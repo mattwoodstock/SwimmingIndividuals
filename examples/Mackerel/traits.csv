@@ -1,2 +1,2 @@
-﻿SpeciesLong,SpeciesShort,Type,Taxa,MR_type,Biomass,Min_Size,Max_Size,LWR_a,LWR_b,FLR_a,FLR_b,Swim_velo,Surface_Interval,Dive_Interval,Dive_Min_Day,Dive_Max_Day,Dive_Min_Night,Dive_Max_Night,Min_Prey,Max_Prey,Energy_density,Handling_Time,Max_Stomach,Sex_Ratio,Larval_Size,Larval_Duration,Hatch_Survival,School_Size,W_mat
-King Mackerel,King,non_mig,1,1,0.2,250,1400,2.10E-06,3.3,7.30E-07,3,1.5,0,0,0,0,0,0,0.05,0.4,5400,0.1,0.1,0.5,3,3,0.1,1000000,0.15
+﻿SpeciesLong,SpeciesShort,Type,Taxa,MR_type,Biomass,Min_Size,Max_Size,LWR_a,LWR_b,Swim_velo,Surface_Interval,Dive_Interval,Dive_Min_Day,Dive_Max_Day,Dive_Min_Night,Dive_Max_Night,Min_Prey,Max_Prey,Energy_density,Handling_Time,Max_Stomach_a,Max_Stomach_b,Sex_Ratio,Larval_Size,Larval_Duration,Hatch_Survival,School_Size,L_mat,Resp_a,Resp_b,Resp_q,Activity_Mult
+King Mackerel,King,non_mig,1,1,0.02,250,1400,0.0145,2.94,1.5,0,0,0,0,0,0,0.01,0.4,5400,0.1,0.086,0.95,0.5,3,3,0.0001,10000,600,0.2,-0.2,0.069,2

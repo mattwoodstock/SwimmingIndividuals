@@ -8,5 +8,5 @@ model_dt,1440,Number of minutes between time steps
 n_iter,1,Number of model iterations to run
 output_size_bins,3,Number of size bins for species' outputs (only applies to arrays).
 output_dt,1440,Interval between Timestep Outputs
-num_foraging_attempts, 5, Number of foraging attempts to cycle through. Includes tradeoff between realism and performance
+num_foraging_attempts, 100, Number of foraging attempts to cycle through. Includes tradeoff between realism and performance
 plt_diags,1,0 = Do not plot diagnostics : 1 = plot diagnostics 
