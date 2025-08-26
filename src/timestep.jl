@@ -73,11 +73,14 @@ function TimeStep!(sim::MarineSimulation)
 
         if !isempty(living)
             # --- Population stats (requires GPU->CPU transfer for sum/mean) ---
-            model.abund[spec] = sum(Array(species_data.abundance[alive]))
+            model.abund[spec] = Int64(round(sum(Array(species_data.abundance[alive]))))
             model.bioms[spec] = sum(Array(species_data.biomass_school[alive]))
             print(length(alive))
             print("  Abundance: ")
             println(model.abund[spec])
+
+            # Update biomass_init for analysis purposes with dynamic school biomasses 
+            species_data.biomass_init[alive] = species_data.biomass_school[alive] 
 
             # --- Main agent update loop ---
             print("behave | ")
@@ -121,7 +124,8 @@ function TimeStep!(sim::MarineSimulation)
 
     # --- Reset per-timestep accumulators ---
     for spec in 1:species
-        model.individuals.animals[spec].data.ration .= 0.0
+        model.individuals.animals[spec].data.ration_biomass .= 0.0
+        model.individuals.animals[spec].data.ration_energy .= 0.0
         model.individuals.animals[spec].data.active .= 0.0
     end
 

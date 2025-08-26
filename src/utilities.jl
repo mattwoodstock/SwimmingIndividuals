@@ -237,18 +237,21 @@ function resize_agent_storage!(model::MarineModel, sp::Int, new_maxN::Int)
     # Construct the new StructArray
     new_device_data = StructArray{eltype(current_data)}(new_arrays)
 
-    # --- 2. Copy data from the old arrays to the new, larger arrays ---
+    # --- 2. Copy old data and initialize new slots ---
     for field in fields
         current_array = getproperty(current_data, field)
         new_array = getproperty(new_device_data, field)
         
-        # Copy the existing data to the start of the new array
+        # A. Copy the existing data to the start of the new array
         copyto!(@view(new_array[1:current_maxN]), current_array)
+        
+        # B. *** FIX: Initialize the new, empty slots to zero ***
+        # This prevents reading garbage data from uninitialized memory.
+        # The `eltype` ensures we fill with the correct type of zero (e.g., 0.0f0, 0).
+        fill!(@view(new_array[current_maxN+1:end]), zero(eltype(new_array)))
     end
     
     # --- 3. Replace the old data field in the model ---
-    # Because 'plankton' is a mutable struct, we can directly replace its 'data' field.
-    # This is simpler and more efficient than rebuilding the parent structures.
     model.individuals.animals[sp].data = new_device_data
     
     return nothing

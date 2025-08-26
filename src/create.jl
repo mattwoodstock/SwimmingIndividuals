@@ -6,14 +6,14 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
     # Defines the full data structure for an agent.
     rawdata = StructArray(
         unique_id = zeros(Int, maxN), x = zeros(Float32,maxN), y = zeros(Float32,maxN), z = zeros(Float32,maxN),
-        length = zeros(Float32,maxN), abundance = zeros(Float64,maxN),
-        biomass_ind = zeros(Float32,maxN), biomass_school = zeros(Float32,maxN),
+        length = zeros(Float32,maxN), abundance = zeros(Int64,maxN),
+        biomass_ind = zeros(Float32,maxN), biomass_school = zeros(Float32,maxN),biomass_init = zeros(Float32,maxN),
         energy = zeros(Float32,maxN), gut_fullness = zeros(Float32,maxN),
         cost = zeros(Float32,maxN), pool_x = zeros(Int,maxN), pool_y = zeros(Int,maxN),
         pool_z = zeros(Int,maxN), active = zeros(Float32,maxN),
-        ration = zeros(Float32,maxN), alive = zeros(Float32,maxN),
+        ration_energy = zeros(Float32,maxN),ration_biomass = zeros(Float32,maxN), alive = zeros(Float32,maxN),
         vis_prey = zeros(Float32,maxN), mature = zeros(Float32,maxN),
-        age=zeros(Float32,maxN),
+        age = zeros(Float32,maxN),
         generation = zeros(Int32,maxN),
         cell_id = zeros(Int, maxN),
         sorted_id = zeros(Int, maxN),
@@ -35,7 +35,7 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:W_mat,:SpeciesLong, :LWR_a, :Larval_Size,:Max_Prey, :Max_Size,:School_Size,:Taxa, :Larval_Duration, :Max_Stomach, :Sex_Ratio,:SpeciesShort,:FLR_b, :Handling_Time,:Dive_Min_Night,:FLR_a,:Energy_density,:Min_Size, :Hatch_Survival, :MR_type, :Dive_Min_Day, :Dive_Max_Day, :Swim_velo, :Biomass,:Dive_Max_Night, :Type)
+    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:Resp_b,:SpeciesLong, :LWR_a, :Max_Stomach_a, :Larval_Size,:Max_Prey, :Max_Size,:Resp_q,:School_Size,:Activity_Mult,:Taxa, :Larval_Duration,:Max_Stomach_b, :Sex_Ratio,:SpeciesShort, :Handling_Time,:Dive_Min_Night,:Energy_density,:Min_Size, :Hatch_Survival, :MR_type, :Dive_Min_Day, :Dive_Max_Day, :Swim_velo, :Biomass,:Dive_Max_Night,:L_mat,:Resp_a, :Type)
     p = NamedTuple{param_names}(params)
     return plankton(data, p)
 end
@@ -59,7 +59,7 @@ function initialize_individuals(arch, plank, B::Float32, sp::Int, depths::Marine
     max_size = plank.p.Max_Size[2][sp]
     min_size = plank.p.Min_Size[2][sp]
 
-    cpu_lengths, cpu_biomass_ind, cpu_biomass_school = Float32[], Float32[], Float32[]
+    cpu_lengths, cpu_biomass_ind, cpu_biomass_school,cpu_biomass_init = Float32[], Float32[], Float32[], Float32[]
     
     # --- 2. Generate core data on the CPU until target biomass is met ---
     current_b = 0.0
@@ -73,6 +73,7 @@ function initialize_individuals(arch, plank, B::Float32, sp::Int, depths::Marine
         push!(cpu_lengths, new_length)
         push!(cpu_biomass_ind, ind_biomass)
         push!(cpu_biomass_school, school_biomass)
+        push!(cpu_biomass_init, school_biomass)
         current_b += school_biomass
     end
 
@@ -110,8 +111,7 @@ function initialize_individuals(arch, plank, B::Float32, sp::Int, depths::Marine
         cpu_z = clamp.(cpu_z, 1.0, maxdepth)
         cpu_pool_z = max.(1, ceil.(Int, cpu_z ./ (maxdepth / depthres)))
         cpu_pool_z = clamp.(cpu_pool_z, 1, Int(depthres))
-        max_weight = plank.p.LWR_a[2][sp] * (max_size / 10)^plank.p.LWR_b[2][sp]
-        cpu_mature = min.(1.0, cpu_biomass_ind ./ (plank.p.W_mat[2][sp] * max_weight))
+        cpu_mature = min.(1.0, cpu_lengths ./ plank.p.L_mat[2][sp])
         cpu_vis_prey = visual_range_preys_init(cpu_lengths, cpu_z, plank.p.Min_Prey[2][sp], plank.p.Max_Prey[2][sp], n_agents) .* dt
         
         # --- 4. Copy all data from CPU arrays to the target device (CPU or GPU) in one batch ---
@@ -119,6 +119,7 @@ function initialize_individuals(arch, plank, B::Float32, sp::Int, depths::Marine
         copyto!(plank.data.length, 1, cpu_lengths, 1, n_agents)
         copyto!(plank.data.biomass_ind, 1, cpu_biomass_ind, 1, n_agents)
         copyto!(plank.data.biomass_school, 1, cpu_biomass_school, 1, n_agents)
+        copyto!(plank.data.biomass_init, 1, cpu_biomass_init, 1, n_agents)
         copyto!(plank.data.abundance, 1, cpu_abundance, 1, n_agents)
         copyto!(plank.data.x, 1, cpu_x, 1, n_agents)
         copyto!(plank.data.y, 1, cpu_y, 1, n_agents)
@@ -337,24 +338,54 @@ end
 # Reproduction System
 # ===================================================================
 function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spawn_val, sp, current_date::Date, daily_births::Int)
-    # --- 1. Calculate eggs per parent (Unchanged) ---
-    egg_volume = 0.15 .* parent_data.biomass_ind .^ 0.14
-    egg_energy = 2.15 .* egg_volume .^ 0.77
+    # --- PRE-FLIGHT CHECK: Validate initial parent biomass before any calculations ---
+    # This ensures we don't use parents with invalid biomass for reproduction calculations.
+    for i in 1:length(parent_data.biomass_ind)
+        if !isfinite(parent_data.biomass_ind[i]) || parent_data.biomass_ind[i] <= 0.0f0
+            @warn """
+            DIAGNOSTIC: Invalid parent biomass detected before reproduction.
+            Parent Index: $i, Species: $sp, Biomass: $(parent_data.biomass_ind[i])
+            Excluding this parent from reproduction.
+            """
+            repro_energy_list[i] = 0.0f0 # Exclude this parent by zeroing its reproductive energy
+        end
+    end
+
+    # --- 1. Calculate the potential number of eggs for each parent (as a Float) ---
+    egg_volume = 0.15f0 .* parent_data.biomass_ind .^ 0.14f0
+    egg_energy = 2.15f0 .* egg_volume .^ 0.77f0
     spent_energy = repro_energy_list .* spawn_val
-    num_eggs_per_parent = floor.(Int, spent_energy ./ (egg_energy .+ 1f-9) .* p_cpu.Sex_Ratio.second[sp] .* p_cpu.Hatch_Survival.second[sp])
+    sex_ratio = p_cpu.Sex_Ratio.second[sp]
+    hatch_survival = p_cpu.Hatch_Survival.second[sp]
+    
+    num_eggs_per_parent_float = spent_energy ./ (egg_energy .+ 1.0f-9) .* sex_ratio .* hatch_survival
 
-    # 2. Find the indices of parents that are actually producing eggs
-    producing_parents_mask = num_eggs_per_parent .> 0
-    if !any(producing_parents_mask); return nothing; end
+    # --- DIAGNOSTIC CHECK 1: Validate the result of the egg calculation ---
+    if any(!isfinite, num_eggs_per_parent_float)
+        invalid_indices = findall(!isfinite, num_eggs_per_parent_float)
+        @warn """
+        DIAGNOSTIC: Non-finite number (Inf/NaN) detected in egg calculation.
+        Species: $sp
+        Problematic Parent Indices: $invalid_indices
+        Problematic Values: $(num_eggs_per_parent_float[invalid_indices])
+        """
+        # Replace non-finite values with 0 to prevent them from propagating
+        num_eggs_per_parent_float[invalid_indices] .= 0.0f0
+    end
 
+    # --- 2. Identify which parents can produce at least one whole egg ---
+    producing_parents_mask = num_eggs_per_parent_float .>= 1.0
+    if !any(producing_parents_mask); return nothing, daily_births; end
+
+    # --- 3. Get the indices and egg counts for ONLY the valid parents ---
     parent_indices = (1:length(parent_data.x))[producing_parents_mask]
-    num_eggs_to_create = num_eggs_per_parent[producing_parents_mask]
+    num_eggs_to_create = floor.(Int, num_eggs_per_parent_float[producing_parents_mask])
 
-    # The number of new agents is the number of parents that spawned
+    # --- 4. The number of new agents is the number of successful parents ---
     total_new_agents = length(parent_indices)
-    if total_new_agents == 0; return nothing; end
+    if total_new_agents == 0; return nothing, daily_births; end
 
-    # 3. Initialize empty vectors sized for the new AGENTS
+    # --- 5. Initialize arrays for the new agents ---
     new_unique_ids = zeros(Int64, total_new_agents)
     new_x = zeros(Float32, total_new_agents)
     new_y = zeros(Float32, total_new_agents)
@@ -367,23 +398,38 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
     new_biomass_school = zeros(Float32, total_new_agents)
     new_energy = zeros(Float32, total_new_agents)
     
-    # 4. Setup for ID generation
     date_int = parse(Int, Dates.format(current_date, "mmddyy"))
-    total_eggs_this_step = 0
 
-    # 5. Loop through each PRODUCING PARENT to create one new agent
+    # --- 6. Loop through each PRODUCING PARENT to create one new agent ---
     for (i, parent_idx) in enumerate(parent_indices)
+        # --- DIAGNOSTIC CHECK 2: Validate Parent Coordinates before inheritance ---
+        px, py, pz = parent_data.x[parent_idx], parent_data.y[parent_idx], parent_data.z[parent_idx]
+        if !isfinite(px) || !isfinite(py) || !isfinite(pz)
+            @warn """
+            DIAGNOSTIC: Invalid parent coordinates detected! Offspring would inherit bad data.
+            Parent Index: $parent_idx, Species: $sp
+            Parent Coords (x,y,z): ($px, $py, $pz)
+            Skipping creation of this offspring.
+            """
+            # Set values to zero so this new agent is effectively inert
+            new_abundance[i] = 0.0f0 
+            new_biomass_school[i] = 0.0f0
+            new_energy[i] = 0.0f0
+            # We use continue to skip the rest of the loop for this specific parent
+            continue
+        end
+
+        # Get the number of eggs for this specific parent
         num_eggs = num_eggs_to_create[i]
-        total_eggs_this_step += num_eggs
         
         # A. Generate a unique ID for this new agent
         new_id = (Int64(daily_births + i) * 100000000) + (Int64(sp) * 1000000) + Int64(date_int)
         new_unique_ids[i] = new_id
 
-        # B. Inherit location and generation from the parent
-        new_x[i] = parent_data.x[parent_idx]
-        new_y[i] = parent_data.y[parent_idx]
-        new_z[i] = parent_data.z[parent_idx]
+        # B. Inherit location and generation from the (now validated) parent
+        new_x[i] = px
+        new_y[i] = py
+        new_z[i] = pz
         new_pool_x[i] = parent_data.pool_x[parent_idx]
         new_pool_y[i] = parent_data.pool_y[parent_idx]
         new_pool_z[i] = parent_data.pool_z[parent_idx]
@@ -392,7 +438,7 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
         # C. The new agent's abundance is the number of eggs from THIS parent
         new_abundance[i] = Float32(num_eggs)
         
-        # D. Calculate biomass and energy for this agent based on its total abundance
+        # D. Calculate biomass and energy for this new agent based on its abundance
         larval_size = Float32(p_cpu.Larval_Size.second[sp])
         lwr_a = p_cpu.LWR_a.second[sp]
         lwr_b = p_cpu.LWR_b.second[sp]
@@ -402,17 +448,28 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
         biomass_sch = biomass_ind * num_eggs
         
         new_biomass_school[i] = biomass_sch
-        new_energy[i] = biomass_ind * num_eggs * energy_ed * 0.2f0
+        new_energy[i] = biomass_sch * energy_ed * 0.2f0
     end
 
     daily_births += total_new_agents
 
-    # --- 6. Calculate remaining properties and return the NamedTuple ---
+    # --- DIAGNOSTIC CHECK 3: Final validation of all new agent data before return ---
+    if any(!isfinite, new_biomass_school) || any(!isfinite, new_energy)
+        @error """
+        FATAL DIAGNOSTIC: Attempting to return new agents with invalid biomass or energy!
+        Species: $sp
+        Halting to prevent data corruption.
+        """
+        # This is a critical error, so we stop the simulation
+        error("Invalid offspring data generated in calculate_new_offspring_cpu.")
+    end
+
+    # --- 7. Return the properties for all new agents ---
     larval_size = Float32(p_cpu.Larval_Size.second[sp])
     lwr_a = p_cpu.LWR_a.second[sp]
     lwr_b = p_cpu.LWR_b.second[sp]
     
-return (
+    return (
         unique_id = new_unique_ids,
         x = new_x, y = new_y, z = new_z,
         length = fill(larval_size, total_new_agents),
@@ -426,7 +483,8 @@ return (
         generation = new_generation,
         cost = zeros(Float32, total_new_agents),
         active = zeros(Float32, total_new_agents),
-        ration = zeros(Float32, total_new_agents),
+        ration_biomass = zeros(Float32, total_new_agents),
+        ration_energy = zeros(Float32, total_new_agents),
         vis_prey = zeros(Float32, total_new_agents),
         target_pool_x = zeros(Int32, total_new_agents),
         target_pool_y = zeros(Int32, total_new_agents),

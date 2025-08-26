@@ -1,10 +1,12 @@
-function load_fisheries(df::DataFrame,dt::Int32)
+function load_fisheries(df::DataFrame, dt::Int32)
     grouped = groupby(df, :FisheryName)
     fisheries = Fishery[]
 
     for g in grouped
         name = g.FisheryName[1]
-        bag_limit = Int32(ceil(g.BagLimit[1] * g.NVessel[1] * (dt/1440)))
+
+        # Fleet-wide bag limit (sum across all vessels)
+        bag_limit = Int32(g.BagLimit[1] * g.NVessel[1])
 
         targets = g.Species[g.Role .== "target"]
         bycatch = g.Species[g.Role .== "bycatch"]
@@ -12,20 +14,10 @@ function load_fisheries(df::DataFrame,dt::Int32)
         selectivities = Dict{String, Selectivity}()
         for row in eachrow(g)
             sel_type_str = row.SelectivityType
-            local sel_type_code::Int8
-            
-            if sel_type_str == "logistic"
-                sel_type_code = 1
-            elseif sel_type_str == "knife_edge"
-                sel_type_code = 2
-            elseif sel_type_str == "dome_shaped"
-                sel_type_code = 3
-            else
-                @warn "Unknown selectivity type '$sel_type_str'. Defaulting to logistic."
-                sel_type_code = 1
-            end
+            sel_type_code = sel_type_str == "logistic" ? 1 :
+                            sel_type_str == "knife_edge" ? 2 :
+                            sel_type_str == "dome_shaped" ? 3 : 1
 
-            # Fill parameters, using 0.0f0 for unused ones
             p1 = Float32(get(row, :L50, 0.0))
             p2 = Float32(get(row, :Slope, 0.0))
             p3 = Float32(get(row, :L50_2, 0.0))
@@ -45,7 +37,7 @@ function load_fisheries(df::DataFrame,dt::Int32)
             (g.StartDay[1], g.EndDay[1]),
             ((g.XMin[1], g.XMax[1]), (g.YMin[1], g.YMax[1]), (g.ZMin[1], g.ZMax[1])),
             (g.SlotMin[1], g.SlotMax[1]),
-            bag_limit,
+            bag_limit,  # fleet-wide
             0,    # effort_days
             0.0,  # mean_length_catch
             0.0,  # mean_weight_catch
@@ -55,6 +47,7 @@ function load_fisheries(df::DataFrame,dt::Int32)
     end
     return fisheries
 end
+
 
 @kernel function fishing_kernel!(
     alive, x, y, z, length, abundance, biomass_ind, biomass_school,
@@ -105,45 +98,44 @@ end
             if rand(Float32) < selectivity
                 if fishery_params.slot_limit[1] <= length[i] <= fishery_params.slot_limit[2]
                     
-                    potential_catch = min(abundance[i], Float32(remaining_bag_limit[1]))
-                    inds_to_catch = floor(Int32, potential_catch)
+                    inds_to_catch = min(abundance[i], remaining_bag_limit[1])
 
                     if inds_to_catch > 0
-                        biomass_of_catch = inds_to_catch * biomass_ind[i]
-                        quota_before = @atomic remaining_quota[1] -= biomass_of_catch
-                        
-                        if quota_before >= biomass_of_catch
-                            @atomic remaining_bag_limit[1] -= inds_to_catch
-                            
-                            px, py, pz = pool_x[i], pool_y[i], pool_z[i]
-                            size_bin = find_species_size_bin(length[i], sp_idx, size_bin_thresholds)
-                            
-                            # Log biomass to the Fmort grid
-                            @atomic Fmort[px, py, pz, fishery_idx, sp_idx, size_bin] += biomass_of_catch
-                            
-                            @atomic biomass_caught_per_fishery[fishery_idx] += biomass_of_catch
-                            @atomic inds_caught_per_fishery[fishery_idx] += inds_to_catch
-                            @atomic length_caught_per_fishery[fishery_idx] += length[i] * inds_to_catch
+                        # Atomically try to reserve fish from the fleet-wide bag limit
+                        bag_before = @atomic remaining_bag_limit[1] -= inds_to_catch
 
-                            current_biomass_school = biomass_school[i]
-                            if current_biomass_school > 0.0f0
-                                # Calculate the proportion of the school's biomass that was removed
-                                proportion_removed = biomass_of_catch / current_biomass_school
-                                
-                                # Remove the corresponding proportion of energy
-                                energy_removed = energy[i] * proportion_removed
-                                @atomic energy[i] -= energy_removed
-                            end
-                            
-                            # Directly update the agent's state
-                            @atomic abundance[i] -= Float32(inds_to_catch)
-                            @atomic biomass_school[i] -= biomass_of_catch
-                            
-                            if abundance[i] <= 0.0f0
-                                alive[i] = 0.0f0
+                        if bag_before >= inds_to_catch
+                            biomass_of_catch = inds_to_catch * biomass_ind[i]
+
+                            # Check quota
+                            quota_before = @atomic remaining_quota[1] -= biomass_of_catch
+
+                            if quota_before >= biomass_of_catch
+                                # Log the catch
+                                px, py, pz = pool_x[i], pool_y[i], pool_z[i]
+                                size_bin = find_species_size_bin(length[i], sp_idx, size_bin_thresholds)
+
+                                @atomic Fmort[px, py, pz, fishery_idx, sp_idx, size_bin] += biomass_of_catch
+                                @atomic biomass_caught_per_fishery[fishery_idx] += biomass_of_catch
+                                @atomic inds_caught_per_fishery[fishery_idx] += inds_to_catch
+                                @atomic length_caught_per_fishery[fishery_idx] += length[i] * inds_to_catch
+
+                                # Remove from school
+                                proportion_removed = biomass_of_catch / biomass_school[i]
+                                @atomic energy[i] -= energy[i] * proportion_removed
+                                @atomic abundance[i] -= Float32(inds_to_catch)
+                                @atomic biomass_school[i] -= biomass_of_catch
+
+                                if abundance[i] <= 0.0f0
+                                    alive[i] = 0.0f0
+                                end
+                            else
+                                @atomic remaining_quota[1] += biomass_of_catch
+                                @atomic remaining_bag_limit[1] += inds_to_catch
                             end
                         else
-                            @atomic remaining_quota[1] += biomass_of_catch
+                            # Not enough left in fleet-wide bag limit
+                            @atomic remaining_bag_limit[1] += inds_to_catch
                         end
                     end
                 end

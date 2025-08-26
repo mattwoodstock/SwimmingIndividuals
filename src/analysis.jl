@@ -26,7 +26,7 @@ function timestep_results(sim::MarineSimulation)
     end
 
     # --- Gather individual data for CSV output ---
-    Sp, Ind, x, y, z, lengths, abundance, biomass, gut_fullness, ration,energy,cost,age,generation = [],[],[],[],[],[],[],[],[],[],[],[],[],[],[]
+    Sp, Ind, x, y, z, lengths, abundance, biomass, gut_fullness, ration_biomass,ration_energy,energy,cost,age,generation = [],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]
 
     for (species_index, animal) in enumerate(model.individuals.animals)
         spec_dat = animal.data
@@ -42,9 +42,10 @@ function timestep_results(sim::MarineSimulation)
         append!(z, Array(spec_dat.z[alive_indices]))
         append!(lengths, Array(spec_dat.length[alive_indices]))
         append!(abundance, Array(spec_dat.abundance[alive_indices]))
-        append!(biomass, Array(spec_dat.biomass_school[alive_indices]))
+        append!(biomass, Array(spec_dat.biomass_init[alive_indices]))
         append!(gut_fullness, Array(spec_dat.gut_fullness[alive_indices]))
-        append!(ration, Array(spec_dat.ration[alive_indices]))
+        append!(ration_biomass, Array(spec_dat.ration_biomass[alive_indices]))
+        append!(ration_energy, Array(spec_dat.ration_energy[alive_indices]))
         append!(energy, Array(spec_dat.energy[alive_indices]))
         append!(cost, Array(spec_dat.cost[alive_indices]))
         append!(age, Array(spec_dat.age[alive_indices]))
@@ -52,13 +53,14 @@ function timestep_results(sim::MarineSimulation)
     end
 
     if !isempty(Sp)
-        df = DataFrame(Species=Sp, Individual=Ind, X=x, Y=y, Z=z, Length=lengths, Abundance=abundance, Biomass=biomass,Fullness = gut_fullness,Ration = ration, Energy = energy,Cost = cost,Age = age, Generation = generation)
+        df = DataFrame(Species=Sp, Individual=Ind, X=x, Y=y, Z=z, Length=lengths, Abundance=abundance, Biomass=biomass,Fullness = gut_fullness,Ration_b = ration_biomass,Ration_e = ration_energy, Energy = energy,Cost = cost,Age = age, Generation = generation)
         # Use the constructed path for writing the CSV file
         csv_path = joinpath(individual_dir, "IndividualResults_$run-$ts.csv")
         CSV.write(csv_path, df)
     end
     
     # --- Calculate and save population-scale results ---
+    
     init_biomass_by_size!(model, outputs) 
     
     cpu_F = Array(outputs.Fmort)
@@ -324,8 +326,8 @@ Calculates the BIOMASS of agents in each grid cell and size bin.
         size_bin = find_species_size_bin(agents.length[i], sp_idx, size_bin_thresholds)
         
         if size_bin > 0
-            @atomic biomass_out[x, y, z, sp_idx, size_bin] += agents.biomass_school[i]
-        end
+            @atomic biomass_out[x, y, z, sp_idx, size_bin] += agents.biomass_init[i]
+        end     
     end
 end
 
@@ -455,37 +457,4 @@ This kernel now correctly uses the BIOMASS grid for its calculation.
             end
         end
     end
-end
-
-# ===================================================================
-# Launcher Functions for Analysis
-# ===================================================================
-
-
-"""
-This launcher now calculates both size-resolved abundances AND biomass.
-"""
-function init_abundances_and_biomass!(model::MarineModel, outputs::MarineOutputs)
-    arch = model.arch
-    
-    # Reset both arrays before calculating
-    fill!(outputs.abundance, 0.0f0)
-    fill!(outputs.biomass, 0.0f0)
-
-    for sp in 1:model.n_species
-        agents = model.individuals.animals[sp].data
-        n_agents = length(agents.x)
-        if n_agents > 0
-            # Launch abundance kernel
-            abund_kernel! = init_abundances_by_size_kernel!(device(arch), 256, (n_agents,))
-            abund_kernel!(outputs.abundance, agents, model.size_bin_thresholds, sp)
-            
-            # Launch biomass kernel
-            biomass_kernel! = init_biomass_by_size_kernel!(device(arch), 256, (n_agents,))
-            biomass_kernel!(outputs.biomass, agents, model.size_bin_thresholds, sp)
-        end
-    end
-    
-    KernelAbstractions.synchronize(device(arch))
-    return nothing
 end

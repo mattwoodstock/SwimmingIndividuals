@@ -251,12 +251,14 @@ function resolve_consumption!(model::MarineModel, sp::Int, to_eat::Vector{Int32}
         total_biomass = (prey_type == 1) ? prey_biomass_all_cpu[prey_sp][prey_idx] : res_biomass_cpu[prey_idx]
         available_biomass = total_biomass - claimed_biomass
         if available_biomass <= 0; continue; end
-
-        max_stomach = pred_char.Max_Stomach.second[sp] * pred_biomass_cpu[i]
+        predator_biomass = max(0.0, pred_biomass_cpu[i])
+        max_stomach_allometric = pred_char.Max_Stomach_a.second[sp] * predator_biomass ^ pred_char.Max_Stomach_b.second[sp]
+        max_stomach_capped = 0.5 * predator_biomass #Want to cap the maximum stomach for larvae
+        max_stomach = min(max_stomach_allometric, max_stomach_capped)
         current_stomach = pred_gut_full_cpu[i]
-        stomach_space = max(0.0, (1.0 - current_stomach)*max_stomach)
+        stomach_space = max(0.0, (1.0 - current_stomach))
         
-        ration_biomass = min(available_biomass, stomach_space)
+        ration_biomass = min(available_biomass, stomach_space * max_stomach)
         
         if ration_biomass > 0
             energy_density = (prey_type == 1) ? agent_energy_densities[prey_sp] : resource_energy_densities[prey_sp]
@@ -273,7 +275,7 @@ end
 @kernel function apply_consumption_kernel!(
     alive, best_prey_dist, best_prey_idx, best_prey_sp, best_prey_type,
     x, y, z, pool_x, pool_y, pool_z, length_arr, biomass_school, gut_fullness, abundance,
-    ration, active, successful_ration,
+    ration_energy, ration_biomass, active, successful_ration,
     all_prey_x::NTuple{N, Any}, all_prey_y::NTuple{N, Any}, all_prey_z::NTuple{N, Any},
     all_prey_length::NTuple{N,Any},all_prey_biomass::NTuple{N, Any}, all_prey_biomass_school::NTuple{N, Any}, all_prey_alive::NTuple{N, Any}, 
     all_prey_abundance::NTuple{N,Any},
@@ -287,7 +289,8 @@ end
     swim_velo::Float32, handling_time::Float32, time_array,
     predator_sp_idx::Int, n_species::Int32,
     grid_params,
-    max_stomach::Float32 
+    max_stomach_a::Float32,
+    max_stomach_b::Float32 
 ) where {N}
     pred_idx = @index(Global)
 
@@ -371,9 +374,19 @@ end
                     
                     # --- Predator state updates ---
                     if prey_type == 1
-                        x[pred_idx] = all_prey_x[prey_sp_idx][prey_idx]
-                        y[pred_idx] = all_prey_y[prey_sp_idx][prey_idx]
-                        z[pred_idx] = all_prey_z[prey_sp_idx][prey_idx]
+                        new_x = all_prey_x[prey_sp_idx][prey_actual_idx]
+                        new_y = all_prey_y[prey_sp_idx][prey_actual_idx]
+                        new_z = all_prey_z[prey_sp_idx][prey_actual_idx]    
+
+                        x[pred_idx] = new_x
+                        y[pred_idx] = new_y
+                        z[pred_idx] = new_z
+
+                        px = clamp(floor(Int32, (new_x - grid_params.lonmin) / grid_params.cell_size_deg) + 1, 1, grid_params.lonres)
+                        py = clamp(floor(Int32, (new_y - grid_params.latmin) / grid_params.cell_size_deg) + 1, 1, grid_params.latres)
+                    
+                        pool_x[pred_idx] = px
+                        pool_y[pred_idx] = py
                     elseif prey_type == 2
                         biomass_density = resource_biomass_grid[px, py, pz, prey_sp_idx]
                         mean_weight = prey_ind_biomass
@@ -439,9 +452,11 @@ end
                     end
                     
                     # Predator's ration is in JOULES
-                    @atomic ration[pred_idx] += effective_ration
+                    @atomic ration_energy[pred_idx] += effective_ration
                     # Gut fullness is a biomass ratio, so use the converted biomass value
-                    @atomic gut_fullness[pred_idx] += effective_biomass / (biomass_school[pred_idx] * max_stomach)
+                    max_stomach = max_stomach_a * biomass_school[pred_idx] ^ max_stomach_b
+                    @atomic gut_fullness[pred_idx] += effective_biomass / max_stomach
+                    @atomic ration_biomass[pred_idx] += effective_biomass
 
                     # --- Prey state updates (in biomass) ---
                     if prey_type == 1
@@ -496,7 +511,8 @@ function apply_consumption!(model::MarineModel, sp::Int, time::CuArray{Float32},
     # Extract predator traits as scalars
     swim_velo = Float32(model.individuals.animals[sp].p.Swim_velo[2][sp])
     handling_time = Float32(model.individuals.animals[sp].p.Handling_Time[2][sp])
-    max_stomach = Float32(model.individuals.animals[sp].p.Max_Stomach[2][sp])
+    max_stomach_a = Float32(model.individuals.animals[sp].p.Max_Stomach_a[2][sp])
+    max_stomach_b = Float32(model.individuals.animals[sp].p.Max_Stomach_b[2][sp])
 
     grid = model.depths.grid
     grid_params = (
@@ -536,7 +552,7 @@ function apply_consumption!(model::MarineModel, sp::Int, time::CuArray{Float32},
         pred_data.best_prey_sp, pred_data.best_prey_type,
         pred_data.x, pred_data.y, pred_data.z, pred_data.pool_x, pred_data.pool_y, pred_data.pool_z, pred_data.length,
         pred_data.biomass_school, pred_data.gut_fullness, pred_data.abundance,
-        pred_data.ration, pred_data.active, pred_data.successful_ration,
+        pred_data.ration_energy,pred_data.ration_biomass, pred_data.active, pred_data.successful_ration,
         all_prey_x, all_prey_y, all_prey_z, all_prey_length,all_prey_biomass, all_prey_biomass_school, all_prey_alive,
         all_prey_abundance,
         all_prey_energy,
@@ -552,7 +568,8 @@ function apply_consumption!(model::MarineModel, sp::Int, time::CuArray{Float32},
         sp,
         n_species,
         grid_params,
-        max_stomach
+        max_stomach_a,
+        max_stomach_b
     )
 
     KernelAbstractions.synchronize(device(arch))
