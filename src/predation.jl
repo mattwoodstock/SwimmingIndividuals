@@ -221,6 +221,8 @@ end
 function resolve_consumption!(model::MarineModel, sp::Int, to_eat::Vector{Int32})
     pred_data = model.individuals.animals[sp].data
     pred_char = model.individuals.animals[sp].p
+    dt = model.dt
+    days_in_step = dt / 1440.0f0 # Number of days in the timestep
 
     best_prey_idx_cpu = Array(pred_data.best_prey_idx[to_eat])
     best_prey_sp_cpu = Array(pred_data.best_prey_sp[to_eat])
@@ -255,10 +257,11 @@ function resolve_consumption!(model::MarineModel, sp::Int, to_eat::Vector{Int32}
         max_stomach_allometric = pred_char.Max_Stomach_a.second[sp] * predator_biomass ^ pred_char.Max_Stomach_b.second[sp]
         max_stomach_capped = 0.5 * predator_biomass #Want to cap the maximum stomach for larvae
         max_stomach = min(max_stomach_allometric, max_stomach_capped)
-        current_stomach = pred_gut_full_cpu[i]
-        stomach_space = max(0.0, (1.0 - current_stomach))
-        
-        ration_biomass = min(available_biomass, stomach_space * max_stomach)
+        current_stomach_prop = pred_gut_full_cpu[i]
+        empty_stomach_biomass = max(0.0, max_stomach * (1.0 - current_stomach_prop))
+
+        total_consumption_potential = empty_stomach_biomass * days_in_step
+        ration_biomass = min(available_biomass, total_consumption_potential)
         
         if ration_biomass > 0
             energy_density = (prey_type == 1) ? agent_energy_densities[prey_sp] : resource_energy_densities[prey_sp]

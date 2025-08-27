@@ -151,7 +151,7 @@ end
         agent_length_m = length[ind] / 1000.0f0
         swim_speed = swim_speed_bls * agent_length_m
         swim_speed = max(0.01f0, swim_speed)
-        swim_speed = 2.6f0
+        swim_speed = 4.0f0 #Migration velocity in meters per minute (Bianchi and Mislan 2016). Can complicate this if needed for the scale.
         z_increment = swim_speed * Float32(dt)
         
         is_daytime = (360.0f0 <= t < 1080.0f0)

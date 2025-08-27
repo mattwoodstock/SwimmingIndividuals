@@ -114,7 +114,7 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices, outp
             end
 
             # --- Net Energy and Gut Evacuation ---
-            sda_coeff, egestion_coeff, excretion_coeff = 0.15,0.1,0.1
+            sda_coeff, egestion_coeff, excretion_coeff = 0.15,0.2,0.08
             total_waste_and_cost = R + (my_consumed * (sda_coeff + egestion_coeff + excretion_coeff))
             if ismissing(total_waste_and_cost)
                 continue
@@ -152,11 +152,14 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices, outp
                     # --- MATURE: Partition energy between growth and reproduction ---
                     # This function creates a smooth switch from growth to reproduction
                     # as the agent approaches its maximum size.
-                    repro_prop = (my_length / max_size)^2.5
+                    min_growth_allocation = 0.1 
+                    energy_for_repro = surplus_energy * (1.0 - min_growth_allocation)
+
+                    repro_prop = (my_length / max_size)^1.5
                     repro_prop = clamp(repro_prop, 0.0, 1.0)
                     
-                    repro_energy_gain = surplus_energy * repro_prop
-                    growth_energy = surplus_energy - repro_energy_gain
+                    repro_energy_gain = energy_for_repro * repro_prop
+                    growth_energy = (surplus_energy * min_growth_allocation) + (energy_for_repro - repro_energy_gain)
                 end
 
                 # --- Apply Somatic Growth ---
