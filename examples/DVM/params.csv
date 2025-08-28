@@ -1,7 +1,7 @@
 Name,Value,Description
 architecture,GPU,Can either be CPU or GPU
 numspec,2,Number of Modeled Species
-numresource,6,Number of resource groups
+numresource,3,Number of resource groups
 nts,336,Number of Time Steps (minutes) model and spinup
 output_dt,30,Interval between Timestep Outputs
 spinup,0,Number of time steps of the spinup
