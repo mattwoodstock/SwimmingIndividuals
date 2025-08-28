@@ -36,11 +36,6 @@ function TimeStep!(sim::MarineSimulation)
         model.daily_birth_counters = zeros(Int,species)
     end
 
-    if day_index == 1
-        # This operation is fine as it's on a small CPU array of structs
-        (fishery -> (fishery.cumulative_catch = 0; fishery.cumulative_inds = 0)).(fisheries)
-    end
-
     envi.ts = month_index
 
     print(current_date)
@@ -70,17 +65,18 @@ function TimeStep!(sim::MarineSimulation)
         
         larval_duration = species_chars.Larval_Duration[2][spec]
         living::Vector{Int32} = findall(i -> cpu_alive[i] == 1 && cpu_age[i] >= larval_duration, eachindex(cpu_alive))
+        alive::Vector{Int32} = findall(i -> cpu_alive[i] == 1, eachindex(cpu_alive))
 
         if !isempty(living)
             # --- Population stats (requires GPU->CPU transfer for sum/mean) ---
-            model.abund[spec] = sum(Array(species_data.abundance[living]))
-            model.bioms[spec] = sum(Array(species_data.biomass_school[living]))
-            print(length(living))
+            model.abund[spec] = Int64(round(sum(Array(species_data.abundance[alive]))))
+            model.bioms[spec] = sum(Array(species_data.biomass_school[alive]))
+            print(length(alive))
             print("  Abundance: ")
-            print(model.abund[spec])
-            print("  Mean Length: ")
-            println(mean(Array(species_data.length[living])))
+            println(model.abund[spec])
 
+            # Update biomass_init for analysis purposes with dynamic school biomasses 
+            species_data.biomass_init[alive] = species_data.biomass_school[alive] 
 
             # --- Main agent update loop ---
             print("behave | ")
@@ -108,30 +104,39 @@ function TimeStep!(sim::MarineSimulation)
         resource_predation!(model, outputs)
     end
     resource_mortality!(model)
-
-    resource_growth!(model)
+    resource_growth!(model,current_date)
    
     println("results | ")
 
     if (model.t % model.output_dt == 0)
         timestep_results(sim)
+        resource_results(model,sim.run,model.iteration)
+
         if (model.iteration > model.spinup)
             fishery_results(sim)
         end
     end
 
-    if model.plt_diags == 1 ## Gather diagnostic-based results to make sure the model works after code revisions
-        assemble_diagnostic_results(model,sim.run,model.iteration)
-    end
 
     # --- Reset per-timestep accumulators ---
     for spec in 1:species
-        model.individuals.animals[spec].data.ration .= 0.0
+        model.individuals.animals[spec].data.ration_biomass .= 0.0
+        model.individuals.animals[spec].data.ration_energy .= 0.0
         model.individuals.animals[spec].data.active .= 0.0
     end
 
-    # Annual reset (this is fine)
-    if day_index == 365
-        (fishery -> (fishery.cumulative_catch = 0; fishery.cumulative_inds = 0; fishery.effort_days = 0; fishery.mean_length_catch = 0;fishery.mean_weight_catch = 0; fishery.bycatch_tonnage = 0; fishery.bycatch_inds = 0)).(fisheries)
+    # Annual Fisheries reset
+    previous_datetime = current_datetime - Minute(sim.ΔT)
+
+    # 2. Check if the year has changed between the previous and current timestep
+    if year(current_datetime) != year(previous_datetime)
+        # 3. If it has, reset all cumulative fishery statistics
+        for fishery in fisheries
+            fishery.cumulative_catch = 0.0
+            fishery.cumulative_inds = 0
+            fishery.effort_days = 0
+            fishery.bycatch_tonnage = 0.0
+            fishery.bycatch_inds = 0
+        end
     end
 end

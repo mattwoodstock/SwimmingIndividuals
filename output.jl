@@ -24,7 +24,6 @@ function generate_outputs(model::MarineModel, n_bins::Int32)
     consumption = array_type(arch)(zeros(Float32, lonres, latres, depthres, n_total_species, n_total_species, n_bins, n_bins))
     
     # Mortalities track predation ON agents
-    mortalities = array_type(arch)(zeros(Int32, lonres, latres, depthres, n_total_species, model.n_species, n_bins, n_bins))
     Smort = array_type(arch)(zeros(Int32, lonres, latres, depthres, model.n_species, n_bins))
 
     # Fishing mortality is ON agents FROM fisheries
@@ -33,5 +32,5 @@ function generate_outputs(model::MarineModel, n_bins::Int32)
     abundance = array_type(arch)(zeros(Float32, lonres, latres, depthres, n_total_species,n_bins))
     biomass = array_type(arch)(zeros(Float32, lonres, latres, depthres, n_total_species,n_bins))
 
-    return MarineOutputs(mortalities, Fmort,Smort, consumption, abundance,biomass)
+    return MarineOutputs(Fmort,Smort, consumption, abundance,biomass)
 end

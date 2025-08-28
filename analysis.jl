@@ -26,7 +26,7 @@ function timestep_results(sim::MarineSimulation)
     end
 
     # --- Gather individual data for CSV output ---
-    Sp, Ind, x, y, z, lengths, abundance, biomass, gut_fullness, ration,energy,cost = [],[],[],[],[],[],[],[],[],[],[],[],[]
+    Sp, Ind, x, y, z, lengths, abundance, biomass, gut_fullness, ration_biomass,ration_energy,energy,cost,age,generation = [],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]
 
     for (species_index, animal) in enumerate(model.individuals.animals)
         spec_dat = animal.data
@@ -42,42 +42,36 @@ function timestep_results(sim::MarineSimulation)
         append!(z, Array(spec_dat.z[alive_indices]))
         append!(lengths, Array(spec_dat.length[alive_indices]))
         append!(abundance, Array(spec_dat.abundance[alive_indices]))
-        append!(biomass, Array(spec_dat.biomass_school[alive_indices]))
+        append!(biomass, Array(spec_dat.biomass_init[alive_indices]))
         append!(gut_fullness, Array(spec_dat.gut_fullness[alive_indices]))
-        append!(ration, Array(spec_dat.ration[alive_indices]))
+        append!(ration_biomass, Array(spec_dat.ration_biomass[alive_indices]))
+        append!(ration_energy, Array(spec_dat.ration_energy[alive_indices]))
         append!(energy, Array(spec_dat.energy[alive_indices]))
         append!(cost, Array(spec_dat.cost[alive_indices]))
-
+        append!(age, Array(spec_dat.age[alive_indices]))
+        append!(generation,Array(spec_dat.generation[alive_indices]))
     end
 
     if !isempty(Sp)
-        df = DataFrame(Species=Sp, Individual=Ind, X=x, Y=y, Z=z, Length=lengths, Abundance=abundance, Biomass=biomass,Fullness = gut_fullness,Ration = ration, Energy = energy,Cost = cost)
+        df = DataFrame(Species=Sp, Individual=Ind, X=x, Y=y, Z=z, Length=lengths, Abundance=abundance, Biomass=biomass,Fullness = gut_fullness,Ration_b = ration_biomass,Ration_e = ration_energy, Energy = energy,Cost = cost,Age = age, Generation = generation)
         # Use the constructed path for writing the CSV file
         csv_path = joinpath(individual_dir, "IndividualResults_$run-$ts.csv")
         CSV.write(csv_path, df)
     end
     
     # --- Calculate and save population-scale results ---
-    # 1. Calculate size-resolved biomass first
+    
     init_biomass_by_size!(model, outputs) 
     
-    # 2. Calculate all three mortality types
-    M = instantaneous_mortality(outputs, arch)
-    F = fishing_mortality(outputs, arch)
-    S = starvation_mortality(outputs, arch) # New call
-    
-    # 3. Copy results to CPU for saving
-    cpu_M = Array(M)
-    cpu_F = Array(F)
-    cpu_S = Array(S) # New data
+    cpu_F = Array(outputs.Fmort)
+    cpu_S = Array(outputs.Smort)
     cpu_DC = Array(outputs.consumption)
-    cpu_biomass = Array(outputs.biomass) # Save new biomass grid
+    cpu_biomass = Array(outputs.biomass)
 
     # 4. Save all results to the HDF5 file
     population_dir = joinpath(model.files[model.files.File .== "res_dir", :Destination][1], "Population")
     h5_path = joinpath(population_dir, "Population_Results_$(run)-$(ts).h5")
     h5open(h5_path, "w") do file
-        write(file, "M", cpu_M)
         write(file, "F", cpu_F)
         write(file, "S", cpu_S)
         write(file, "Diet", cpu_DC)
@@ -85,7 +79,6 @@ function timestep_results(sim::MarineSimulation)
     end
 
     # --- Reset output arrays on the device ---
-    fill!(outputs.mortalities, 0)
     fill!(outputs.Fmort, 0)
     fill!(outputs.consumption, 0.0f0)
     fill!(outputs.Smort, 0)
@@ -135,59 +128,26 @@ function fishery_results(sim::MarineSimulation)
     )    # Use the constructed path for writing the CSV file
     csv_path = joinpath(fish_dir, "FisheryResults_$run-$ts.csv")
     CSV.write(csv_path, df)
+
+    for fishery in fisheries
+        fishery.mean_length_catch = 0.0
+        fishery.mean_weight_catch = 0.0
+    end
 end
 
-function assemble_diagnostic_results(model::MarineModel, run::Int32, ts::Int32)
+function resource_results(model::MarineModel, run::Int32, ts::Int32)
     
     # Get the base results directory from the model's files DataFrame
     files_df = model.files
     res_dir = files_df[files_df.File .== "res_dir", :Destination][1]
 
     # Construct the full path for the run-specific diagnostics directory
-    output_dir = joinpath(res_dir, "diags", "run_$run")
+    output_dir = joinpath(res_dir, "Resource")
     
     if ts == 1 && isdir(output_dir)
         rm(output_dir, recursive=true)
     end
     mkpath(output_dir)
-
-    # --- 2. Assemble Agent-Based Results ---
-    sp_ids, agent_ids = Int[], Int[]
-    x_coords, y_coords, z_coords = Float32[], Float32[], Float32[]
-    pool_x_coords, pool_y_coords = Int[], Int[]
-    daily_rations, repro_energy, cost = Float32[], Float32[], Float32[]
-    biomass_ind, biomass_school = Float32[], Float32[]
-
-    for sp in 1:model.n_species
-        agents = model.individuals.animals[sp].data
-        
-        cpu_alive_mask = Array(agents.alive) .== 1.0
-        alive_indices = findall(cpu_alive_mask)
-        if isempty(alive_indices); continue; end
-
-        append!(sp_ids, fill(sp, length(alive_indices)))
-        append!(agent_ids, Array(agents.unique_id[alive_indices]))
-        append!(x_coords, Array(agents.x[alive_indices]))
-        append!(y_coords, Array(agents.y[alive_indices]))
-        append!(z_coords, Array(agents.z[alive_indices]))
-        append!(pool_x_coords, Array(agents.pool_x[alive_indices]))
-        append!(pool_y_coords, Array(agents.pool_y[alive_indices]))
-        append!(daily_rations, Array(agents.ration[alive_indices]))
-        append!(repro_energy, Array(agents.repro_energy[alive_indices]))
-        append!(cost, Array(agents.cost[alive_indices]))
-        append!(biomass_ind, Array(agents.biomass_ind[alive_indices]))
-        append!(biomass_school, Array(agents.biomass_school[alive_indices]))
-    end
-
-    agent_results_df = DataFrame(
-        SpeciesID = sp_ids, AgentID = agent_ids, 
-        X = x_coords, Y = y_coords, Z = z_coords,
-        pool_x = pool_x_coords, pool_y = pool_y_coords,
-        DailyRation = daily_rations, ReproEnergy = repro_energy, Cost = cost,
-        IndividualBiomass = biomass_ind, SchoolBiomass = biomass_school
-    )
-    CSV.write(joinpath(output_dir, "agent_results_$ts.csv"), agent_results_df)
-
 
     # --- 3. Assemble Spatially Explicit Resource Biomass ---
     resource_biomass_cpu = Array(model.resources.biomass)
@@ -211,7 +171,6 @@ function assemble_diagnostic_results(model::MarineModel, run::Int32, ts::Int32)
         ResourceID = res_sp_ids, BiomassDensity = biomass_densities
     )
     CSV.write(joinpath(output_dir, "resource_results_$ts.csv"), resource_results_df)
-
     return nothing
 end
 
@@ -367,8 +326,8 @@ Calculates the BIOMASS of agents in each grid cell and size bin.
         size_bin = find_species_size_bin(agents.length[i], sp_idx, size_bin_thresholds)
         
         if size_bin > 0
-            @atomic biomass_out[x, y, z, sp_idx, size_bin] += agents.biomass_school[i]
-        end
+            @atomic biomass_out[x, y, z, sp_idx, size_bin] += agents.biomass_init[i]
+        end     
     end
 end
 
@@ -498,87 +457,4 @@ This kernel now correctly uses the BIOMASS grid for its calculation.
             end
         end
     end
-end
-
-# ===================================================================
-# Launcher Functions for Analysis
-# ===================================================================
-
-
-"""
-This launcher now calculates both size-resolved abundances AND biomass.
-"""
-function init_abundances_and_biomass!(model::MarineModel, outputs::MarineOutputs)
-    arch = model.arch
-    
-    # Reset both arrays before calculating
-    fill!(outputs.abundance, 0.0f0)
-    fill!(outputs.biomass, 0.0f0)
-
-    for sp in 1:model.n_species
-        agents = model.individuals.animals[sp].data
-        n_agents = length(agents.x)
-        if n_agents > 0
-            # Launch abundance kernel
-            abund_kernel! = init_abundances_by_size_kernel!(device(arch), 256, (n_agents,))
-            abund_kernel!(outputs.abundance, agents, model.size_bin_thresholds, sp)
-            
-            # Launch biomass kernel
-            biomass_kernel! = init_biomass_by_size_kernel!(device(arch), 256, (n_agents,))
-            biomass_kernel!(outputs.biomass, agents, model.size_bin_thresholds, sp)
-        end
-    end
-    
-    KernelAbstractions.synchronize(device(arch))
-    return nothing
-end
-
-"""
-Launcher for instantaneous predation mortality (M).
-"""
-function instantaneous_mortality(outputs::MarineOutputs, arch)
-    # Create the 5D output array for the final rates
-    M_dims = size(outputs.biomass)
-    M = array_type(arch)(zeros(Float32, M_dims...))
-    
-    # Create a temporary 5D array to hold the summed mortality
-    summed_M = array_type(arch)(zeros(Int32, M_dims...))
-    
-    # 1. Launch the summation kernel
-    sum_kernel! = sum_predation_mortality_kernel!(device(arch))
-    sum_kernel!(summed_M, outputs.mortalities, ndrange=size(outputs.mortalities))
-    
-    # 2. Launch the rate calculation kernel
-    rate_kernel! = mortality_rate_kernel!(device(arch))
-    rate_kernel!(M, outputs.biomass, summed_M, ndrange=size(M))
-    
-    KernelAbstractions.synchronize(device(arch))
-    return M
-end
-"""
-Launcher for instantaneous fishing mortality (F).
-"""
-function fishing_mortality(outputs::MarineOutputs, arch)
-    # The output F array is 6D, the same size as the input Fmort
-    F = array_type(arch)(zeros(Float32, size(outputs.Fmort)...))
-    
-    # --- FIX: Launch the new, dedicated 6D kernel ---
-    kernel! = fishing_mortality_rate_kernel!(device(arch))
-    # The ndrange is the size of the 6D Fmort array
-    kernel!(F, outputs.biomass, outputs.Fmort, ndrange=size(F))
-    # --- END FIX ---
-    
-    KernelAbstractions.synchronize(device(arch))
-    return F
-end
-
-"""
-Launcher for instantaneous starvation mortality (S).
-"""
-function starvation_mortality(outputs::MarineOutputs, arch)
-    S = array_type(arch)(zeros(Float32, size(outputs.Smort)...))
-    kernel! = starvation_mortality_kernel!(device(arch))
-    kernel!(S, outputs.biomass, outputs.Smort, ndrange=size(S))
-    KernelAbstractions.synchronize(device(arch))
-    return S
 end

@@ -208,7 +208,7 @@ function initial_habitat_capacity(envi::MarineEnvironment, n_spec::Int32, n_reso
                 capacity_slice = capacities_cpu[:, :, month, i]
                 p = heatmap(
                     capacity_slice', 
-                    title = "Habitat Capacity: $sp_name - Month $month",
+                    title = "",
                     xlabel = "Longitude Index",
                     ylabel = "Latitude Index",
                     c = :viridis,

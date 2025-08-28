@@ -30,8 +30,11 @@ end
 # Defines the gear selectivity for a species within a fishery
 struct Selectivity
     species::String
-    L50::Float32
-    slope::Float32
+    sel_type::Int8 # 1=logistic, 2=knife_edge, 3=dome_shaped
+    p1::Float32    # L50 for logistic/knife_edge, L50_1 for dome
+    p2::Float32    # Slope for logistic, Slope_1 for dome
+    p3::Float32    # L50_2 for dome
+    p4::Float32    # Slope_2 for dome
 end
 
 # Defines a single fishery's regulations and properties
@@ -141,12 +144,25 @@ function lognormal_params_from_maxsize(max_size::Real)
 end
 
 function lognormal_params_from_minmax(min_size::Real, max_size::Real)
+    # Ensure min_size is positive to avoid log(0) errors
     min_size = max(min_size, 1e-6)
-    if min_size >= max_size; max_size = min_size * 1.1; end
+    
+    # Ensure max_size is always greater than min_size
+    if min_size >= max_size
+        max_size = min_size * 1.1
+    end
+
     log_min, log_max = log(min_size), log(max_size)
-    z = 1.96
+    
+    # Use the z-score for the 97.5th percentile to cover 95% of the distribution
+    z = 1.96 
+    
+    # The mean of the log-transformed values
     μ = (log_max + log_min) / 2.0
+    
+    # The standard deviation of the log-transformed values
     σ = (log_max - log_min) / (2.0 * z)
+    
     return μ, σ
 end
 
@@ -221,18 +237,21 @@ function resize_agent_storage!(model::MarineModel, sp::Int, new_maxN::Int)
     # Construct the new StructArray
     new_device_data = StructArray{eltype(current_data)}(new_arrays)
 
-    # --- 2. Copy data from the old arrays to the new, larger arrays ---
+    # --- 2. Copy old data and initialize new slots ---
     for field in fields
         current_array = getproperty(current_data, field)
         new_array = getproperty(new_device_data, field)
         
-        # Copy the existing data to the start of the new array
+        # A. Copy the existing data to the start of the new array
         copyto!(@view(new_array[1:current_maxN]), current_array)
+        
+        # B. *** FIX: Initialize the new, empty slots to zero ***
+        # This prevents reading garbage data from uninitialized memory.
+        # The `eltype` ensures we fill with the correct type of zero (e.g., 0.0f0, 0).
+        fill!(@view(new_array[current_maxN+1:end]), zero(eltype(new_array)))
     end
     
     # --- 3. Replace the old data field in the model ---
-    # Because 'plankton' is a mutable struct, we can directly replace its 'data' field.
-    # This is simpler and more efficient than rebuilding the parent structures.
     model.individuals.animals[sp].data = new_device_data
     
     return nothing
