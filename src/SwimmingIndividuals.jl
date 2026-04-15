@@ -1,35 +1,81 @@
-# ===================================================================
-# SwimmingIndividuals.jl
-# ===================================================================
 """
     SwimmingIndividuals
 
 A high-performance agent-based model (ABM) for simulating individual-based marine 
-ecosystem dynamics. The model simulates the life histories, behaviors, and population 
-dynamics of marine organisms with detailed bioenergetics, predation, and fishing impacts.
+ecosystem dynamics. This module encapsulates life histories, behaviors, 
+bioenergetics, predation, and fishing impacts within a modular, 
+architecture-aware framework.
+"""
+module SwimmingIndividuals
 
-## Key Features
-- **Individual-Based Modeling**: Emergent population dynamics from bottom-up agent decisions
-- **Data-Driven Environment**: Complex, time-varying habitats from NetCDF files
-- **Detailed Bioenergetics**: "Wisconsin"-style energy budget model
-- **Flexible Behavior**: Supports multiple behavioral archetypes (DVM, diving, etc.)
-- **Mechanistic Predation**: High-resolution agent-on-agent predation with background functional response
-- **Fisheries Module**: Commercial and recreational fishing with realistic regulations
-- **High-Performance Computing**: GPU acceleration via CUDA and KernelAbstractions
+# --- 1. EXTERNAL DEPENDENCIES ---
+# All dependencies listed in Project.toml must be loaded here.
+using PlanktonIndividuals
+using Distributions
+using Random
+using CSV
+using DataFrames
+using StructArrays
+using Statistics
+using Dates
+using Optim
+using LinearAlgebra
+using Tables
+using CUDA
+using LoopVectorization
+using NCDatasets
+using StaticArrays
+using Interpolations
+using DelimitedFiles
+using StatsBase
+using Plots
+using NearestNeighbors
+using QuadGK
+using Printf
+using HDF5
 
-## Main Functions
-- `runSI(sim::MarineSimulation)`: Main simulation driver
-- `generate_individuals()`: Create agents
-- `generate_environment!()`: Load environmental data
-- `initialize_resources()`: Create resource patches
+# Specific sub-components and hardware abstraction tools
+using PlanktonIndividuals.Grids
+using PlanktonIndividuals.Architectures: device, Architecture, GPU, CPU, rng_type, array_type
+using KernelAbstractions
+using KernelAbstractions: @kernel, @index
+using CUDA: @atomic, atomic_cas!, atomic_sub!, @cuprintf
 
-## Example Usage
-```julia
-using SwimmingIndividuals
+# --- 2. SOURCE FILE INCLUSIONS ---
+# The order of inclusion is critical to ensure types and utilities are 
+# defined before they are used by high-level logic.
+include("utilities.jl")   # General helper functions and math
+include("create.jl")      # Agent and Resource construction/initialization
+include("environment.jl") # NetCDF loading and habitat suitability
+include("simulation.jl")  # Simulation and Model structs
+include("output.jl")      # Data structures for simulation results
+include("behavior.jl")    # Perception and decision-making logic
+include("movement.jl")    # Pathfinding and vertical migration
+include("predation.jl")   # Foraging and consumption resolution
+include("mortality.jl")   # Survival and dead agent management
+include("fisheries.jl")   # Fleet dynamics and harvest logic
+include("energy.jl")      # Metabolic costs and growth partitioning
+include("timestep.jl")    # Timestep orchestration
+include("analysis.jl")    # Post-processing and data export
+include("update.jl")      # State updates and maintenance
+include("model.jl")       # High-level entry point (setup_and_run_model)
 
-# Load configuration files and setup
-files = CSV.read("files.csv", DataFrame)
-trait = Dict(pairs(eachcol(CSV.read(...))))
+# --- 3. PUBLIC API EXPORTS ---
+# These functions and types are available to the user upon `using SwimmingIndividuals`
+export 
+    # Core Objects
+    MarineModel, 
+    MarineSimulation, 
+    MarineOutputs,
 
-# Run simulation
-include("model.jl")
+    # Primary Entry Point
+    setup_and_run_model,
+
+    # Component Launchers
+    runSI,
+    generate_environment!,
+    generate_individuals,
+    initialize_resources,
+    load_fisheries
+
+end # module SwimmingIndividuals
