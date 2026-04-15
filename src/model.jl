@@ -7,20 +7,20 @@ using KernelAbstractions
 using KernelAbstractions: @kernel, @index
 using CUDA: @atomic, atomic_cas!, atomic_sub!, @cuprintf
 
-include("src/utilities.jl")
-include("src/create.jl")
-include("src/environment.jl")
-include("src/simulation.jl")
-include("src/output.jl")
-include("src/behavior.jl")
-include("src/movement.jl")
-include("src/predation.jl")
-include("src/mortality.jl")
-include("src/fisheries.jl")
-include("src/energy.jl")
-include("src/timestep.jl")
-include("src/analysis.jl")
-include("src/update.jl")
+include("utilities.jl")
+include("create.jl")
+include("environment.jl")
+include("simulation.jl")
+include("output.jl")
+include("behavior.jl")
+include("movement.jl")
+include("predation.jl")
+include("mortality.jl")
+include("fisheries.jl")
+include("energy.jl")
+include("timestep.jl")
+include("analysis.jl")
+include("update.jl")
 
 ## Load in necessary databases
 files = CSV.read("files.csv",DataFrame) #All files needed in the model. Collected like this so that this can be passed through without passing each individual dataframe. 
