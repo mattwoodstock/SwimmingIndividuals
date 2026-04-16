@@ -321,7 +321,7 @@ end
 
                 if prey_type == 1
                     prey_ind_biomass = all_prey_biomass[prey_sp_idx][prey_idx]
-                    prey_energy_density = all_prey_energy_density[prey_sp_idx][prey_sp_idx]
+                    prey_energy_density = all_prey_energy_density[prey_sp_idx]
                 elseif prey_type == 2
                     res_min = resource_trait.Min_Size[prey_sp_idx]
                     res_max = resource_trait.Max_Size[prey_sp_idx]

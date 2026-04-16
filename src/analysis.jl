@@ -72,10 +72,10 @@ function timestep_results(sim::MarineSimulation)
     population_dir = joinpath(model.files[model.files.File .== "res_dir", :Destination][1], "Population")
     h5_path = joinpath(population_dir, "Population_Results_$(run)-$(ts).h5")
     h5open(h5_path, "w") do file
-        write(file, "F", cpu_F)
-        write(file, "S", cpu_S)
-        write(file, "Diet", cpu_DC)
-        write(file, "Biomass", cpu_biomass)
+        file["F", deflate=3] = cpu_F
+        file["S", deflate=3] = cpu_S
+        file["Diet", deflate=3] = cpu_DC
+        file["Biomass", deflate=3] = cpu_biomass
     end
 
     # --- Reset output arrays on the device ---

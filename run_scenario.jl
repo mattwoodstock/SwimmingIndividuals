@@ -54,6 +54,6 @@ end
 # --- Script Execution ---
 # Check if the user passed a directory argument from the command line.
 # If not, default to the "examples/Mackerel" directory.
-target_directory = length(ARGS) > 0 ? ARGS[1] : "examples/DVM"
+target_directory = length(ARGS) > 0 ? ARGS[1] : "examples/Mackerel"
 
 run_scenario(target_directory)

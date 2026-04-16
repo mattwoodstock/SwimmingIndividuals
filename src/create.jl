@@ -290,27 +290,12 @@ function initialize_resources(
     return (biomass = resource_biomass, capacity = resource_capacity)
 end
 
-# Kernel for resource growth
-@kernel function resource_growth_kernel!(biomass_grid, capacity_grid, per_timestep_rates)
-    lon, lat, depth, sp = @index(Global, NTuple)
-    biomass = biomass_grid[lon, lat, depth, sp]
-    capacity = capacity_grid[lon, lat, depth, sp]
-    rate = per_timestep_rates[sp]
-
-    if biomass > 0 && capacity > 0
-        @inbounds biomass_grid[lon, lat, depth, sp] = biomass + rate * biomass * (1.0 - biomass / capacity)
-    elseif biomass <= 1E-9 && capacity > 0 #Assure that biomass should not be 0 for future growth
-        @inbounds biomass_grid[lon, lat, depth, sp] = 1E-9
-    end
-end
-
-# Launcher for resource growth
-# Launcher for resource growth
-function resource_growth!(model::MarineModel,current_date)
+function resource_growth!(model::MarineModel, current_date)
     arch = model.arch
     
     # --- 1. Get the seasonal multipliers for the current month ---
-    # Read the seasonality file (this could be done once at the start of the simulation)
+    # PERFORMANCE NOTE: CSV.read is extremely slow to do every timestep. 
+    # Consider loading this into model.files or model.environment during setup_and_run_model!
     seasonality_df = CSV.read(model.files[model.files.File .== "growth_seasonality", :Destination][1], DataFrame)
     
     # Get the multipliers for the current month
@@ -332,6 +317,26 @@ function resource_growth!(model::MarineModel,current_date)
     kernel! = resource_growth_kernel!(device(arch), (8, 8, 4, 1), size(model.resources.biomass))
     kernel!(model.resources.biomass, model.resources.capacity, per_timestep_rates)
     KernelAbstractions.synchronize(device(arch))
+end
+
+# Kernel for resource growth
+@kernel function resource_growth_kernel!(biomass_grid, capacity_grid, per_timestep_rates)
+    lon, lat, depth, sp = @index(Global, NTuple)
+    
+    @inbounds biomass = biomass_grid[lon, lat, depth, sp]
+    @inbounds capacity = capacity_grid[lon, lat, depth, sp]
+    @inbounds rate = per_timestep_rates[sp]
+
+    if capacity > 0.0f0
+        if biomass > 1f-9
+            # Exact analytical solution to the logistic differential equation.
+            # This is unconditionally stable and will never overshoot or oscillate, even if 'rate' is massive.
+            @inbounds biomass_grid[lon, lat, depth, sp] = capacity / (1.0f0 + ((capacity - biomass) / biomass) * exp(-rate))
+        else
+            # Seed heavily depleted populations to prevent complete extinction lock
+            @inbounds biomass_grid[lon, lat, depth, sp] = 1f-9
+        end
+    end
 end
 
 # ===================================================================
