@@ -13,3 +13,4 @@ fisheries,fishery.csv
 envi_pref,envi_pref.csv
 reproduction,reproduction.csv
 environment,environment.nc
+growth_seasonality,growth_seasonality.csv

@@ -126,6 +126,7 @@ function decision(model::MarineModel, sp::Int, ind::Vector{Int32}, outputs::Mari
     sp_dat = model.individuals.animals[sp].data
     arch = model.arch
 
+    grid = model.depths.grid
     lonres = Int(grid[grid.Name .== "lonres", :Value][1])
     latres = Int(grid[grid.Name .== "latres", :Value][1])
 

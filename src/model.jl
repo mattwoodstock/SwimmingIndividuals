@@ -31,9 +31,10 @@ function setup_and_run_model(config_filename="files.csv")
         for row in eachrow(files)
     ]
     
+    # Because we just updated files.Destination, res_dir ALREADY has the full path.
+    # We just need to extract it and make the directory.
     res_dir_row = filter(row -> row.File == "res_dir", files)
-    res_dir_name = res_dir_row[1, :Destination]
-    full_res_path = joinpath(scen_dir, res_dir_name)
+    full_res_path = res_dir_row[1, :Destination] 
     mkpath(full_res_path)
 
     # Load traits, parameters, and grid settings
@@ -72,7 +73,6 @@ function setup_and_run_model(config_filename="files.csv")
         @info "✅ Architecture successfully set to CPU."
     end
 
-    t = 0.0 # Initial simulation time
     start_date = Date(2023, 1, 1) # Placeholder start date
 
     ## 3. Environment and Infrastructure Initialization
@@ -93,24 +93,37 @@ function setup_and_run_model(config_filename="files.csv")
 
         # Pre-simulation summary
         init_abund = fill(0, Nsp)
-        bioms = fill(0.0, Nsp)
+        bioms = fill(0.0f0, Nsp) # FIXED: Strict 32-bit float array
         for sp in 1:Nsp
             init_abund[sp] = sum(inds.animals[sp].data.abundance)
             bioms[sp] = sum(inds.animals[sp].data.biomass_school)
         end
 
+        # FIXED: Generate Size Bin Thresholds for mortality/outputs
+        n_bins = Int32(10)
+        size_bins_cpu = zeros(Float32, Nsp, n_bins)
+        for sp in 1:Nsp
+            min_s = Float32(trait[:Min_Size][sp])
+            max_s = Float32(trait[:Max_Size][sp])
+            step = (max_s - min_s) / n_bins
+            for b in 1:n_bins
+                size_bins_cpu[sp, b] = min_s + step * b
+            end
+        end
+        size_bin_thresholds = array_type(arch)(size_bins_cpu)
+
         # Create the high-level model object
+        # FIXED: Explicitly cast variables to strict Float32/Int32 to match constructor exactly
         model = MarineModel(
-            arch, envi, depths, fishery_fleet, t, 0, dt, 
+            arch, envi, depths, fishery_fleet, 0.0f0, Int32(0), Float32(dt), 
             inds, resources, resource_trait, capacities, 
             maxN, Nsp, Nresource, init_abund, bioms, init_abund, 
             files, output_dt, spinup, foraging_attempts, plt_diags,
-            daily_birth_counters
+            size_bin_thresholds, daily_birth_counters
         )
 
         # Setup outputs
-        # Note: Added default bin size of 10 for size-based outputs
-        outputs = generate_outputs(model, Int32(10))
+        outputs = generate_outputs(model, n_bins)
 
         # Setup and Run Simulation
         sim = MarineSimulation(model, dt, n_iteration, iter, outputs)

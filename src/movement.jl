@@ -83,6 +83,7 @@ function reachable_point(rng::AbstractRNG, current_pos::Tuple{Float32, Float32},
     final_lat, final_lon = grid_to_coords(final_cell)
     return (final_lat, final_lon, final_cell[2], final_cell[1])
 end
+
 function nearest_suitable_habitat(rng::AbstractRNG, habitat::Matrix{<:Real}, start_latlon::Tuple{<:Real, <:Real}, start_pool::Tuple{<:Integer,<:Integer}, max_distance_m::Real, latmax::Real, lonmin::Real, cellsize_deg::Real)
     R = 6371000.0
     lonres, latres = size(habitat)
@@ -474,12 +475,10 @@ function movement_toward_habitat!(model::MarineModel, sp::Int, time::AbstractArr
         cumvals = cumsum(getfield.(habitat_cells, :value))
         total_val = cumvals[end]
 
-        rngs = [Random.Xoshiro() for _ in 1:Threads.nthreads()]
-
         # --- 2. PERFORM MOVEMENT LOGIC ON CPU ---
         Threads.@threads for ind in 1:length(cpu_x)
             if cpu_alive[ind] == 1.0 && cpu_time[ind] > 0
-                rng = rngs[Threads.threadid()]
+                rng = Random.default_rng()
 
                 start_x, start_y = cpu_pool_x[ind], cpu_pool_y[ind]
 
