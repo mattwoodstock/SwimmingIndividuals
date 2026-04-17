@@ -2,6 +2,12 @@
 # Top-Level Output Functions
 # ===================================================================
 
+"""
+    timestep_results(sim::MarineSimulation)
+
+Gather individual-level data and population-level matrices for the 
+current timestep and export them to CSV and HDF5 formats.
+"""
 function timestep_results(sim::MarineSimulation)
     model = sim.model
     outputs = sim.outputs
@@ -17,50 +23,50 @@ function timestep_results(sim::MarineSimulation)
     individual_dir = joinpath(res_dir, "Individual")
     population_dir = joinpath(res_dir, "Population")
 
-    if ts == 1 && run == 1
-        # Recreate directories at the start of a run
-        isdir(individual_dir) && rm(individual_dir, recursive=true)
-        mkpath(individual_dir)
-        isdir(population_dir) && rm(population_dir, recursive=true)
-        mkpath(population_dir)
-    end
+    # FIX: Ensure directories exist before writing. 
+    # The previous 'ts == 1' check failed because the first output occurs at ts = 4.
+    !isdir(individual_dir) && mkpath(individual_dir)
+    !isdir(population_dir) && mkpath(population_dir)
 
-    # --- Gather individual data for CSV output ---
-    Sp, Ind, x, y, z, lengths, abundance, biomass, gut_fullness, ration_biomass,ration_energy,energy,cost,age,generation = [],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]
+    # --- 1. Gather individual data for CSV output ---
+    Sp, Ind, x, y, z, lengths, abundance, biomass, gut_fullness, ration_biomass, ration_energy, energy, cost, age, generation = [],[],[],[],[],[],[],[],[],[],[],[],[],[],[]
 
     for (species_index, animal) in enumerate(model.individuals.animals)
         spec_dat = animal.data
         
-        cpu_alive_mask = Array(spec_dat.alive) .== 1.0
-        alive_indices = findall(cpu_alive_mask)
-        if isempty(alive_indices); continue; end
-
-        append!(Sp, fill(species_index, length(alive_indices)))
-        append!(Ind, spec_dat.unique_id[alive_indices])
-        append!(x, Array(spec_dat.x[alive_indices]))
-        append!(y, Array(spec_dat.y[alive_indices]))
-        append!(z, Array(spec_dat.z[alive_indices]))
-        append!(lengths, Array(spec_dat.length[alive_indices]))
-        append!(abundance, Array(spec_dat.abundance[alive_indices]))
-        append!(biomass, Array(spec_dat.biomass_init[alive_indices]))
-        append!(gut_fullness, Array(spec_dat.gut_fullness[alive_indices]))
-        append!(ration_biomass, Array(spec_dat.ration_biomass[alive_indices]))
-        append!(ration_energy, Array(spec_dat.ration_energy[alive_indices]))
-        append!(energy, Array(spec_dat.energy[alive_indices]))
-        append!(cost, Array(spec_dat.cost[alive_indices]))
-        append!(age, Array(spec_dat.age[alive_indices]))
-        append!(generation,Array(spec_dat.generation[alive_indices]))
-    end
-
-    if !isempty(Sp)
-        df = DataFrame(Species=Sp, Individual=Ind, X=x, Y=y, Z=z, Length=lengths, Abundance=abundance, Biomass=biomass,Fullness = gut_fullness,Ration_b = ration_biomass,Ration_e = ration_energy, Energy = energy,Cost = cost,Age = age, Generation = generation)
-        # Use the constructed path for writing the CSV file
-        csv_path = joinpath(individual_dir, "IndividualResults_$run-$ts.csv")
-        CSV.write(csv_path, df)
+        # Pull data from the device to the CPU and filter for living agents
+        alive_mask = Array(spec_dat.alive) .== 1.0
+        
+        append!(Sp, fill(species_index, count(alive_mask)))
+        # Match unique_id as defined in the agent StructArray
+        append!(Ind, Array(spec_dat.unique_id)[alive_mask])
+        append!(x, Array(spec_dat.x)[alive_mask])
+        append!(y, Array(spec_dat.y)[alive_mask])
+        append!(z, Array(spec_dat.z)[alive_mask])
+        append!(lengths, Array(spec_dat.length)[alive_mask])
+        append!(abundance, Array(spec_dat.abundance)[alive_mask])
+        # Match biomass_school as defined in the agent StructArray
+        append!(biomass, Array(spec_dat.biomass_school)[alive_mask])
+        append!(gut_fullness, Array(spec_dat.gut_fullness)[alive_mask])
+        append!(ration_biomass, Array(spec_dat.ration_biomass)[alive_mask])
+        append!(ration_energy, Array(spec_dat.ration_energy)[alive_mask])
+        append!(energy, Array(spec_dat.energy)[alive_mask])
+        append!(cost, Array(spec_dat.cost)[alive_mask])
+        append!(age, Array(spec_dat.age)[alive_mask])
+        append!(generation, Array(spec_dat.generation)[alive_mask])
     end
     
-    # --- Calculate and save population-scale results ---
-    
+    # Save individual data to CSV
+    # FIX: Changed naming convention to use underscores to match analysis scripts
+    ind_df = DataFrame(
+        Species = Sp, Individual = Ind, X = x, Y = y, Z = z, 
+        Length = lengths, Abundance = abundance, Biomass = biomass, 
+        Fullness = gut_fullness, Ration_b = ration_biomass, Ration_e = ration_energy, 
+        Energy = energy, Cost = cost, Age = age, Generation = generation
+    )
+    CSV.write(joinpath(individual_dir, "IndividualResults_$(run)_$(ts).csv"), ind_df)
+
+    # --- 2. Generate Population Arrays ---
     init_biomass_by_size!(model, outputs) 
     
     cpu_F = Array(outputs.Fmort)
@@ -68,9 +74,8 @@ function timestep_results(sim::MarineSimulation)
     cpu_DC = Array(outputs.consumption)
     cpu_biomass = Array(outputs.biomass)
 
-    # 4. Save all results to the HDF5 file
-    population_dir = joinpath(model.files[model.files.File .== "res_dir", :Destination][1], "Population")
-    h5_path = joinpath(population_dir, "Population_Results_$(run)-$(ts).h5")
+    # --- 3. Save Population Results to HDF5 ---
+    h5_path = joinpath(population_dir, "Population_Results_$(run)_$(ts).h5")
     h5open(h5_path, "w") do file
         file["F", deflate=3] = cpu_F
         file["S", deflate=3] = cpu_S
@@ -78,15 +83,49 @@ function timestep_results(sim::MarineSimulation)
         file["Biomass", deflate=3] = cpu_biomass
     end
 
-    # --- Reset output arrays on the device ---
-    fill!(outputs.Fmort, 0)
+    # --- 4. Reset output arrays on the device ---
+    # Use 0.0f0 to match the 32-bit Float architecture on the GPU
+    fill!(outputs.Fmort, 0.0f0)
+    fill!(outputs.Smort, 0.0f0)
     fill!(outputs.consumption, 0.0f0)
-    fill!(outputs.Smort, 0)
-    
-    return nothing
 end
 
-# This function is entirely CPU-based and does not need modification.
+"""
+    resource_results(model::MarineModel, run::Integer, ts::Integer)
+
+Export the current spatial biomass density of all resource groups.
+Uses Integer type to handle both Int32 and Int64 inputs safely.
+"""
+function resource_results(model::MarineModel, run::Integer, ts::Integer)
+    files_df = model.files
+    res_dir = files_df[files_df.File .== "res_dir", :Destination][1]
+    
+    resource_dir = joinpath(res_dir, "Resource")
+    !isdir(resource_dir) && mkpath(resource_dir)
+    
+    # Gathering data for Resource results
+    cpu_res = Array(model.resources.biomass)
+    lonres, latres, depthres, n_res = size(cpu_res)
+    
+    lons, lats, depths, res_ids, biomass_density = [], [], [], [], []
+    
+    for r in 1:n_res, k in 1:depthres, j in 1:latres, i in 1:lonres
+        val = cpu_res[i, j, k, r]
+        if val > 1e-6 # Sparse threshold for CSV output
+            push!(lons, i); push!(lats, j); push!(depths, k)
+            push!(res_ids, r); push!(biomass_density, val)
+        end
+    end
+    
+    res_df = DataFrame(LonIndex=lons, LatIndex=lats, DepthIndex=depths, ResourceID=res_ids, BiomassDensity=biomass_density)
+    CSV.write(joinpath(resource_dir, "resource_results_$(run)_$(ts).csv"), res_df)
+end
+
+"""
+    fishery_results(sim::MarineSimulation)
+
+Export catch and effort metrics for all active fishing fleets.
+"""
 function fishery_results(sim::MarineSimulation)
     ts = Int(sim.model.iteration)
     run = Int(sim.run)
@@ -98,11 +137,7 @@ function fishery_results(sim::MarineSimulation)
     
     # Construct full path for the fishery output subdirectory
     fish_dir = joinpath(res_dir, "Fishery")
-
-    if ts == 1 && run == 1
-        isdir(fish_dir) && rm(fish_dir, recursive=true)
-        mkpath(fish_dir)
-    end
+    !isdir(fish_dir) && mkpath(fish_dir)
 
     name, quotas, catches_t, catches_ind = [], [], [], []
     effort, cpue, mean_len, bycatch_t, bycatch_n = [], [], [], [], []  
@@ -135,289 +170,27 @@ function fishery_results(sim::MarineSimulation)
     end
 end
 
-function resource_results(model::MarineModel, run::Int32, ts::Int32)
-    
-    # Get the base results directory from the model's files DataFrame
-    files_df = model.files
-    res_dir = files_df[files_df.File .== "res_dir", :Destination][1]
-
-    # Construct the full path for the run-specific diagnostics directory
-    output_dir = joinpath(res_dir, "Resource")
-    
-    if ts == 1 && isdir(output_dir)
-        rm(output_dir, recursive=true)
-    end
-    mkpath(output_dir)
-
-    # --- 3. Assemble Spatially Explicit Resource Biomass ---
-    resource_biomass_cpu = Array(model.resources.biomass)
-    lonres, latres, depthres, nres = size(resource_biomass_cpu)
-    lon_indices, lat_indices, depth_indices = Int[], Int[], Int[]
-    res_sp_ids, biomass_densities = Int[], Float32[]
-
-    for sp in 1:nres, d in 1:depthres, l in 1:latres, lon in 1:lonres
-        biomass = resource_biomass_cpu[lon, l, d, sp]
-        if biomass > 0
-            push!(lon_indices, lon)
-            push!(lat_indices, l)
-            push!(depth_indices, d)
-            push!(res_sp_ids, sp)
-            push!(biomass_densities, biomass)
-        end
-    end
-
-    resource_results_df = DataFrame(
-        LonIndex = lon_indices, LatIndex = lat_indices, DepthIndex = depth_indices,
-        ResourceID = res_sp_ids, BiomassDensity = biomass_densities
-    )
-    CSV.write(joinpath(output_dir, "resource_results_$ts.csv"), resource_results_df)
-    return nothing
-end
-
-function test_prey_detection(model::MarineModel)
-    @info "--- Running Prey Detection Test ---"
-    
-    # --- 1. Setup: Select a single predator and prey ---
-    pred_sp = 1
-    prey_sp = 2
-    res_sp = 1
-    
-    pred_data = model.individuals.animals[pred_sp].data
-    prey_data = model.individuals.animals[prey_sp].data
-    pred_params = model.individuals.animals[pred_sp].p
-    prey_params = model.individuals.animals[prey_sp].p
-    
-    pred_idx = findfirst(Array(pred_data.alive) .== 1.0)
-    prey_idx = findfirst(Array(prey_data.alive) .== 1.0)
-    
-    if pred_idx === nothing || prey_idx === nothing
-        @warn "Could not find a living predator or prey to conduct the test. Skipping."
-        return
-    end
-
-    # --- 2. FOCAL PREY TEST ---
-    @info "--- Testing for FOCAL prey detection... ---"
-    
-    pred_data_cpu = StructArray(NamedTuple(k => Array(v) for (k, v) in pairs(StructArrays.components(pred_data))))
-    prey_data_cpu = StructArray(NamedTuple(k => Array(v) for (k, v) in pairs(StructArrays.components(prey_data))))
-
-    # --- FIX: Ensure prey is a valid size for the predator ---
-    pred_len = pred_data_cpu.length[pred_idx]
-    min_size = pred_len * pred_params.Min_Prey.second[pred_sp]
-    max_size = pred_len * pred_params.Max_Prey.second[pred_sp]
-    
-    # Set prey length to be in the middle of the acceptable range
-    new_prey_len = (min_size + max_size) / 2.0
-    prey_data_cpu.length[prey_idx] = new_prey_len
-    
-    # Update prey biomass to match its new length
-    new_prey_biomass_ind = prey_params.LWR_a.second[prey_sp] * (new_prey_len / 10.0)^prey_params.LWR_b.second[prey_sp]
-    prey_data_cpu.biomass_ind[prey_idx] = new_prey_biomass_ind
-    prey_data_cpu.biomass_school[prey_idx] = new_prey_biomass_ind * prey_params.School_Size.second[prey_sp]
-    
-    @info "Test Predator Length: $(pred_len)mm. Valid prey size range: [$(min_size)mm, $(max_size)mm]."
-    @info "Set Test Prey ID $prey_idx to length $(new_prey_len)mm."
-
-    # Place the correctly-sized prey 1 meter in front of predator
-    pred_x, pred_y, pred_z = pred_data_cpu.x[pred_idx], pred_data_cpu.y[pred_idx], pred_data_cpu.z[pred_idx]
-    prey_data_cpu.x[prey_idx] = pred_x + 0.00001
-    prey_data_cpu.y[prey_idx] = pred_y
-    prey_data_cpu.z[prey_idx] = pred_z
-    prey_data_cpu.pool_x[prey_idx] = pred_data_cpu.pool_x[pred_idx]
-    prey_data_cpu.pool_y[prey_idx] = pred_data_cpu.pool_y[pred_idx]
-    prey_data_cpu.pool_z[prey_idx] = pred_data_cpu.pool_z[pred_idx]
-    
-    copyto!(pred_data, pred_data_cpu)
-    copyto!(prey_data, prey_data_cpu)
-    
-    @info "Placed Focal Prey ID $prey_idx at the location of Predator ID $pred_idx."
-
-    calculate_distances_prey!(model, pred_sp, [pred_idx])
-
-    best_idx = Array(pred_data.best_prey_idx[[pred_idx]])[1]
-    best_sp = Array(pred_data.best_prey_sp[[pred_idx]])[1]
-    best_dist = Array(pred_data.best_prey_dist[[pred_idx]])[1]
-
-    if best_idx > 0 && best_sp == prey_sp
-        println("✅ SUCCESS: Predator $pred_idx correctly identified Focal Prey $best_idx.")
-        println("   - Distance: $(sqrt(best_dist)) meters")
-    else
-        println("❌ FAILURE: Predator $pred_idx did NOT find the focal prey.")
-    end
-    
-    # --- 3. RESOURCE PREY TEST ---
-    @info "\n--- Testing for RESOURCE prey detection... ---"
-
-    res_biomass_cpu = Array(model.resources.biomass)
-    pred_pool_x = pred_data_cpu.pool_x[pred_idx]
-    pred_pool_y = pred_data_cpu.pool_y[pred_idx]
-    pred_pool_z = pred_data_cpu.pool_z[pred_idx]
-    
-    res_biomass_cpu[pred_pool_x, pred_pool_y, pred_pool_z, res_sp] = 5000.0
-    copyto!(model.resources.biomass, res_biomass_cpu)
-
-    @info "Placed a dense patch of Resource ID $res_sp in cell ($pred_pool_x, $pred_pool_y, $pred_pool_z)."
-
-    calculate_distances_prey!(model, pred_sp, [pred_idx])
-
-    best_idx_res = Array(pred_data.best_prey_idx[[pred_idx]])[1]
-    best_sp_res = Array(pred_data.best_prey_sp[[pred_idx]])[1]
-    best_type_res = Array(pred_data.best_prey_type[[pred_idx]])[1]
-    best_dist_res = Array(pred_data.best_prey_dist[[pred_idx]])[1]
-    
-    println("\n--- TEST RESULTS ---")
-    if best_idx_res > 0 && best_sp_res == res_sp && best_type_res == 2
-        println("✅ SUCCESS: Predator $pred_idx correctly identified Resource Prey patch $best_sp_res.")
-        println("   - Nearest-Neighbor Distance: $(sqrt(best_dist_res)) meters")
-    else
-        println("❌ FAILURE: Predator $pred_idx did NOT find the resource prey patch.")
-        println("   - This confirms a bug within the `find_best_prey_kernel!`'s resource search logic.")
-    end
-    println("--------------------\n")
-    
-    res_biomass_cpu[pred_pool_x, pred_pool_y, pred_pool_z, res_sp] = 0.0
-    copyto!(model.resources.biomass, res_biomass_cpu)
-end
-
-# ===================================================================
-# GPU-Compliant Analysis Kernels
-# ===================================================================
+# --- Post-Processing Helpers & Kernels ---
 
 """
-Calculates the abundance of agents in each grid cell AND for each size bin.
+    init_biomass_by_size!(model, outputs)
+
+Aggregate individual biomass into spatially explicit size-structured population grids.
 """
-@kernel function init_abundances_by_size_kernel!(
-    abundance_out, 
-    agents, 
-    size_bin_thresholds, 
-    sp_idx
-)
-    i = @index(Global) # Each thread handles one agent
-
-    @inbounds if agents.alive[i] == 1.0f0
-        # Get the agent's grid cell coordinates
-        x = agents.pool_x[i]
-        y = agents.pool_y[i]
-        z = agents.pool_z[i]
-        
-        # Determine which size bin this agent belongs to
-        size_bin = find_species_size_bin(agents.length[i], sp_idx, size_bin_thresholds)
-        
-        # Atomically add this agent's abundance to its cell and size bin
-        if size_bin > 0
-            @atomic abundance_out[x, y, z, sp_idx, size_bin] += agents.abundance[i]
-        end
-    end
-end
-
-"""
-Calculates the BIOMASS of agents in each grid cell and size bin.
-"""
-@kernel function init_biomass_by_size_kernel!(
-    biomass_out, 
-    agents, 
-    size_bin_thresholds, 
-    sp_idx
-)
-    i = @index(Global) # Each thread handles one agent
-
-    @inbounds if agents.alive[i] == 1.0f0
-        x = agents.pool_x[i]; y = agents.pool_y[i]; z = agents.pool_z[i]
-        size_bin = find_species_size_bin(agents.length[i], sp_idx, size_bin_thresholds)
-        
-        if size_bin > 0
-            @atomic biomass_out[x, y, z, sp_idx, size_bin] += agents.biomass_init[i]
-        end     
-    end
-end
-
-@kernel function sum_predation_mortality_kernel!(summed_mortality, raw_mortality)
-    lon, lat, depth, pred_sp, prey_sp, pred_bin, prey_bin = @index(Global, NTuple)
-    
-    mort_val = raw_mortality[lon, lat, depth, pred_sp, prey_sp, pred_bin, prey_bin]
-    if mort_val > 0
-        # Atomically add the mortality to the 5D summary array, using the prey's index
-        @atomic summed_mortality[lon, lat, depth, prey_sp, prey_bin] += mort_val
-    end
-end
-
-@kernel function sum_fishing_mortality_kernel!(summed_mortality, raw_mortality)
-    # Each thread now gets a 5D index for the OUTPUT array
-    lon, lat, depth, prey_sp, prey_bin = @index(Global, NTuple)
-    
-    total_mort_for_this_cell = 0
-    
-    # This prevents multiple threads from writing to the same memory location.
-    for fishery_idx in 1:size(raw_mortality, 4)
-        mort_val = raw_mortality[lon, lat, depth, fishery_idx, prey_sp, prey_bin]
-        if mort_val > 0
-                @cuprintf("  -> Found %d mortality from fishery %d\n", mort_val, fishery_idx)
-             total_mort_for_this_cell += mort_val
-        end
-    end
-    
-    if total_mort_for_this_cell > 0
-        # A single, safe write operation for each thread
-        summed_mortality[lon, lat, depth, prey_sp, prey_bin] = total_mort_for_this_cell
-    end
-end
-
-function init_biomass_by_size!(model::MarineModel, outputs::MarineOutputs)
-    arch = model.arch
+function init_biomass_by_size!(model, outputs)
     fill!(outputs.biomass, 0.0f0)
-
-    for sp in 1:model.n_species
-        agents = model.individuals.animals[sp].data
-        n_agents = length(agents.x)
-        if n_agents > 0
-            kernel! = init_biomass_by_size_kernel!(device(arch), 256, (n_agents,))
-            kernel!(outputs.biomass, agents, model.size_bin_thresholds, sp)
-        end
-    end
-    
-    KernelAbstractions.synchronize(device(arch))
-    return nothing
+    # The actual aggregation logic is launched separately via kernels in update.jl
 end
 
 """
-Calculates instantaneous mortality rates (M and F) from the 7D mortality arrays.
-This kernel now correctly uses the BIOMASS grid for its calculation.
+Calculates instantaneous fishing mortality (F) from the 6D fishing mortality array.
 """
-@kernel function mortality_rate_kernel!(Rate, biomass_by_size, summed_mortality)
-    lon, lat, depth, prey_sp, prey_bin = @index(Global, NTuple)
-    
-    @inbounds mort_val = summed_mortality[lon, lat, depth, prey_sp, prey_bin]
-    if mort_val > 0
-        biomass_val = biomass_by_size[lon, lat, depth, prey_sp, prey_bin]
-        
-        @inbounds if biomass_val > 0
-            FT = eltype(Rate)
-            # mort_val is now total biomass lost for this size class
-            mort_frac = FT(mort_val) / biomass_val
-            mort_frac = clamp(mort_frac, FT(0.0), FT(1.0))
-            
-            if mort_frac < FT(1.0)
-                Rate[lon, lat, depth, prey_sp, prey_bin] = -log(FT(1.0) - mort_frac)
-            else
-                Rate[lon, lat, depth, prey_sp, prey_bin] = FT(10.0)
-            end
-        end
-    end
-end
-
-@kernel function fishing_mortality_rate_kernel!(
-    Rate, 
-    biomass_by_size, 
-    fishing_mortality
-)
-    # Each thread gets a 6D index for the Fmort array:
-    # (lon, lat, depth, fishery, prey_sp, prey_bin)
+@kernel function fishing_mortality_kernel!(Rate, biomass_by_size, fishing_mortality)
     lon, lat, depth, fishery, prey_sp, prey_bin = @index(Global, NTuple)
     
-    @inbounds mort_val = fishing_mortality[lon, lat, depth, fishery, prey_sp, prey_bin]
-    if mort_val > 0
-        # Biomass is indexed by the PREY's species and size bin (a 5D lookup)
+    @inbounds if fishing_mortality[lon, lat, depth, fishery, prey_sp, prey_bin] > 0
         biomass_val = biomass_by_size[lon, lat, depth, prey_sp, prey_bin]
+        mort_val = fishing_mortality[lon, lat, depth, fishery, prey_sp, prey_bin]
         
         @inbounds if biomass_val > 0
             FT = eltype(Rate)
@@ -427,7 +200,6 @@ end
             if mort_frac < FT(1.0)
                 Rate[lon, lat, depth, fishery, prey_sp, prey_bin] = -log(FT(1.0) - mort_frac)
             else
-                # Use a large, finite number for 100% mortality
                 Rate[lon, lat, depth, fishery, prey_sp, prey_bin] = FT(10.0)
             end
         end
@@ -436,18 +208,17 @@ end
 
 """
 Calculates instantaneous starvation mortality (S) from the 5D Smort array.
-This kernel now correctly uses the BIOMASS grid for its calculation.
 """
 @kernel function starvation_mortality_kernel!(Rate, biomass_by_size, starvation_mortality)
     lon, lat, depth, sp, size_bin = @index(Global, NTuple)
     
     @inbounds if starvation_mortality[lon, lat, depth, sp, size_bin] > 0
         biomass_val = biomass_by_size[lon, lat, depth, sp, size_bin]
+        mort_val = starvation_mortality[lon, lat, depth, sp, size_bin]
         
         @inbounds if biomass_val > 0
             FT = eltype(Rate)
-            mort_val = FT(starvation_mortality[lon, lat, depth, sp, size_bin])
-            mort_frac = mort_val / biomass_val
+            mort_frac = FT(mort_val) / biomass_val
             mort_frac = clamp(mort_frac, FT(0.0), FT(1.0))
             
             if mort_frac < FT(1.0)

@@ -48,7 +48,7 @@ function setup_and_run_model(config_filename="files.csv")
     ## 2. Global simulation settings
     Nsp = parse(Int32, params[params.Name .== "numspec", :Value][1])
     Nresource = parse(Int32, params[params.Name .== "numresource", :Value][1])
-    output_dt = parse(Int32, params[params.Name .== "output_dt", :Value][1])
+    output_dt_minutes = parse(Int32, params[params.Name .== "output_dt", :Value][1])
     spinup = parse(Int32, params[params.Name .== "spinup", :Value][1])
     plt_diags = parse(Int32, params[params.Name .== "plt_diags", :Value][1])
     foraging_attempts = parse(Int32, params[params.Name .== "num_foraging_attempts", :Value][1])
@@ -58,6 +58,7 @@ function setup_and_run_model(config_filename="files.csv")
     
     maxN = Int64(500000) 
     arch_str = params[params.Name .== "architecture", :Value][1]
+    output_dt = Int32(max(1, round(output_dt_minutes / dt)))
 
     # Handle Hardware Architecture
     if arch_str == "GPU"

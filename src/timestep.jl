@@ -1,136 +1,155 @@
+"""
+    TimeStep!(sim::MarineSimulation)
+
+The primary orchestration loop for a single model iteration. 
+Handles calendar progression, environment updates, agent biology, and I/O.
+Includes the application of instantaneous natural mortality as defined in the Canvas.
+"""
 function TimeStep!(sim::MarineSimulation)
     model = sim.model
     envi = model.environment
     fisheries = model.fishing
     outputs = sim.outputs
     species::Int32 = model.n_species
-    arch = model.arch # Get architecture for checks
+    arch = model.arch
 
+    # Increment iteration and update internal day-time counter [0, 1440]
     model.iteration += 1
-    model.t = (model.t + sim.ΔT) % 1440 # Reset the day at midnight
+    model.t = (model.t + sim.ΔT) % 1440 
 
-    # Get right day and month
-    origin = DateTime(2025, 1, 1, 0, 0)
+    # --- 1. Calendar & Date Resolution ---
+    # Target start date (post-spinup) is Jan 1, 2026.
+    # The datetime is offset by the spinup duration so results always begin in 2026.
+    target_start_date = DateTime(2026, 1, 1, 0, 0)
+    
     elapsed_minutes = (model.iteration - 1) * sim.ΔT
-    current_datetime = origin + Minute(round(Int, elapsed_minutes))
+    current_datetime = target_start_date + Minute(round(Int, elapsed_minutes - model.spinup))
     current_date = Date(current_datetime)
+    
+    # Calculate previous date to handle daily/annual resets
+    previous_elapsed = (model.iteration - 2) * sim.ΔT
+    previous_datetime = target_start_date + Minute(round(Int, previous_elapsed - model.spinup))
+    previous_date = Date(previous_datetime)
+    
     month_index = month(current_date)
     day_index = dayofyear(current_date)
 
-    # Move resource groups, if necessary. Only functoinal at less than 12 hour timestep
+    # --- 2. Environmental Dynamics ---
     if month_index != envi.ts
         move_resources!(model, month_index)
+        envi.ts = month_index
     end
 
+    # Diel Vertical Migration (DVM) of resource pools
     is_night_now = model.t < 360 || model.t > 1080
-    t_previous = (model.t - sim.ΔT + 1440) % 1440 # Handle midnight wrap-around
-    was_night_before = t_previous < 360 || t_previous > 1080
+    t_prev_step = (model.t - sim.ΔT + 1440) % 1440
+    was_night_before = t_prev_step < 360 || t_prev_step > 1080
     
     if is_night_now != was_night_before
         vertical_resource_movement!(model)
     end
 
-    previous_date = current_date + Day(sim.ΔT - 1)
+    # --- 3. Counters & Accumulator Resets ---
     if current_date != previous_date
-        # A new day has started, reset the counter FOR EACH SPECIES
-        model.daily_birth_counters = zeros(Int,species)
+        model.daily_birth_counters = zeros(Int, species)
     end
 
-    if day_index == 1
-        (fishery -> (fishery.cumulative_catch = 0; fishery.cumulative_inds = 0)).(fisheries)
+    if day_index == 1 && current_date != previous_date
+        for fishery in fisheries
+            fishery.cumulative_catch = 0.0
+            fishery.cumulative_inds = 0
+            fishery.effort_days = 0.0
+            fishery.bycatch_tonnage = 0.0
+            fishery.bycatch_inds = 0
+        end
     end
 
-    envi.ts = month_index
-
-    print(current_date)
-    print(": ")
+    # --- 4. Agent Life History & Behavior ---
+    print(current_date, ": ")
     
-    # Loop over focal species
     for spec in 1:species
+        # Dynamic storage resizing
         if model.iteration % 10 == 0
-            # Get current population and capacity
-            n_alive = count(x -> x == 1.0, Array(model.individuals.animals[spec].data.alive))
+            n_alive = count(x -> x == 1.0f0, Array(model.individuals.animals[spec].data.alive))
             current_maxN = length(model.individuals.animals[spec].data.x)
-            resize_threshold = 0.90 # 90% capacity
-
-            # If population exceeds the threshold, resize the storage
-            if n_alive > current_maxN * resize_threshold
-                new_maxN = floor(Int, current_maxN * 1.5) # Increase capacity by 50%
-                resize_agent_storage!(model, spec, new_maxN)
+            if n_alive > current_maxN * 0.90
+                resize_agent_storage!(model, spec, floor(Int, current_maxN * 1.5))
             end
         end
 
         species_data = model.individuals.animals[spec].data
         species_chars = model.individuals.animals[spec].p
+        larval_duration = species_chars.Larval_Duration[2][spec]
 
-        # Find all living agents who are old enough to be modeled
+        # Transfer only necessary status data to CPU for index filtering
         cpu_alive = Array(species_data.alive)
         cpu_age = Array(species_data.age)
         
-        larval_duration = species_chars.Larval_Duration[2][spec]
-        living::Vector{Int32} = findall(i -> cpu_alive[i] == 1 && cpu_age[i] >= larval_duration, eachindex(cpu_alive))
-        alive::Vector{Int32} = findall(i -> cpu_alive[i] == 1, eachindex(cpu_alive))
+        # Explicit cast to Vector{Int32} for kernel compatibility
+        alive_indices = Vector{Int32}(findall(i -> cpu_alive[i] == 1.0f0, eachindex(cpu_alive)))
+        modeled_indices = Vector{Int32}(findall(i -> cpu_alive[i] == 1.0f0 && cpu_age[i] >= larval_duration, eachindex(cpu_alive)))
 
-        if !isempty(living)
-            # --- Population stats (requires GPU->CPU transfer for sum/mean) ---
-            model.abund[spec] = Int64(round(sum(Array(species_data.abundance[alive]))))
-            model.bioms[spec] = sum(Array(species_data.biomass_school[alive]))
-            print(length(alive))
-            print("  Abundance: ")
-            println(model.abund[spec])
+        if !isempty(modeled_indices)
+            # Update Population Metrics (summing abundances/biomass on CPU)
+            model.abund[spec] = Int64(round(sum(Array(species_data.abundance[alive_indices]))))
+            model.bioms[spec] = sum(Array(species_data.biomass_school[alive_indices]))
+            
+            print(length(alive_indices), " Agents | ")
+            print(sum(model.abund[spec]), " Individuals | ")
 
-            # Update biomass_init for analysis purposes with dynamic school biomasses 
-            species_data.biomass_init[alive] = species_data.biomass_school[alive] 
+            # Store current biomass for potential analysis callbacks
+            species_data.biomass_init[alive_indices] = species_data.biomass_school[alive_indices] 
 
-            # --- Main agent update loop ---
+            # Movement, Foraging, and Energy
             print("behave | ")
-            behavior(model, spec, living, outputs) # 'behavior' dispatches to kernel-based functions
+            behavior(model, spec, modeled_indices, outputs)
 
             ind_temp = individual_temp!(model, spec)
-
             print("energy | ")
+            energy!(model, spec, ind_temp, modeled_indices, outputs, current_date)
 
-            energy!(model, spec, ind_temp, living,outputs,current_date) # Assuming energy! is the new kernel launcher
-
+            # Fishing (Remains active during spinup to reach harvest equilibrium)
             print("fish | ")
-            if (model.iteration > model.spinup)
-                fishing!(model, spec, day_index, outputs) # Assuming fishing! is the kernel launcher
-            end
+            fishing!(model, spec, day_index, outputs)
+
+            # --- NATURAL MORTALITY ---
+            # Applies the instantaneous rate M to the individuals within agents to account for M not in the model.
+            # This is called every timestep to provide constant exit pressure.
+            print("mort | ")
+            natural_mortality!(model, spec)
         end
         
-        # Age all individuals
-        species_data.age .+= (model.dt / 1440)
+        # Universal aging
+        species_data.age .+= (sim.ΔT / 1440.0)
     end
 
+    # --- 5. Trophic Dynamics ---
     print("resources | ")
-    # --- Resource procedure (using kernel launchers) ---
-    if (model.iteration > model.spinup)
-        resource_predation!(model, outputs)
-    end
+    # Predators graze during spinup so resources stabilize at 'grazed' levels
+    resource_predation!(model, outputs)
     resource_mortality!(model)
-    resource_growth!(model,current_date)
+    resource_growth!(model, current_date)
    
-    println("results | ")
-
-    if (model.t % model.output_dt == 0)
-        timestep_results(sim)
-        resource_results(model,sim.run,model.iteration)
-
-        if (model.iteration > model.spinup)
+    # --- 6. Results Export (Gated by Spin-up) ---
+    if (model.iteration % model.output_dt == 0)
+        if elapsed_minutes > model.spinup
+            print("results | ")
+            timestep_results(sim)
+            resource_results(model, sim.run, model.iteration)
             fishery_results(sim)
+            println("saved.")
+        else
+            println("spinup (no output save).")
         end
+    else
+        println("") # End console line
     end
 
-
-    # --- Reset per-timestep accumulators ---
+    # --- 7. Final State Maintenance ---
     for spec in 1:species
-        model.individuals.animals[spec].data.ration_biomass .= 0.0
-        model.individuals.animals[spec].data.ration_energy .= 0.0
-        model.individuals.animals[spec].data.active .= 0.0
-    end
-
-    # Annual reset
-    if day_index == 365
-        (fishery -> (fishery.cumulative_catch = 0; fishery.cumulative_inds = 0; fishery.effort_days = 0; fishery.bycatch_tonnage = 0; fishery.bycatch_inds = 0)).(fisheries)
+        # Reset per-step consumption and activity buffers
+        model.individuals.animals[spec].data.ration_biomass .= 0.0f0
+        model.individuals.animals[spec].data.ration_energy .= 0.0f0
+        model.individuals.animals[spec].data.active .= 0.0f0
     end
 end

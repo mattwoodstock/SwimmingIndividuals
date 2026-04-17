@@ -35,7 +35,8 @@ function construct_individuals(arch::Architecture, params::Dict, maxN)
 
     data = replace_storage(array_type(arch), rawdata)
 
-    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:Resp_b,:SpeciesLong, :LWR_a, :Max_Stomach_a, :Larval_Size,:Max_Prey, :Max_Size,:Resp_q,:School_Size,:Activity_Mult,:Taxa, :Larval_Duration,:Max_Stomach_b, :Sex_Ratio,:SpeciesShort, :Handling_Time,:Dive_Min_Night,:Energy_density,:Min_Size, :Hatch_Survival, :MR_type, :Dive_Min_Day, :Dive_Max_Day, :Swim_velo, :Biomass,:Dive_Max_Night,:L_mat,:Resp_a, :Type)
+    param_names=(:Dive_Interval,:Min_Prey,:LWR_b, :Surface_Interval,:Resp_b,:SpeciesLong, :LWR_a, :Max_Stomach_a, :Larval_Size,:Max_Prey, :Max_Size,:Resp_q,:School_Size,:Activity_Mult,:Taxa, :Larval_Duration,:Max_Stomach_b, :Sex_Ratio,:SpeciesShort,:M, :Handling_Time,:Dive_Min_Night,:Energy_density,:Min_Size, :Hatch_Survival, :MR_type, :Dive_Min_Day, :Dive_Max_Day, :Swim_velo, :Biomass,:Dive_Max_Night,:L_mat,:Resp_a, :Type)
+    
     p = NamedTuple{param_names}(params)
     return plankton(data, p)
 end

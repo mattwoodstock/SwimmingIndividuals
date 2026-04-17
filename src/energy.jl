@@ -45,8 +45,6 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices, outp
     row_idx = findfirst(==(species_name), spawn_season.Species)
     spawn_val = row_idx !== nothing ? spawn_season[row_idx, model.environment.ts + 1] : 0.0
     
-    spinup_check = model.iteration > model.spinup
-
     for ind in 1:length(data_cpu.x)
         if (data_cpu.alive[ind] == 1.0) && (data_cpu.age[ind] > p_cpu.Larval_Duration.second[sp])
 
@@ -181,7 +179,7 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices, outp
                 end
 
                 # --- Apply Reproductive Energy ---
-                if spinup_check && my_mature == 1.0 && repro_energy_gain > 0.0 && spawn_val > 0.0
+                if my_mature == 1.0 && repro_energy_gain > 0.0 && spawn_val > 0.0
                     data_cpu.repro_energy[ind] += repro_energy_gain
                 end
             end
@@ -189,7 +187,7 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices, outp
             data_cpu.energy[ind] = my_energy
             
             # --- Starvation ---
-            if my_energy < 0.0 && spinup_check
+            if my_energy < 0.0
                 data_cpu.alive[ind] = 0.0
                 x = data_cpu.pool_x[ind]; y = data_cpu.pool_y[ind]; z = data_cpu.pool_z[ind]
                 size_bin = find_species_size_bin(data_cpu.length[ind], sp, size_bin_thresholds_cpu)
@@ -199,11 +197,9 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices, outp
             end
 
             # --- Senescence ---
-            if spinup_check
-                senescence_prob = exp(50.0 * (my_length / max_size - 0.95))
-                if rand(Float32) < senescence_prob
-                    data_cpu.alive[ind] = 0.0
-                end
+            senescence_prob = exp(50.0 * (my_length / max_size - 0.95))
+            if rand(Float32) < senescence_prob
+                data_cpu.alive[ind] = 0.0
             end
         end
     end
@@ -217,7 +213,7 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices, outp
     # --- Process Reproduction on the CPU ---
     repro_inds = findall((data_cpu.repro_energy .> 0) .& (data_cpu.alive .== 1.0) .& (data_cpu.age .> p_cpu.Larval_Duration.second[sp]))
 
-    if !isempty(repro_inds) && spinup_check && spawn_val > 0
+    if !isempty(repro_inds) && spawn_val > 0
         parent_data_for_repro = (
             x = data_cpu.x[repro_inds], y = data_cpu.y[repro_inds], z = data_cpu.z[repro_inds],
             pool_x = data_cpu.pool_x[repro_inds], pool_y = data_cpu.pool_y[repro_inds], pool_z = data_cpu.pool_z[repro_inds],

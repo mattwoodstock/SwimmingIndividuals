@@ -56,3 +56,65 @@ function remove_dead_agents!(model::MarineModel)
     end
     println("--- Dead Agent Removal Complete ---")
 end
+
+"""
+    natural_mortality!(model::MarineModel, sp::Int, outputs::MarineOutputs)
+
+Applies a baseline instantaneous natural mortality rate (M) to individuals 
+within an agent. Updates school biomass, abundance, and energy, while 
+logging the results to the global Nmort matrix.
+"""
+function natural_mortality!(model::MarineModel, sp::Int)
+    arch = model.arch
+    data = model.individuals.animals[sp].data
+    p_cpu = model.individuals.animals[sp].p
+    
+    # 1. Gather Parameters
+    m_annual = Float32(p_cpu.M.second[sp])
+    minutes_per_year = 365.0f0 * 1440.0f0
+    m_step = m_annual * (model.dt / minutes_per_year)
+    
+    # 2. Launch Kernel
+    kernel! = natural_mortality_kernel!(device(arch), 256, (length(data.x),))
+    kernel!(
+        data.alive, 
+        data.abundance, 
+        data.biomass_school, 
+        data.energy,
+        m_step
+    )
+    
+    KernelAbstractions.synchronize(device(arch))
+end
+
+@kernel function natural_mortality_kernel!(
+    alive, abundance, biomass_school, energy, m_step
+)
+    ind = @index(Global)
+    
+    @inbounds if alive[ind] == 1.0f0
+        # Calculate survival fraction: S = exp(-M*dt)
+        survival_frac = exp(-m_step)
+        
+        # 1. Calculate new abundance with stochastic rounding
+        old_n = Float32(abundance[ind])
+        new_n_float = old_n * survival_frac
+        new_n_int = Int64(floor(new_n_float + rand(Float32)))
+        
+        # 2. Update State Variables
+        # There is no race condition for per-agent data.
+        if biomass_school[ind] > 0.0f0
+            energy[ind] *= survival_frac
+        end
+        
+        abundance[ind] = new_n_int
+        biomass_school[ind] *= survival_frac
+        
+        # 5. Handle Extinction
+        if abundance[ind] <= 0
+            alive[ind] = 0.0f0
+            biomass_school[ind] = 0.0f0
+            energy[ind] = 0.0f0
+        end
+    end
+end
