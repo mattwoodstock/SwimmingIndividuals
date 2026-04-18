@@ -268,3 +268,4 @@ function energy!(model::MarineModel, sp::Int, temp::AbstractArray, indices, outp
 
     return nothing
 end
+

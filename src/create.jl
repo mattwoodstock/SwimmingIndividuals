@@ -511,3 +511,110 @@ function calculate_new_offspring_cpu(p_cpu, parent_data, repro_energy_list, spaw
         interval = zeros(Float32, total_new_agents)
     ), daily_births
 end
+
+"""
+    merge_agents!(data_cpu, sp, thresholds, dt, school_size_trait)
+
+Refined consolidation:
+1. Groups by cell, size bin, cohort, and timestep.
+2. Respects a maximum school size (trait School_Size).
+3. Merges smaller schools into larger anchors first.
+"""
+function merge_agents!(data_cpu, sp::Int, thresholds::Matrix{Float32}, dt::Int, school_size_trait::Int64)
+    alive_mask = data_cpu.alive .== 1.0
+    if count(alive_mask) < 2 return end
+    
+    dt_days = dt / 1440.0
+    max_school_size = school_size_trait
+    
+    # 1. Group indices
+    groups = Dict{Tuple{Int, Int, Int, Int, Int, Int}, Vector{Int}}()
+    
+    for i in findall(alive_mask)
+        bin = find_species_size_bin(data_cpu.length[i], sp, thresholds)
+        age_bin = floor(Int, data_cpu.age[i] / dt_days)
+        
+        # Key: location, size, generation, and birth-step
+        key = (data_cpu.pool_x[i], data_cpu.pool_y[i], data_cpu.pool_z[i], bin, data_cpu.generation[i], age_bin)
+        
+        if !haskey(groups, key)
+            groups[key] = Int[]
+        end
+        push!(groups[key], i)
+    end
+    
+    # 2. Perform Merging
+    for (key, idxs) in groups
+        if length(idxs) > 1
+            # Largest school acts as the 'anchor'
+            sort!(idxs, by = i -> data_cpu.abundance[i], rev = true)
+            target = idxs[1]
+            
+            # Skip if anchor is already nearly full
+            if data_cpu.abundance[target] >= max_school_size * 0.95 continue end
+            
+            for k in 2:length(idxs)
+                source = idxs[k]
+                
+                # Check if target can accommodate source without exceeding School_Size
+                if data_cpu.abundance[target] + data_cpu.abundance[source] <= max_school_size
+                    
+                    n_t = Float32(data_cpu.abundance[target])
+                    n_s = Float32(data_cpu.abundance[source])
+                    total_n = n_t + n_s
+                    
+                    if total_n <= 0f0 continue end
+                    
+                    # Weights for intensive properties
+                    w_t = n_t / total_n
+                    w_s = n_s / total_n
+                    
+                    # --- A. INTENSIVE PROPERTIES (Weighted Averages) ---
+                    # Spatial coordinates
+                    data_cpu.x[target] = data_cpu.x[target] * w_t + data_cpu.x[source] * w_s
+                    data_cpu.y[target] = data_cpu.y[target] * w_t + data_cpu.y[source] * w_s
+                    data_cpu.z[target] = data_cpu.z[target] * w_t + data_cpu.z[source] * w_s
+                    
+                    # Biological traits
+                    data_cpu.length[target] = data_cpu.length[target] * w_t + data_cpu.length[source] * w_s
+                    data_cpu.age[target] = data_cpu.age[target] * w_t + data_cpu.age[source] * w_s
+                    data_cpu.biomass_ind[target] = data_cpu.biomass_ind[target] * w_t + data_cpu.biomass_ind[source] * w_s
+                    data_cpu.gut_fullness[target] = data_cpu.gut_fullness[target] * w_t + data_cpu.gut_fullness[source] * w_s
+                    data_cpu.mature[target] = data_cpu.mature[target] * w_t + data_cpu.mature[source] * w_s
+                    data_cpu.vis_prey[target] = data_cpu.vis_prey[target] * w_t + data_cpu.vis_prey[source] * w_s
+                    
+                    # State timers/goals
+                    data_cpu.target_z[target] = data_cpu.target_z[target] * w_t + data_cpu.target_z[source] * w_s
+                    data_cpu.interval[target] = data_cpu.interval[target] * w_t + data_cpu.interval[source] * w_s
+
+                    # --- B. EXTENSIVE PROPERTIES (Simple Sums) ---
+                    # Abundance and Biomass
+                    data_cpu.abundance[target] += data_cpu.abundance[source]
+                    data_cpu.biomass_school[target] += data_cpu.biomass_school[source]
+                    data_cpu.biomass_init[target] += data_cpu.biomass_init[source]
+                    
+                    # Energy and Rations
+                    data_cpu.energy[target] += data_cpu.energy[source]
+                    data_cpu.repro_energy[target] += data_cpu.repro_energy[source]
+                    data_cpu.ration_energy[target] += data_cpu.ration_energy[source]
+                    data_cpu.ration_biomass[target] += data_cpu.ration_biomass[source]
+                    data_cpu.successful_ration[target] += data_cpu.successful_ration[source]
+                    
+                    # Costs and Activity
+                    data_cpu.cost[target] += data_cpu.cost[source]
+                    data_cpu.active[target] += data_cpu.active[source]
+                    
+                    # --- C. DEACTIVATE SOURCE ---
+                    data_cpu.alive[source] = 0.0
+                    data_cpu.abundance[source] = 0
+                    data_cpu.biomass_school[source] = 0.0f0
+                    data_cpu.energy[source] = 0.0f0
+                    
+                    # Reset decision variables to prevent bad pointers
+                    data_cpu.best_prey_dist[source] = Inf32
+                    data_cpu.best_prey_idx[source] = 0
+                end
+            end
+        end
+    end
+end

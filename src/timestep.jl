@@ -3,7 +3,7 @@
 
 The primary orchestration loop for a single model iteration. 
 Handles calendar progression, environment updates, agent biology, and I/O.
-Includes the application of instantaneous natural mortality as defined in the Canvas.
+Includes the application of instantaneous natural mortality and school consolidation.
 """
 function TimeStep!(sim::MarineSimulation)
     model = sim.model
@@ -19,7 +19,6 @@ function TimeStep!(sim::MarineSimulation)
 
     # --- 1. Calendar & Date Resolution ---
     # Target start date (post-spinup) is Jan 1, 2026.
-    # The datetime is offset by the spinup duration so results always begin in 2026.
     target_start_date = DateTime(2026, 1, 1, 0, 0)
     
     elapsed_minutes = (model.iteration - 1) * sim.ΔT
@@ -68,7 +67,7 @@ function TimeStep!(sim::MarineSimulation)
     print(current_date, ": ")
     
     for spec in 1:species
-        # Dynamic storage resizing
+        # Dynamic storage resizing pass
         if model.iteration % 10 == 0
             n_alive = count(x -> x == 1.0f0, Array(model.individuals.animals[spec].data.alive))
             current_maxN = length(model.individuals.animals[spec].data.x)
@@ -81,26 +80,25 @@ function TimeStep!(sim::MarineSimulation)
         species_chars = model.individuals.animals[spec].p
         larval_duration = species_chars.Larval_Duration[2][spec]
 
-        # Transfer only necessary status data to CPU for index filtering
+        # Filter indices on CPU for biological eligibility
         cpu_alive = Array(species_data.alive)
         cpu_age = Array(species_data.age)
         
-        # Explicit cast to Vector{Int32} for kernel compatibility
         alive_indices = Vector{Int32}(findall(i -> cpu_alive[i] == 1.0f0, eachindex(cpu_alive)))
         modeled_indices = Vector{Int32}(findall(i -> cpu_alive[i] == 1.0f0 && cpu_age[i] >= larval_duration, eachindex(cpu_alive)))
 
         if !isempty(modeled_indices)
-            # Update Population Metrics (summing abundances/biomass on CPU)
+            # Update Population Totals
             model.abund[spec] = Int64(round(sum(Array(species_data.abundance[alive_indices]))))
             model.bioms[spec] = sum(Array(species_data.biomass_school[alive_indices]))
             
             print(length(alive_indices), " Agents | ")
-            print(sum(model.abund[spec]), " Individuals | ")
+            print(sum(model.abund[spec]), " Abundance | ")
 
-            # Store current biomass for potential analysis callbacks
+            # Capture initial state for consumption delta analysis
             species_data.biomass_init[alive_indices] = species_data.biomass_school[alive_indices] 
 
-            # Movement, Foraging, and Energy
+            # Decision, Energetics, and Human Impacts
             print("behave | ")
             behavior(model, spec, modeled_indices, outputs)
 
@@ -108,24 +106,31 @@ function TimeStep!(sim::MarineSimulation)
             print("energy | ")
             energy!(model, spec, ind_temp, modeled_indices, outputs, current_date)
 
-            # Fishing (Remains active during spinup to reach harvest equilibrium)
             print("fish | ")
             fishing!(model, spec, day_index, outputs)
 
-            # --- NATURAL MORTALITY ---
-            # Applies the instantaneous rate M to the individuals within agents to account for M not in the model.
-            # This is called every timestep to provide constant exit pressure.
             print("mort | ")
             natural_mortality!(model, spec)
+
+            # --- AGENT CONSOLIDATION ---
+            # Merge agents sharing location, size bin, generation, and birth step (dt).
+            # This pass reduces agent count while preserving specific growth trajectories.
+            print("merge | ")
+            data_cpu = StructArray(NamedTuple(k => Array(v) for (k, v) in pairs(StructArrays.components(species_data))))
+            size_bin_thresholds_cpu = Array(model.size_bin_thresholds)
+            
+            merge_agents!(data_cpu, spec, size_bin_thresholds_cpu, Int(sim.ΔT),species_chars.School_Size[2][spec])
+            
+            # Sync consolidated results back to device memory
+            copyto!(species_data, data_cpu)
         end
         
-        # Universal aging
+        # Increment age in days
         species_data.age .+= (sim.ΔT / 1440.0)
     end
 
     # --- 5. Trophic Dynamics ---
     print("resources | ")
-    # Predators graze during spinup so resources stabilize at 'grazed' levels
     resource_predation!(model, outputs)
     resource_mortality!(model)
     resource_growth!(model, current_date)
@@ -139,15 +144,14 @@ function TimeStep!(sim::MarineSimulation)
             fishery_results(sim)
             println("saved.")
         else
-            println("spinup (no output save).")
+            println("spinup (no output saved).")
         end
     else
-        println("") # End console line
+        println("")
     end
 
-    # --- 7. Final State Maintenance ---
+    # --- 7. Buffer Maintenance ---
     for spec in 1:species
-        # Reset per-step consumption and activity buffers
         model.individuals.animals[spec].data.ration_biomass .= 0.0f0
         model.individuals.animals[spec].data.ration_energy .= 0.0f0
         model.individuals.animals[spec].data.active .= 0.0f0
